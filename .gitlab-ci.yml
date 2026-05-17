@@ -29,6 +29,8 @@ build:
     paths:
       - releases/
       - install.sh
+      - web/
+      - deploy/nginx.conf
     expire_in: 30 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
@@ -54,7 +56,9 @@ deploy:
     - ssh $DEPLOY_HOST "mkdir -p $DEPLOY_PATH/releases"
     - rsync -avz --delete releases/ $DEPLOY_HOST:$DEPLOY_PATH/releases/
     - rsync -avz install.sh $DEPLOY_HOST:$DEPLOY_PATH/install
-    - ssh $DEPLOY_HOST "sudo nginx -t && sudo systemctl reload nginx"
+    - rsync -avz web/ $DEPLOY_HOST:$DEPLOY_PATH/
+    - rsync -avz deploy/nginx.conf $DEPLOY_HOST:/tmp/manthra-nginx.conf
+    - ssh $DEPLOY_HOST "sudo cp /tmp/manthra-nginx.conf /etc/nginx/sites-available/manthra && sudo nginx -t && sudo systemctl reload nginx"
     - echo "Deployed to https://manthra.informaticsint.au"
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'

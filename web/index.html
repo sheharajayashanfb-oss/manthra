@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manthra — AI coding assistant for your terminal</title>
+  <meta name="description" content="AI-powered CLI coding assistant. Multi-provider support, file editing, shell commands — all from your terminal. Install in seconds.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #09090f;
+      --bg-card:   #0f0f1a;
+      --bg-term:   #0d1117;
+      --border:    rgba(255,255,255,0.07);
+      --border-hi: rgba(255,255,255,0.13);
+      --blue:      #3b82f6;
+      --blue-glow: rgba(59,130,246,0.25);
+      --cyan:      #22d3ee;
+      --green:     #4ade80;
+      --yellow:    #facc15;
+      --red:       #f87171;
+      --purple:    #a78bfa;
+      --text:      #f1f5f9;
+      --text-muted:#94a3b8;
+      --text-dim:  #475569;
+      --radius:    12px;
+      --radius-sm: 8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem;
+      height: 60px;
+      background: rgba(9,9,15,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1.1rem; color: var(--text);
+      text-decoration: none;
+    }
+    .nav-logo-icon {
+      width: 28px; height: 28px; background: var(--blue);
+      border-radius: 6px; display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .nav-links { display: flex; align-items: center; gap: 0.5rem; }
+    .nav-links a {
+      color: var(--text-muted); text-decoration: none; font-size: 0.875rem;
+      padding: 6px 12px; border-radius: 6px; transition: color .2s, background .2s;
+    }
+    .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+    .nav-links .btn-nav {
+      color: var(--text); background: rgba(59,130,246,0.15);
+      border: 1px solid rgba(59,130,246,0.3);
+      font-weight: 500;
+    }
+    .nav-links .btn-nav:hover { background: rgba(59,130,246,0.25); }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      padding: 100px 2rem 60px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 14px; border-radius: 100px;
+      background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25);
+      font-size: 0.8rem; font-weight: 500; color: var(--blue);
+      margin-bottom: 1.5rem; letter-spacing: 0.02em;
+    }
+    .hero h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      max-width: 800px;
+      margin-bottom: 1.25rem;
+    }
+    .hero h1 span { color: var(--blue); }
+    .hero-sub {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--text-muted);
+      max-width: 560px;
+      margin-bottom: 3rem;
+      line-height: 1.7;
+    }
+    .providers-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 3rem;
+    }
+    .provider-chip {
+      padding: 4px 12px; border-radius: 100px;
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      font-size: 0.75rem; color: var(--text-muted); font-weight: 500;
+    }
+    .provider-chip.active { color: var(--cyan); border-color: rgba(34,211,238,0.3); background: rgba(34,211,238,0.07); }
+
+    /* Install command */
+    .install-box {
+      display: flex; align-items: center; gap: 0;
+      background: var(--bg-term);
+      border: 1px solid var(--border-hi);
+      border-radius: var(--radius);
+      max-width: 600px; width: 100%;
+      margin: 0 auto 2rem;
+      overflow: hidden;
+    }
+    .install-prefix {
+      padding: 14px 16px;
+      color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 0.875rem;
+      border-right: 1px solid var(--border);
+      user-select: none;
+      white-space: nowrap;
+    }
+    .install-cmd {
+      flex: 1; padding: 14px 16px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.875rem;
+      color: var(--cyan); overflow-x: auto; white-space: nowrap;
+      background: transparent;
+    }
+    .copy-btn {
+      padding: 8px 16px; margin: 6px;
+      background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3);
+      border-radius: var(--radius-sm);
+      color: var(--blue); font-size: 0.75rem; font-weight: 600;
+      cursor: pointer; transition: all .2s; white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+    .copy-btn:hover { background: rgba(59,130,246,0.25); }
+    .copy-btn.copied { color: var(--green); border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.1); }
+
+    /* Platform downloads */
+    .platform-tabs {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .platform-tab {
+      padding: 6px 16px; border-radius: var(--radius-sm);
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text-muted); font-size: 0.8rem; font-weight: 500;
+      cursor: pointer; transition: all .2s;
+    }
+    .platform-tab:hover { border-color: var(--border-hi); color: var(--text); }
+    .platform-tab.active {
+      background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.35);
+      color: var(--text);
+    }
+    .platform-dl {
+      display: none;
+      text-align: center;
+    }
+    .platform-dl.active { display: block; }
+    .platform-dl a {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      color: var(--text-muted); text-decoration: none; font-size: 0.82rem; font-weight: 500;
+      transition: all .2s;
+    }
+    .platform-dl a:hover { background: rgba(255,255,255,0.09); color: var(--text); border-color: var(--border-hi); }
+    .platform-note { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.6rem; }
+
+    /* ── Terminal mockup ── */
+    .terminal-section {
+      padding: 80px 2rem;
+      display: flex; justify-content: center;
+    }
+    .terminal {
+      width: 100%; max-width: 780px;
+      background: var(--bg-term);
+      border: 1px solid var(--border-hi);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+    }
+    .term-bar {
+      display: flex; align-items: center; padding: 12px 16px; gap: 8px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+    .term-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .term-dot.r { background: #ff5f56; }
+    .term-dot.y { background: #ffbd2e; }
+    .term-dot.g { background: #27c93f; }
+    .term-title { flex: 1; text-align: center; font-size: 0.75rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+    .term-body { padding: 20px 24px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.8; }
+    .term-line { display: flex; gap: 10px; }
+    .term-prompt { color: var(--blue); user-select: none; }
+    .term-cmd { color: var(--text); }
+    .term-out { color: var(--text-muted); padding-left: 0; }
+    .term-dim { color: var(--text-dim); }
+    .term-tool { color: var(--purple); }
+    .term-success { color: var(--green); }
+    .term-ai { color: var(--text); }
+    .term-thinking { color: var(--text-dim); font-style: italic; }
+    .term-status {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 24px;
+      border-top: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .term-sq { color: var(--blue); font-size: 0.8rem; }
+    .term-status-text { font-family: 'JetBrains Mono', monospace; font-size: 0.73rem; color: var(--text-dim); }
+    .term-input-row {
+      padding: 10px 24px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .term-input-prompt { color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; }
+    .term-cursor {
+      display: inline-block; width: 8px; height: 16px;
+      background: var(--text); margin-left: 2px;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* ── Features ── */
+    .features {
+      padding: 80px 2rem;
+      max-width: 1100px; margin: 0 auto;
+    }
+    .section-label {
+      text-align: center; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--blue); margin-bottom: 0.75rem;
+    }
+    .section-title {
+      text-align: center; font-size: clamp(1.75rem, 3.5vw, 2.75rem); font-weight: 800;
+      letter-spacing: -0.02em; margin-bottom: 1rem;
+    }
+    .section-sub {
+      text-align: center; color: var(--text-muted); font-size: 1.05rem; max-width: 500px;
+      margin: 0 auto 3.5rem;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .feature-card {
+      padding: 2rem;
+      background: var(--bg-card);
+      transition: background .2s;
+    }
+    .feature-card:hover { background: rgba(15,15,26,0.9); }
+    .feature-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; margin-bottom: 1.1rem;
+    }
+    .feature-icon.blue { background: rgba(59,130,246,0.15); }
+    .feature-icon.cyan { background: rgba(34,211,238,0.12); }
+    .feature-icon.green { background: rgba(74,222,128,0.12); }
+    .feature-icon.purple { background: rgba(167,139,250,0.12); }
+    .feature-icon.yellow { background: rgba(250,204,21,0.12); }
+    .feature-icon.red { background: rgba(248,113,113,0.1); }
+    .feature-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+    .feature-card p { font-size: 0.875rem; color: var(--text-muted); line-height: 1.65; }
+
+    /* ── How it works ── */
+    .how {
+      padding: 80px 2rem;
+      max-width: 900px; margin: 0 auto;
+    }
+    .steps { display: flex; flex-direction: column; gap: 0; margin-top: 3rem; }
+    .step {
+      display: grid; grid-template-columns: 56px 1fr;
+      gap: 0 1.5rem; position: relative;
+    }
+    .step:not(:last-child)::before {
+      content: '';
+      position: absolute; left: 27px; top: 56px; bottom: -20px;
+      width: 1px; background: var(--border);
+    }
+    .step-num {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--bg-card); border: 1px solid var(--border-hi);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1rem; color: var(--blue); flex-shrink: 0;
+    }
+    .step-content { padding-bottom: 3rem; }
+    .step-content h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem; padding-top: 0.9rem; }
+    .step-content p { font-size: 0.875rem; color: var(--text-muted); line-height: 1.65; max-width: 600px; }
+    .step-code {
+      margin-top: 0.75rem;
+      padding: 10px 14px;
+      background: var(--bg-term); border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+      color: var(--cyan); display: inline-block;
+    }
+
+    /* ── Providers ── */
+    .providers-section {
+      padding: 80px 2rem;
+      text-align: center;
+    }
+    .providers-grid {
+      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+      max-width: 700px; margin: 2.5rem auto 0;
+    }
+    .provider-card {
+      padding: 14px 24px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-weight: 600; font-size: 0.9rem;
+      transition: all .2s;
+    }
+    .provider-card:hover { border-color: var(--border-hi); background: rgba(15,15,26,0.9); }
+    .provider-card span { font-weight: 400; font-size: 0.75rem; color: var(--text-dim); display: block; margin-top: 2px; }
+
+    /* ── CTA ── */
+    .cta-section {
+      padding: 100px 2rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-section::before {
+      content: '';
+      position: absolute; bottom: -100px; left: 50%; transform: translateX(-50%);
+      width: 600px; height: 400px;
+      background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-section h2 { font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 1rem; }
+    .cta-section p { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 2.5rem; }
+    .cta-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 28px; border-radius: var(--radius-sm);
+      background: var(--blue); color: white; font-weight: 600; font-size: 0.95rem;
+      text-decoration: none; transition: all .2s; border: none; cursor: pointer;
+    }
+    .btn-primary:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(59,130,246,0.4); }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 28px; border-radius: var(--radius-sm);
+      background: rgba(255,255,255,0.06); color: var(--text);
+      border: 1px solid var(--border-hi); font-weight: 600; font-size: 0.95rem;
+      text-decoration: none; transition: all .2s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+      max-width: 1100px; margin: 0 auto;
+    }
+    .footer-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 1rem; color: var(--text);
+      text-decoration: none;
+    }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; transition: color .2s; }
+    .footer-links a:hover { color: var(--text-muted); }
+    .footer-copy { font-size: 0.8rem; color: var(--text-dim); }
+
+    /* ── Divider ── */
+    .divider { height: 1px; background: var(--border); max-width: 1100px; margin: 0 auto; }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      nav { padding: 0 1rem; }
+      .nav-links a:not(.btn-nav) { display: none; }
+      .hero { padding: 90px 1rem 50px; }
+      .install-box { font-size: 0.78rem; }
+      .install-prefix { padding: 12px 10px; }
+      .install-cmd { padding: 12px 10px; font-size: 0.78rem; }
+      .features-grid { grid-template-columns: 1fr; }
+      footer { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────────────────────────── -->
+<nav>
+  <a href="/" class="nav-logo">
+    <span class="nav-logo-icon">■</span>
+    Manthra
+  </a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how-it-works">Docs</a>
+    <a href="https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra" class="btn-nav" target="_blank" rel="noopener">
+      GitLab ↗
+    </a>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-badge">✦ Open source · Free to use</div>
+  <h1>AI coding assistant<br><span>for your terminal</span></h1>
+  <p class="hero-sub">
+    Reads, edits, and creates files in any project. Supports Claude, GPT-4, Gemini, Ollama, and more — right from your CLI.
+  </p>
+
+  <div class="providers-row">
+    <span class="provider-chip active">Anthropic Claude</span>
+    <span class="provider-chip">OpenAI GPT-4</span>
+    <span class="provider-chip">Google Gemini</span>
+    <span class="provider-chip">Ollama (local)</span>
+    <span class="provider-chip">OpenRouter</span>
+  </div>
+
+  <!-- Install command -->
+  <div class="install-box">
+    <span class="install-prefix">$</span>
+    <span class="install-cmd" id="install-cmd">curl -fsSL https://manthra.informaticsint.au/install | bash</span>
+    <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
+  </div>
+
+  <!-- Platform tabs -->
+  <div class="platform-tabs" id="platform-tabs">
+    <button class="platform-tab active" onclick="selectPlatform('linux-x64',this)">Linux x64</button>
+    <button class="platform-tab" onclick="selectPlatform('linux-arm64',this)">Linux arm64</button>
+    <button class="platform-tab" onclick="selectPlatform('mac-x64',this)">macOS x64</button>
+    <button class="platform-tab" onclick="selectPlatform('mac-arm64',this)">macOS arm64 (M1/M2)</button>
+  </div>
+  <div id="linux-x64" class="platform-dl active">
+    <a href="/releases/latest/manthra-linux-x64" download>↓ Download manthra-linux-x64</a>
+    <p class="platform-note">chmod +x manthra-linux-x64 &amp;&amp; mv manthra-linux-x64 ~/.local/bin/manthra</p>
+  </div>
+  <div id="linux-arm64" class="platform-dl">
+    <a href="/releases/latest/manthra-linux-arm64" download>↓ Download manthra-linux-arm64</a>
+    <p class="platform-note">chmod +x manthra-linux-arm64 &amp;&amp; mv manthra-linux-arm64 ~/.local/bin/manthra</p>
+  </div>
+  <div id="mac-x64" class="platform-dl">
+    <a href="/releases/latest/manthra-macos-x64" download>↓ Download manthra-macos-x64</a>
+    <p class="platform-note">chmod +x manthra-macos-x64 &amp;&amp; mv manthra-macos-x64 ~/.local/bin/manthra</p>
+  </div>
+  <div id="mac-arm64" class="platform-dl">
+    <a href="/releases/latest/manthra-macos-arm64" download>↓ Download manthra-macos-arm64</a>
+    <p class="platform-note">chmod +x manthra-macos-arm64 &amp;&amp; mv manthra-macos-arm64 ~/.local/bin/manthra</p>
+  </div>
+</section>
+
+<!-- ── Terminal mockup ───────────────────────────────────────────────────── -->
+<div class="terminal-section">
+  <div class="terminal">
+    <div class="term-bar">
+      <span class="term-dot r"></span>
+      <span class="term-dot y"></span>
+      <span class="term-dot g"></span>
+      <span class="term-title">manthra — ~/my-project</span>
+    </div>
+    <div class="term-body">
+      <div class="term-out term-dim">  ✦  MANTHRA.md loaded</div>
+      <br>
+      <div class="term-line"><span class="term-prompt">  </span><span class="term-cmd">refactor the auth module to use JWT instead of sessions</span></div>
+      <br>
+      <div class="term-out term-thinking">  ⠸ Analyzing…</div>
+      <br>
+      <div class="term-out"><span class="term-tool">  ✓  read</span>  <span class="term-dim">src/auth/session.ts</span></div>
+      <div class="term-out term-dim">     import { SessionStore } from './store'</div>
+      <div class="term-out term-dim">     export async function createSession(userId: string) {…}</div>
+      <div class="term-out"><span class="term-tool">  ✓  read</span>  <span class="term-dim">src/auth/middleware.ts</span></div>
+      <div class="term-out"><span class="term-tool">  ✓  bash</span>  <span class="term-dim">npm list jsonwebtoken</span></div>
+      <br>
+      <div class="term-out term-ai">  I'll refactor the auth module to use JWT. Here's the plan:</div>
+      <br>
+      <div class="term-out term-ai">  1. Replace <span style="color:var(--cyan)">SessionStore</span> with <span style="color:var(--cyan)">jsonwebtoken</span></div>
+      <div class="term-out term-ai">  2. Update <span style="color:var(--cyan)">createSession</span> → <span style="color:var(--cyan)">signToken</span></div>
+      <div class="term-out term-ai">  3. Update middleware to verify JWT on each request</div>
+      <br>
+      <div class="term-out"><span class="term-tool">  ✓  edit</span>  <span class="term-dim">src/auth/session.ts</span></div>
+      <div class="term-out"><span class="term-tool">  ✓  edit</span>  <span class="term-dim">src/auth/middleware.ts</span></div>
+      <div class="term-out"><span class="term-success">  ✓  Done. Auth module now uses JWT. Tests still pass.</span></div>
+    </div>
+    <div class="term-status">
+      <span class="term-sq">■</span>
+      <span class="term-status-text">Chat  ·  Anthropic  ·  claude-sonnet-4-5  ·  12s</span>
+    </div>
+    <div class="term-input-row">
+      <span class="term-input-prompt">  </span>
+      <span class="term-cursor"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ──────────────────────────────────────────────────────────── -->
+<section class="features" id="features">
+  <p class="section-label">Features</p>
+  <h2 class="section-title">Everything your AI needs<br>to work with your code</h2>
+  <p class="section-sub">No cloud sync, no IDE plugin. Just a fast CLI that does the work.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon blue">🤖</div>
+      <h3>Multi-provider AI</h3>
+      <p>Switch between Anthropic Claude, OpenAI GPT-4, Google Gemini, Ollama (local), OpenRouter, and Zen — all from one config.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon cyan">🔧</div>
+      <h3>Full tool use</h3>
+      <p>Reads, writes, and edits files. Runs shell commands. Fetches URLs. Makes HTTP requests. The AI does real work, not just advice.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon green">📄</div>
+      <h3>MANTHRA.md project context</h3>
+      <p>Drop a MANTHRA.md in your repo and Manthra loads it automatically — like CLAUDE.md but for any AI provider. Generate one with <code style="color:var(--cyan)">/init</code>.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon purple">🔒</div>
+      <h3>CWD-aware permissions</h3>
+      <p>File operations within your project are always allowed. Paths outside your working directory prompt for confirmation before proceeding.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon yellow">⚡</div>
+      <h3>Streaming responses</h3>
+      <p>Live streaming with a fixed terminal layout — status bar and input stay pinned at the bottom while responses scroll above.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon red">🧠</div>
+      <h3>Persistent memory</h3>
+      <p>Manthra remembers context across sessions. Configure providers and models through the built-in web UI with <code style="color:var(--cyan)">manthra web</code>.</p>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── How it works ───────────────────────────────────────────────────────── -->
+<section class="how" id="how-it-works">
+  <p class="section-label">Get started</p>
+  <h2 class="section-title">Up and running in 60 seconds</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>Install with one command</h3>
+        <p>The installer detects your OS and architecture, downloads the right binary to <code style="color:var(--cyan)">~/.local/bin/manthra</code>, and adds it to your PATH.</p>
+        <div class="step-code">curl -fsSL https://manthra.informaticsint.au/install | bash</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>Configure your AI provider</h3>
+        <p>On first run, Manthra opens a browser to configure your provider and API key. Or run it manually anytime.</p>
+        <div class="step-code">manthra web</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>Run it in any project</h3>
+        <p>Navigate to your project directory and launch Manthra. It reads your files relative to where you launched it.</p>
+        <div class="step-code">cd ~/my-project &amp;&amp; manthra</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>Add project context (optional)</h3>
+        <p>Generate a MANTHRA.md file so the AI instantly understands your project conventions, structure, and how to build it.</p>
+        <div class="step-code">/init</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Providers ──────────────────────────────────────────────────────────── -->
+<section class="providers-section">
+  <p class="section-label">Providers</p>
+  <h2 class="section-title">Use any AI model</h2>
+  <p class="section-sub">Bring your own API key or run fully local with Ollama. Switch any time.</p>
+
+  <div class="providers-grid">
+    <div class="provider-card">
+      Anthropic Claude
+      <span>claude-sonnet · claude-opus</span>
+    </div>
+    <div class="provider-card">
+      OpenAI
+      <span>gpt-4o · o1 · o3</span>
+    </div>
+    <div class="provider-card">
+      Google Gemini
+      <span>gemini-2.0 · gemini-1.5</span>
+    </div>
+    <div class="provider-card">
+      Ollama
+      <span>Local · No API key</span>
+    </div>
+    <div class="provider-card">
+      OpenRouter
+      <span>200+ models</span>
+    </div>
+    <div class="provider-card">
+      Zen
+      <span>Local · No API key</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── CTA ────────────────────────────────────────────────────────────────── -->
+<section class="cta-section">
+  <h2>Ready to ship faster?</h2>
+  <p>Install Manthra in seconds. No Node.js required — just a single binary.</p>
+  <div class="cta-btns">
+    <button class="btn-primary" onclick="scrollToInstall()">↓ Install now</button>
+    <a href="https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra" class="btn-secondary" target="_blank" rel="noopener">View source ↗</a>
+  </div>
+</section>
+
+<!-- ── Footer ──────────────────────────────────────────────────────────────── -->
+<footer>
+  <a href="/" class="footer-logo">
+    <span class="nav-logo-icon" style="width:22px;height:22px;font-size:11px;">■</span>
+    Manthra
+  </a>
+  <div class="footer-links">
+    <a href="/releases/latest/manthra-linux-x64" download>Linux x64</a>
+    <a href="/releases/latest/manthra-linux-arm64" download>Linux arm64</a>
+    <a href="/releases/latest/manthra-macos-x64" download>macOS x64</a>
+    <a href="/releases/latest/manthra-macos-arm64" download>macOS arm64</a>
+  </div>
+  <span class="footer-copy">© 2025 Informatics International · MIT License</span>
+</footer>
+
+<script>
+  function copyInstall() {
+    const cmd = document.getElementById('install-cmd').textContent;
+    navigator.clipboard.writeText(cmd).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  function selectPlatform(id, el) {
+    document.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
+    document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    el.classList.add('active');
+  }
+
+  function scrollToInstall() {
+    document.querySelector('.hero').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Auto-detect platform and pre-select the matching tab
+  (function() {
+    const ua = navigator.userAgent.toLowerCase();
+    const isMac = /macintosh|mac os x/.test(ua);
+    const isArm = /arm|aarch64/.test(ua) || (isMac && navigator.platform === 'MacIntel' && window.devicePixelRatio > 1);
+    if (isMac) {
+      const tabs = document.querySelectorAll('.platform-tab');
+      const idx = isArm ? 3 : 2;
+      tabs.forEach(t => t.classList.remove('active'));
+      tabs[idx].classList.add('active');
+      document.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
+      const ids = ['linux-x64','linux-arm64','mac-x64','mac-arm64'];
+      document.getElementById(ids[idx]).classList.add('active');
+    }
+  })();
+</script>
+</body>
+</html>

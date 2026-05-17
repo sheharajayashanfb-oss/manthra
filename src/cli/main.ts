@@ -1,0 +1,115 @@
+#!/usr/bin/env node
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import minimist from 'minimist';
+import chalk from 'chalk';
+import { printWelcome } from '../ui/renderer.js';
+import { loadConfig } from '../config/loader.js';
+import { autoInitProviders, syncEnvApiKeys } from '../config/auto-init.js';
+import { REPL } from './repl.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+function getVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as { version: string };
+    return pkg.version;
+  } catch {
+    return '0.1.0';
+  }
+}
+
+function printProviderStatus(providers: Array<{ name: string; id: string; type: string; apiKey?: string; enabled: boolean }>): void {
+  const active = providers.filter((p) => p.enabled);
+  if (active.length === 0) {
+    console.log(chalk.yellow('  No providers configured. Run `manthra web` to add one.\n'));
+    return;
+  }
+  console.log(
+    chalk.dim('  Providers: ') +
+    active.map((p) => {
+      const hasKey = p.apiKey || ['ollama', 'lmstudio', 'zen', 'openrouter'].includes(p.type);
+      return hasKey ? chalk.green(p.name) : chalk.dim(`${p.name} (needs key)`);
+    }).join(chalk.dim(' · ')),
+  );
+  console.log(chalk.dim('  Run `manthra web` to configure · /exit to quit\n'));
+}
+
+async function main(): Promise<void> {
+  const argv = minimist(process.argv.slice(2), {
+    boolean: ['help', 'version', 'no-tools'],
+    string: ['provider', 'model', 'print'],
+    alias: { h: 'help', v: 'version', p: 'provider', m: 'model' },
+  });
+
+  if (argv['version']) {
+    console.log(getVersion());
+    process.exit(0);
+  }
+
+  if (argv['help']) {
+    console.log(`
+${chalk.bold('manthra')} — AI coding assistant with multi-provider support
+
+${chalk.bold('Usage:')}
+  manthra [options] [message]
+  manthra web                  Start the provider management GUI
+
+${chalk.bold('Options:')}
+  -p, --provider <id>          Use a specific provider
+  -m, --model <id>             Use a specific model
+  --print <message>            Run a single prompt and exit (non-interactive)
+  -v, --version                Show version
+  -h, --help                   Show this help
+
+${chalk.bold('Examples:')}
+  manthra                      Start interactive REPL
+  manthra web                  Open provider management GUI
+  manthra --print "hello"      Single prompt mode
+  manthra -m big-pickle        Use ZEN's free Big Pickle model
+`);
+    process.exit(0);
+  }
+
+  // Bootstrap: auto-init built-in providers, sync env API keys
+  let config = loadConfig();
+  ({ config } = autoInitProviders(config));
+  ({ config } = syncEnvApiKeys(config));
+
+  // Handle "manthra web" subcommand
+  if (argv._[0] === 'web') {
+    const { startServer } = await import('../web/server.js');
+    await startServer();
+    return;
+  }
+
+  printWelcome(getVersion());
+  printProviderStatus(config.providers);
+
+  const repl = new REPL();
+  await repl.init();
+
+  // Non-interactive: manthra --print "message"
+  const printMsg = argv['print'] as string | undefined;
+  if (printMsg) {
+    await repl.runOnce(printMsg);
+    process.exit(0);
+  }
+
+  // Non-interactive: manthra "message"
+  const positional = argv._.join(' ');
+  if (positional) {
+    await repl.runOnce(positional);
+    process.exit(0);
+  }
+
+  // Interactive REPL
+  await repl.run();
+}
+
+main().catch((err) => {
+  console.error(chalk.red('Fatal error:'), err);
+  process.exit(1);
+});

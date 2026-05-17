@@ -12,6 +12,8 @@ variables:
 build:
   stage: build
   image: node:18-bullseye
+  tags:
+    - tls-docker-runner
   cache:
     key:
       files:
@@ -36,11 +38,11 @@ build:
 
 deploy:
   stage: deploy
-  image: alpine:3.19
+  tags:
+    - iins-v4-shell
   needs:
     - build
   before_script:
-    - apk add --no-cache openssh rsync
     - eval $(ssh-agent -s)
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh

@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import type { SlashCommand } from './types.js';
 import { exitCommand } from './exit.js';
+import { initCommand } from './init.js';
 
 const webCommand: SlashCommand = {
   name: 'web',
@@ -15,7 +16,7 @@ const webCommand: SlashCommand = {
   },
 };
 
-const commands: SlashCommand[] = [exitCommand, webCommand];
+const commands: SlashCommand[] = [exitCommand, webCommand, initCommand];
 
 const commandMap = new Map<string, SlashCommand>();
 for (const cmd of commands) {

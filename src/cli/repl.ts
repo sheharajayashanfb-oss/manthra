@@ -11,6 +11,7 @@ import { formatMemoryForContext } from '../memory/store.js';
 import { getCommand } from '../slash-commands/registry.js';
 import type { CommandContext } from '../slash-commands/types.js';
 import { formatMarkdown } from '../ui/renderer.js';
+import { loadManthraMd } from '../config/manthra-md.js';
 
 // ── Thinking animation ────────────────────────────────────────────────────────
 
@@ -103,8 +104,14 @@ export class REPL {
     const config = getConfig();
     const base = config.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
     const memory = formatMemoryForContext();
-    const cwd = `\nCurrent working directory: ${process.cwd()}`;
-    return [base, memory, cwd].filter(Boolean).join('\n\n');
+    const cwd = `Current working directory: ${process.cwd()}`;
+
+    const manthraMd = loadManthraMd();
+    const projectInstructions = manthraMd
+      ? `## Project instructions (MANTHRA.md)\n\n${manthraMd}`
+      : null;
+
+    return [base, memory, cwd, projectInstructions].filter(Boolean).join('\n\n');
   }
 
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────
@@ -336,7 +343,6 @@ export class REPL {
 
       const toolResults: ContentBlock[] = [];
       for (const tc of toolCalls) {
-        process.stdout.write(chalk.dim(`  ⟳ ${tc.name}…\n`));
         const result = await executeTool(tc.name, tc.input);
         toolResults.push({
           type: 'tool_result',
@@ -364,6 +370,11 @@ export class REPL {
     });
 
     this.initLayout();
+
+    // Show a dim indicator if MANTHRA.md is active
+    if (loadManthraMd()) {
+      process.stdout.write(chalk.dim(`  ✦  MANTHRA.md loaded\n`));
+    }
 
     // Update scroll region on terminal resize
     process.stdout.on('resize', () => {

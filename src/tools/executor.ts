@@ -2,6 +2,7 @@ import { resolve, relative } from 'path';
 import chalk from 'chalk';
 import { getTool } from './registry.js';
 import { checkPermission } from './permissions.js';
+import { startSpinner } from '../ui/spinner.js';
 import type { ToolResult } from './types.js';
 
 // Tools that never touch the filesystem — always allowed
@@ -15,14 +16,14 @@ const SHELL_TOOLS = new Set(['bash']);
 
 function formatToolInput(toolName: string, input: Record<string, unknown>): string {
   switch (toolName) {
-    case 'bash':  return `$ ${input['command']}`;
-    case 'read':  return `${input['path']}${input['offset'] ? `:${input['offset']}` : ''}`;
-    case 'write': return `→ ${input['path']} (${String(input['content']).length} chars)`;
-    case 'edit':  return `${input['path']}: replace "${String(input['old_string']).slice(0, 40)}..."`;
-    case 'glob':  return `${input['pattern']}`;
-    case 'grep':  return `"${input['pattern']}" in ${input['path'] ?? '.'}`;
+    case 'bash':      return `$ ${input['command']}`;
+    case 'read':      return `${input['path']}${input['offset'] ? `:${input['offset']}` : ''}`;
+    case 'write':     return `→ ${input['path']} (${String(input['content']).length} chars)`;
+    case 'edit':      return `${input['path']}: "${String(input['old_string']).slice(0, 40)}…"`;
+    case 'glob':      return `${input['pattern']}`;
+    case 'grep':      return `"${input['pattern']}" in ${input['path'] ?? '.'}`;
     case 'web_fetch': return `${input['url']}`;
-    default: return JSON.stringify(input);
+    default:          return JSON.stringify(input);
   }
 }
 
@@ -30,7 +31,6 @@ function isWithinCwd(filePath: string): boolean {
   const cwd = process.cwd();
   const abs = resolve(cwd, filePath);
   const rel = relative(cwd, abs);
-  // If rel starts with '..', the path escapes the CWD
   return !rel.startsWith('..');
 }
 
@@ -44,20 +44,17 @@ export async function executeTool(
     return { success: false, output: '', error: `Unknown tool: ${toolName}` };
   }
 
+  // ── permission check (before spinner — may prompt user) ──────────────────
   let allowed = false;
 
   if (ALWAYS_ALLOW.has(toolName)) {
     allowed = true;
   } else if (FILE_TOOLS.has(toolName)) {
     const filePath = input['path'] as string | undefined;
-    if (filePath && isWithinCwd(filePath)) {
-      allowed = true; // within project directory — auto-allow
-    } else {
-      // Outside CWD — ask permission
-      allowed = await checkPermission(toolName, input, (i) => formatToolInput(toolName, i));
-    }
+    allowed = (filePath && isWithinCwd(filePath))
+      ? true
+      : await checkPermission(toolName, input, (i) => formatToolInput(toolName, i));
   } else if (SHELL_TOOLS.has(toolName)) {
-    // bash always runs with cwd: process.cwd() — auto-allow
     allowed = true;
   } else {
     allowed = await checkPermission(toolName, input, (i) => formatToolInput(toolName, i));
@@ -67,26 +64,34 @@ export async function executeTool(
     return { success: false, output: '', error: 'Permission denied by user' };
   }
 
-  if (!opts?.silent) {
-    console.log(chalk.dim(`\n  ⚙  ${toolName}: ${formatToolInput(toolName, input)}`));
+  // ── run with spinner ──────────────────────────────────────────────────────
+  if (opts?.silent) {
+    return await tool.execute(input);
   }
 
+  const desc = formatToolInput(toolName, input);
+  const stop = startSpinner(`${toolName}  ${desc}`);
   const result = await tool.execute(input);
+  stop();
 
-  if (!opts?.silent) {
-    if (result.success) {
-      const preview = result.output.slice(0, 200);
-      const hasMore = result.output.length > 200;
-      console.log(chalk.dim(`  ✓  ${preview}${hasMore ? '...' : ''}`));
+  if (result.success) {
+    process.stdout.write(chalk.dim(`  ✓  ${toolName}  ${desc}\n`));
+    // Show up to 3 non-empty lines of output as a preview
+    const preview = result.output
+      .split('\n')
+      .map(l => l.trimEnd())
+      .filter(l => l.length > 0)
+      .slice(0, 3);
+    for (const line of preview) {
+      process.stdout.write(chalk.dim(`     ${line.slice(0, 120)}\n`));
+    }
+  } else {
+    const isOsPermErr = result.error?.includes('EACCES') || result.error?.includes('EPERM');
+    if (isOsPermErr) {
+      process.stdout.write(chalk.red(`  ✗  Permission denied: ${input['path'] ?? input['command'] ?? ''}\n`));
+      process.stdout.write(chalk.dim(`     Check directory permissions or run with elevated privileges.\n`));
     } else {
-      // Surface OS permission errors clearly
-      const isPermissionError = result.error?.includes('EACCES') || result.error?.includes('EPERM');
-      if (isPermissionError) {
-        console.log(chalk.red(`  ✗  Permission denied: ${input['path'] ?? input['command'] ?? ''}`));
-        console.log(chalk.dim(`      You may need to run with elevated privileges or check directory permissions.`));
-      } else {
-        console.log(chalk.red(`  ✗  ${result.error}`));
-      }
+      process.stdout.write(chalk.red(`  ✗  ${toolName}  ${result.error}\n`));
     }
   }
 

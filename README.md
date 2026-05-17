@@ -22,7 +22,7 @@ curl -fsSL https://manthra.informaticsint.au/install | bash
 
 ## Installation
 
-### One-line install (Linux & macOS)
+### Linux & macOS
 
 ```bash
 curl -fsSL https://manthra.informaticsint.au/install | bash
@@ -31,6 +31,35 @@ curl -fsSL https://manthra.informaticsint.au/install | bash
 The installer detects your OS and architecture, downloads the right pre-built binary to `~/.local/bin/manthra`, and prompts you to add it to `$PATH` if needed.
 
 **Supported platforms:** Linux x64, Linux arm64, macOS x64, macOS arm64
+
+### Windows
+
+> **Windows support is planned but not yet available.** A native binary and PowerShell installer are on the roadmap.
+
+In the meantime, Windows users can run Manthra through one of these options:
+
+**Option 1 — WSL (recommended)**
+```bash
+# Inside a WSL terminal (Ubuntu, Debian, etc.)
+curl -fsSL https://manthra.informaticsint.au/install | bash
+```
+
+**Option 2 — Git Bash**
+```bash
+# Inside Git Bash
+curl -fsSL https://manthra.informaticsint.au/install | bash
+```
+
+**Option 3 — Run from source**
+```powershell
+# Requires Node.js 18+ installed
+git clone https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra.git
+cd manthra
+npm install
+npm run dev
+```
+
+> **Terminal note:** The fixed-bottom layout (pinned status bar + input) uses ANSI VT sequences that require **Windows Terminal** on Windows 10/11. The app will still work in other terminals but the layout may not render correctly.
 
 ### Manual install
 

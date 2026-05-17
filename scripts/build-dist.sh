@@ -4,6 +4,9 @@
 # Usage: ./scripts/build-dist.sh [--skip-bundle]
 set -euo pipefail
 
+# Allow CI to redirect pkg's Node.js download cache into the project dir for caching
+export PKG_CACHE_PATH="${PKG_CACHE_PATH:-$HOME/.pkg-cache}"
+
 VERSION=$(node -p "require('./package.json').version")
 OUT="releases/${VERSION}"
 

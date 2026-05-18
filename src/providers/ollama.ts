@@ -104,7 +104,10 @@ export class OllamaProvider implements Provider {
     this.id = config.id;
     this.name = config.name;
     this.type = config.type;
-    this.baseURL = (config.baseURL ?? 'http://localhost:11434').replace(/\/$/, '');
+    // Normalize localhost → 127.0.0.1 to avoid IPv6 resolution issues on some systems
+    this.baseURL = (config.baseURL ?? 'http://localhost:11434')
+      .replace(/\/$/, '')
+      .replace(/^(https?:\/\/)localhost(:\d+)/i, '$1127.0.0.1$2');
   }
 
   async *chat(messages: Message[], options: ChatOptions): AsyncIterable<StreamEvent> {

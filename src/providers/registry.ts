@@ -20,9 +20,9 @@ export function createProvider(config: ProviderConfig): Provider {
     case 'gemini':
       return new GeminiProvider({ id: config.id, name: config.name, apiKey: config.apiKey });
     case 'ollama':
-      return new OllamaProvider({ id: config.id, name: config.name, type: config.type, baseURL: config.baseURL ?? 'http://localhost:11434' });
+      return new OllamaProvider({ id: config.id, name: config.name, type: config.type, baseURL: config.baseURL ?? 'http://127.0.0.1:11434' });
     case 'lmstudio':
-      return new OllamaProvider({ id: config.id, name: config.name, type: config.type, baseURL: config.baseURL ?? 'http://localhost:1234' });
+      return new OllamaProvider({ id: config.id, name: config.name, type: config.type, baseURL: config.baseURL ?? 'http://127.0.0.1:1234' });
     case 'openrouter':
       return new OpenRouterProvider({ id: config.id, name: config.name, apiKey: config.apiKey });
     case 'zen':

@@ -1,15 +1,10 @@
 import express from 'express';
 import cors from 'cors';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import chalk from 'chalk';
 import { getConfig, updateConfig } from '../config/loader.js';
 import { createProvider } from '../providers/registry.js';
-import type { ProviderConfig } from '../config/types.js';
 import { ProviderConfigSchema } from '../config/types.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { INLINE_HTML } from './assets.generated.js';
 
 export async function startServer(port?: number): Promise<void> {
   const config = getConfig();
@@ -18,7 +13,6 @@ export async function startServer(port?: number): Promise<void> {
 
   app.use(cors());
   app.use(express.json());
-  app.use(express.static(join(__dirname, 'public')));
 
   // GET /api/providers
   app.get('/api/providers', (_req, res) => {
@@ -171,9 +165,10 @@ export async function startServer(port?: number): Promise<void> {
     res.json(getToolDefinitions());
   });
 
-  // Fallback: serve index.html for SPA
+  // Serve the self-contained web UI (CSS+JS inlined at build time)
   app.get('*', (_req, res) => {
-    res.sendFile(join(__dirname, 'public', 'index.html'));
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(INLINE_HTML);
   });
 
   const server = app.listen(serverPort, () => {

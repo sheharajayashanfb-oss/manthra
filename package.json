@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "tsup",
-    "build:dist": "bash scripts/build-dist.sh",
+    "build:assets": "node scripts/inline-assets.mjs",
+    "build:dist": "npm run build:assets && bash scripts/build-dist.sh",
     "deploy": "bash scripts/deploy.sh",
     "dev": "tsx src/cli/main.ts",
     "dev:web": "tsx src/web/start.ts",

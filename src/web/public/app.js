@@ -343,7 +343,12 @@ async function testProvider() {
       if (defaultModel) body.defaultModel = defaultModel;
       result = await api('POST', '/providers/test-inline', body);
     }
-    resultEl.textContent = result.ok ? '✓ ' + result.message : '✗ ' + result.message;
+    const type = document.getElementById('form-type').value;
+    const isOllama = type === 'ollama' || type === 'lmstudio';
+    const failHint = (!result.ok && isOllama)
+      ? ' — is Ollama running? Try: ollama serve'
+      : '';
+    resultEl.textContent = (result.ok ? '✓ ' : '✗ ') + result.message + failHint;
     resultEl.className = `test-result ${result.ok ? 'success' : 'error'}`;
     resultEl.style.display = 'block';
   } catch (e) {
@@ -396,9 +401,27 @@ async function listModels() {
         <div class="model-option-ctx">${m.name !== m.id ? esc(m.name || '') + ' · ' : ''}${m.contextWindow ? (m.contextWindow/1000).toFixed(0)+'k ctx' : ''}</div>
       </div>`;
     });
-    dropdown.innerHTML = html || '<div style="padding:10px;color:var(--text-muted)">No models found</div>';
+    if (html) {
+      dropdown.innerHTML = html;
+    } else {
+      const type = document.getElementById('form-type').value;
+      const isOllama = type === 'ollama' || type === 'lmstudio';
+      dropdown.innerHTML = isOllama
+        ? `<div style="padding:12px;color:var(--warning);font-size:12px;line-height:1.6">
+            No models found. Make sure Ollama is running:<br>
+            <code style="color:var(--cyan)">ollama serve</code><br><br>
+            Then pull a model, e.g.:<br>
+            <code style="color:var(--cyan)">ollama pull llama3.2</code>
+           </div>`
+        : '<div style="padding:10px;color:var(--text-muted)">No models found</div>';
+    }
   } catch (e) {
-    dropdown.innerHTML = `<div style="padding:10px;color:var(--error)">${esc(e.message)}</div>`;
+    const type = document.getElementById('form-type').value;
+    const isOllama = type === 'ollama' || type === 'lmstudio';
+    const hint = isOllama
+      ? '<br><br>Make sure Ollama is running (<code style="color:var(--cyan)">ollama serve</code>) and the base URL is correct.'
+      : '';
+    dropdown.innerHTML = `<div style="padding:10px;color:var(--error);font-size:12px;line-height:1.6">${esc(e.message)}${hint}</div>`;
   }
 }
 

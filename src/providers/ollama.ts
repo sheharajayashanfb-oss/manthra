@@ -38,7 +38,6 @@ function normalizeMessages(messages: Message[]): OllamaMessage[] {
       continue;
     }
 
-    // Separate text, tool_calls, and tool_results from ContentBlock[]
     const blocks = m.content as ContentBlock[];
     const textParts: string[] = [];
     const toolCalls: OllamaToolCall[] = [];
@@ -55,7 +54,6 @@ function normalizeMessages(messages: Message[]): OllamaMessage[] {
     }
 
     if (toolResults.length > 0) {
-      // Tool results become individual "tool" role messages
       for (const tr of toolResults) {
         result.push({ role: 'tool', content: tr.content });
       }
@@ -69,6 +67,33 @@ function normalizeMessages(messages: Message[]): OllamaMessage[] {
   return result;
 }
 
+// Try multiple base URLs in order — handles localhost IPv4/IPv6 variance across OS
+async function fetchWithFallback(paths: string[], baseURL: string): Promise<Response> {
+  // If the user explicitly set a non-default base URL, use it directly
+  const defaults = ['http://localhost:11434', 'http://127.0.0.1:11434'];
+  const candidates = defaults.includes(baseURL)
+    ? ['http://127.0.0.1:11434', 'http://localhost:11434']
+    : [baseURL];
+
+  let lastErr: unknown;
+  for (const base of candidates) {
+    for (const path of paths) {
+      try {
+        const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(4000) });
+        if (res.ok) return res;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+  }
+  throw new Error(
+    `Cannot reach Ollama at ${baseURL}.\n` +
+    `Make sure Ollama is running: https://ollama.ai\n` +
+    `(tried: ${candidates.join(', ')})\n` +
+    (lastErr ? `Error: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}` : '')
+  );
+}
+
 export class OllamaProvider implements Provider {
   readonly id: string;
   readonly name: string;
@@ -79,7 +104,7 @@ export class OllamaProvider implements Provider {
     this.id = config.id;
     this.name = config.name;
     this.type = config.type;
-    this.baseURL = config.baseURL ?? 'http://localhost:11434';
+    this.baseURL = (config.baseURL ?? 'http://localhost:11434').replace(/\/$/, '');
   }
 
   async *chat(messages: Message[], options: ChatOptions): AsyncIterable<StreamEvent> {
@@ -133,7 +158,6 @@ export class OllamaProvider implements Provider {
           let chunk: OllamaChatChunk;
           try { chunk = JSON.parse(line); } catch { continue; }
 
-          // Thinking tokens stream in real-time before the response
           if (chunk.message?.thinking) {
             yield { type: 'thinking_delta', delta: chunk.message.thinking };
           }
@@ -142,7 +166,6 @@ export class OllamaProvider implements Provider {
             yield { type: 'text_delta', delta: chunk.message.content };
           }
 
-          // Tool calls arrive in a done:false chunk (before the stats done:true chunk)
           if (chunk.message?.tool_calls?.length) {
             for (const tc of chunk.message.tool_calls) {
               const id = tc.id ?? `${tc.function.name}_${Date.now()}`;
@@ -170,20 +193,16 @@ export class OllamaProvider implements Provider {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    try {
-      const res = await fetch(`${this.baseURL}/api/tags`);
-      if (!res.ok) return [];
-      const data = await res.json() as { models: OllamaModel[] };
-      return (data.models ?? []).map((m) => ({ id: m.name, name: m.name }));
-    } catch {
-      return [];
-    }
+    // Throws on failure so the web UI can surface the real error
+    const res = await fetchWithFallback(['/api/tags'], this.baseURL);
+    const data = await res.json() as { models?: OllamaModel[] };
+    return (data.models ?? []).map((m) => ({ id: m.name, name: m.name }));
   }
 
   async testConnection(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseURL}/api/tags`, { signal: AbortSignal.timeout(5000) });
-      return res.ok;
+      await fetchWithFallback(['/api/tags'], this.baseURL);
+      return true;
     } catch {
       return false;
     }

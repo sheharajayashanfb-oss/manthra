@@ -27,6 +27,7 @@ PLATFORMS=(
   "node18-linux-arm64  manthra-linux-arm64"
   "node18-macos-x64    manthra-macos-x64"
   "node18-macos-arm64  manthra-macos-arm64"
+  "node18-win-x64      manthra-win-x64.exe"
 )
 
 for entry in "${PLATFORMS[@]}"; do

@@ -455,6 +455,7 @@
     <button class="platform-tab" onclick="selectPlatform('linux-arm64',this)">Linux arm64</button>
     <button class="platform-tab" onclick="selectPlatform('mac-x64',this)">macOS x64</button>
     <button class="platform-tab" onclick="selectPlatform('mac-arm64',this)">macOS arm64 (M1/M2)</button>
+    <button class="platform-tab" onclick="selectPlatform('windows',this)">Windows</button>
   </div>
   <div id="linux-x64" class="platform-dl active">
     <a href="/releases/latest/manthra-linux-x64" download>↓ Download manthra-linux-x64</a>
@@ -467,10 +468,20 @@
   <div id="mac-x64" class="platform-dl">
     <a href="/releases/latest/manthra-macos-x64" download>↓ Download manthra-macos-x64</a>
     <p class="platform-note">chmod +x manthra-macos-x64 &amp;&amp; mv manthra-macos-x64 ~/.local/bin/manthra</p>
+    <p class="platform-note" style="color:var(--yellow);margin-top:6px;">macOS security: if blocked, run — xattr -d com.apple.quarantine ./manthra-macos-x64</p>
   </div>
   <div id="mac-arm64" class="platform-dl">
     <a href="/releases/latest/manthra-macos-arm64" download>↓ Download manthra-macos-arm64</a>
     <p class="platform-note">chmod +x manthra-macos-arm64 &amp;&amp; mv manthra-macos-arm64 ~/.local/bin/manthra</p>
+    <p class="platform-note" style="color:var(--yellow);margin-top:6px;">macOS security: if blocked, run — xattr -d com.apple.quarantine ./manthra-macos-arm64</p>
+  </div>
+  <div id="windows" class="platform-dl">
+    <a href="/releases/latest/manthra-win-x64.exe" download>↓ Download manthra-win-x64.exe</a>
+    <p class="platform-note">Place in a folder on your PATH, e.g. C:\Users\you\bin\manthra.exe</p>
+    <p class="platform-note" style="margin-top:10px;">Or install via <strong style="color:var(--text)">Git Bash</strong> (recommended):</p>
+    <p class="platform-note" style="color:var(--cyan);margin-top:4px;">curl -fsSL https://manthra.informaticsint.au/install | bash</p>
+    <p class="platform-note" style="margin-top:8px;">Or via <strong style="color:var(--text)">WSL2</strong> (Ubuntu/Debian terminal):</p>
+    <p class="platform-note" style="color:var(--cyan);margin-top:4px;">curl -fsSL https://manthra.informaticsint.au/install | bash</p>
   </div>
 </section>
 
@@ -638,6 +649,70 @@
 
 <div class="divider"></div>
 
+<!-- ── Platform compatibility ───────────────────────────────────────────────── -->
+<section style="padding:80px 2rem; max-width:1100px; margin:0 auto;">
+  <p class="section-label">Compatibility</p>
+  <h2 class="section-title">Runs everywhere you code</h2>
+  <p class="section-sub">Single binary — no Node.js, no runtime required.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:2.5rem;">
+
+    <div style="padding:1.75rem;background:var(--bg-card);">
+      <div style="font-size:1.5rem;margin-bottom:0.75rem;">🐧</div>
+      <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">Linux</h3>
+      <p style="font-size:0.875rem;color:var(--text-muted);line-height:1.65;">x64 and arm64. Works on Ubuntu, Debian, Fedora, Arch, and any distro.</p>
+      <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
+        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">x64</span>
+        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">arm64</span>
+      </div>
+    </div>
+
+    <div style="padding:1.75rem;background:var(--bg-card);">
+      <div style="font-size:1.5rem;margin-bottom:0.75rem;">🍎</div>
+      <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">macOS</h3>
+      <p style="font-size:0.875rem;color:var(--text-muted);line-height:1.65;">Intel and Apple Silicon (M1/M2/M3). Install via curl or download directly.</p>
+      <div style="margin-top:0.75rem;padding:8px 12px;background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.18);border-radius:6px;">
+        <p style="font-size:0.75rem;color:var(--yellow);line-height:1.5;">If macOS blocks the binary after manual download, remove the quarantine flag:</p>
+        <code style="font-size:0.72rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;display:block;margin-top:4px;">xattr -d com.apple.quarantine ./manthra-macos-arm64</code>
+        <p style="font-size:0.72rem;color:var(--text-dim);margin-top:4px;">The curl installer handles this automatically.</p>
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
+        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">x64 (Intel)</span>
+        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">arm64 (M1/M2/M3)</span>
+      </div>
+    </div>
+
+    <div style="padding:1.75rem;background:var(--bg-card);">
+      <div style="font-size:1.5rem;margin-bottom:0.75rem;">🪟</div>
+      <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">Windows</h3>
+      <p style="font-size:0.875rem;color:var(--text-muted);line-height:1.65;margin-bottom:0.75rem;">Three ways to run Manthra on Windows:</p>
+
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="padding:10px 12px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);border-radius:6px;">
+          <p style="font-size:0.78rem;font-weight:600;color:var(--blue);margin-bottom:3px;">Git Bash (recommended)</p>
+          <code style="font-size:0.72rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;">curl -fsSL https://manthra.informaticsint.au/install | bash</code>
+        </div>
+        <div style="padding:10px 12px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);border-radius:6px;">
+          <p style="font-size:0.78rem;font-weight:600;color:var(--blue);margin-bottom:3px;">WSL2 (Ubuntu/Debian)</p>
+          <code style="font-size:0.72rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;">curl -fsSL https://manthra.informaticsint.au/install | bash</code>
+        </div>
+        <div style="padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;">
+          <p style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:3px;">Direct .exe download</p>
+          <a href="/releases/latest/manthra-win-x64.exe" download style="font-size:0.72rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;text-decoration:none;">↓ manthra-win-x64.exe</a>
+          <p style="font-size:0.7rem;color:var(--text-dim);margin-top:3px;">Add the folder to your PATH in System Properties</p>
+        </div>
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
+        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">x64</span>
+        <span style="padding:3px 10px;border-radius:100px;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.2);font-size:0.72rem;color:var(--yellow);">Windows Terminal recommended</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
 <!-- ── CTA ────────────────────────────────────────────────────────────────── -->
 <section class="cta-section">
   <h2>Ready to ship faster?</h2>
@@ -659,6 +734,7 @@
     <a href="/releases/latest/manthra-linux-arm64" download>Linux arm64</a>
     <a href="/releases/latest/manthra-macos-x64" download>macOS x64</a>
     <a href="/releases/latest/manthra-macos-arm64" download>macOS arm64</a>
+    <a href="/releases/latest/manthra-win-x64.exe" download>Windows x64</a>
   </div>
   <span class="footer-copy">© 2025 Informatics International · MIT License</span>
 </footer>
@@ -689,14 +765,17 @@
   (function() {
     const ua = navigator.userAgent.toLowerCase();
     const isMac = /macintosh|mac os x/.test(ua);
+    const isWin = /windows/.test(ua);
     const isArm = /arm|aarch64/.test(ua) || (isMac && navigator.platform === 'MacIntel' && window.devicePixelRatio > 1);
-    if (isMac) {
+    const ids   = ['linux-x64','linux-arm64','mac-x64','mac-arm64','windows'];
+    let idx = 0;
+    if (isWin)       idx = 4;
+    else if (isMac)  idx = isArm ? 3 : 2;
+    if (idx > 0) {
       const tabs = document.querySelectorAll('.platform-tab');
-      const idx = isArm ? 3 : 2;
       tabs.forEach(t => t.classList.remove('active'));
       tabs[idx].classList.add('active');
       document.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
-      const ids = ['linux-x64','linux-arm64','mac-x64','mac-arm64'];
       document.getElementById(ids[idx]).classList.add('active');
     }
   })();

@@ -1,9 +1,10 @@
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { resolvedShell, usesPowerShell } from './platform.js';
 import type { Tool, ToolResult } from './types.js';
 
-const execAsync = promisify(exec);
+const execAsync     = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const BLOCKED_UNIX = ['rm -rf /', 'mkfs', 'dd if=/dev/zero', ':(){:|:&};:'];
 const BLOCKED_WIN  = [
@@ -21,16 +22,19 @@ async function runCommand(command: string, timeout: number) {
   const opts = { timeout, maxBuffer: 10 * 1024 * 1024, cwd: process.cwd() };
 
   if (usesPowerShell) {
-    // Encode as base64 UTF-16LE to pass to PowerShell -EncodedCommand.
-    // This avoids all shell-escaping issues regardless of what the command contains.
-    const encoded = Buffer.from(command, 'utf16le').toString('base64');
-    return execAsync(
-      `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ${encoded}`,
-      opts,
-    );
+    // Force UTF-8 output so Node receives consistent text regardless of system codepage.
+    // Use execFile (not exec) to invoke powershell.exe directly — avoids the cmd.exe
+    // wrapper that exec adds on Windows, which would impose an 8191-char command line limit.
+    // -EncodedCommand accepts base64 UTF-16LE and sidesteps all quoting/escaping issues.
+    const fullCmd = `$OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n${command}`;
+    const encoded = Buffer.from(fullCmd, 'utf16le').toString('base64');
+    return execFileAsync('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-EncodedCommand', encoded,
+    ], opts);
   }
 
-  return execAsync(command, { ...opts, shell: resolvedShell! });
+  return execAsync(command, { ...opts, shell: resolvedShell ?? '/bin/sh' });
 }
 
 export const bashTool: Tool = {

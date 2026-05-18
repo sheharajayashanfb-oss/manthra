@@ -27,9 +27,12 @@ export function platformSystemPrompt(): string {
       '- File/directory ops: Get-ChildItem (ls), New-Item (mkdir/touch), Copy-Item (cp), Move-Item (mv), Remove-Item (rm), Get-Content (cat), Set-Content, Select-String (grep)',
       '- Environment variables: $env:VAR_NAME (not $VAR_NAME or %VAR%)',
       '- Path separator is backslash (\\), though forward slashes work in most dev tools',
-      '- Conditionals: if ($LASTEXITCODE -ne 0) { ... } — not if/then/fi',
+      '- Statement separator: use ; (works in PowerShell)',
+      '- Subexpressions: $(...) works in PowerShell',
+      '- Chaining: && and || are NOT supported in PowerShell 5.1 (default on Windows); use ; or if ($LASTEXITCODE -ne 0) { } instead',
+      '- Arithmetic: use [int]$a + $b or [Math]::Pow(), not $(( ))',
+      '- Here-strings: use @"..."@ or @\'...\'@ instead of bash here-docs',
       '- dev tools (git, npm, node, python, pip, cargo, etc.) work with their standard syntax',
-      '- Avoid bash-isms: no &&, ||, ;, $(...), $(( )), here-docs — use PowerShell equivalents',
     ].join('\n');
   }
 

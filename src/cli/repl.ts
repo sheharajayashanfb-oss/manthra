@@ -12,6 +12,7 @@ import { getCommand } from '../slash-commands/registry.js';
 import type { CommandContext } from '../slash-commands/types.js';
 import { formatMarkdown } from '../ui/renderer.js';
 import { loadManthraMd } from '../config/manthra-md.js';
+import { platformSystemPrompt } from '../tools/platform.js';
 
 // ── Thinking animation ────────────────────────────────────────────────────────
 
@@ -106,12 +107,14 @@ export class REPL {
     const memory = formatMemoryForContext();
     const cwd = `Current working directory: ${process.cwd()}`;
 
+    const platformCtx = platformSystemPrompt();
+
     const manthraMd = loadManthraMd();
     const projectInstructions = manthraMd
       ? `## Project instructions (MANTHRA.md)\n\n${manthraMd}`
       : null;
 
-    return [base, memory, cwd, projectInstructions].filter(Boolean).join('\n\n');
+    return [base, memory, cwd, platformCtx, projectInstructions].filter(Boolean).join('\n\n');
   }
 
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────

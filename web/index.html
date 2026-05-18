@@ -593,7 +593,7 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
     <div class="feature-card">
       <div class="feature-icon green">📄</div>
       <h3>MANTHRA.md project context</h3>
-      <p>Drop a MANTHRA.md in your repo and Manthra loads it automatically — like CLAUDE.md but for any AI provider. Generate one with <code style="color:var(--cyan)">/init</code>.</p>
+      <p>Drop a MANTHRA.md in your repo and Manthra loads it automatically for any AI provider. Generate one with <code style="color:var(--cyan)">/init</code>.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon purple">🔒</div>
@@ -652,6 +652,68 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
         <p>Generate a MANTHRA.md file so the AI instantly understands your project conventions, structure, and how to build it.</p>
         <div class="step-code">/init</div>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Ollama subsection ── -->
+  <div style="margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border);">
+    <p class="section-label" style="text-align:left;">Running locally with Ollama</p>
+    <h3 style="font-size:1.4rem;font-weight:800;letter-spacing:-0.02em;margin-bottom:0.5rem;">Use Manthra completely offline — no API key needed</h3>
+    <p style="color:var(--text-muted);font-size:0.95rem;margin-bottom:2.5rem;max-width:580px;">
+      Ollama lets you run open-source models (Llama, Mistral, Gemma, DeepSeek, and more) entirely on your own machine. Free, private, no rate limits.
+    </p>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:2rem;">
+
+      <div style="padding:1.5rem;background:var(--bg-card);">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:0.75rem;">Step 1 — Install Ollama</div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Download from <a href="https://ollama.ai" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:none;">ollama.ai</a> or install via terminal:</p>
+        <div style="background:var(--bg-term);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--cyan);">
+          # macOS / Linux<br>
+          curl -fsSL https://ollama.ai/install.sh | sh
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.75rem;">Windows: download the installer from <a href="https://ollama.ai" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:none;">ollama.ai</a></p>
+      </div>
+
+      <div style="padding:1.5rem;background:var(--bg-card);">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:0.75rem;">Step 2 — Pull a model</div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Pull any model from the <a href="https://ollama.ai/library" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:none;">Ollama library</a>. Recommended for coding:</p>
+        <div style="background:var(--bg-term);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--cyan);line-height:1.9;">
+          ollama pull llama3.2<br>
+          <span style="color:var(--text-dim)"># or larger models:</span><br>
+          ollama pull qwen2.5-coder:7b<br>
+          ollama pull deepseek-r1:7b
+        </div>
+      </div>
+
+      <div style="padding:1.5rem;background:var(--bg-card);">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:0.75rem;">Step 3 — Start Ollama</div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Start the Ollama server (it runs on <code style="color:var(--cyan);font-size:0.78rem;">127.0.0.1:11434</code>):</p>
+        <div style="background:var(--bg-term);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--cyan);line-height:1.9;">
+          ollama serve<br>
+          <span style="color:var(--text-dim)"># macOS: Ollama starts automatically</span><br>
+          <span style="color:var(--text-dim)"># after installation</span>
+        </div>
+      </div>
+
+      <div style="padding:1.5rem;background:var(--bg-card);">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:0.75rem;">Step 4 — Connect in Manthra</div>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Open the Manthra web UI, add an Ollama provider, and click <strong style="color:var(--text)">List Models</strong> to see your local models:</p>
+        <div style="background:var(--bg-term);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--cyan);line-height:1.9;">
+          manthra web<br>
+          <span style="color:var(--text-dim)"># → Add Provider → Ollama</span><br>
+          <span style="color:var(--text-dim)"># Base URL: http://127.0.0.1:11434</span><br>
+          <span style="color:var(--text-dim)"># → List Models → select one → Save</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="padding:14px 18px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);border-radius:var(--radius-sm);font-size:0.82rem;color:var(--text-muted);line-height:1.65;max-width:700px;">
+      <strong style="color:var(--text);">💡 Tip:</strong> Once Manthra is configured with Ollama, launch it from your project as normal —
+      <code style="color:var(--cyan);font-size:0.78rem;">manthra</code>. Everything works offline. Use
+      <code style="color:var(--cyan);font-size:0.78rem;">manthra web</code> anytime to switch between your local Ollama models
+      and cloud providers like Claude or GPT-4.
     </div>
   </div>
 </section>

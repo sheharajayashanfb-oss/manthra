@@ -496,10 +496,11 @@
     <a href="/releases/latest/manthra-macos-x64" download>↓ Download manthra-macos-x64</a>
     <p class="platform-note">chmod +x manthra-macos-x64 &amp;&amp; mv manthra-macos-x64 ~/.local/bin/manthra</p>
     <div class="macos-warning visible">
-      <div class="macos-warning-title">⚠ macOS will block this binary</div>
-      <p>macOS flags unsigned binaries downloaded via browser. After downloading, run these commands in Terminal:</p>
-      <code>xattr -d com.apple.quarantine ~/Downloads/manthra-macos-x64
+      <div class="macos-warning-title">⚠ macOS will block this binary — follow these steps</div>
+      <p>macOS blocks unsigned binaries. After downloading, run these commands in Terminal:</p>
+      <code>xattr -c ~/Downloads/manthra-macos-x64
 chmod +x ~/Downloads/manthra-macos-x64
+codesign --force --deep --sign - ~/Downloads/manthra-macos-x64
 mv ~/Downloads/manthra-macos-x64 ~/.local/bin/manthra</code>
       <div class="or-divider">── or go to System Settings → Privacy &amp; Security → "Allow Anyway" ──</div>
       <p style="margin-top:4px;">💡 <strong style="color:var(--text)">Easiest fix:</strong> use the curl installer above — it handles this automatically.</p>
@@ -507,12 +508,13 @@ mv ~/Downloads/manthra-macos-x64 ~/.local/bin/manthra</code>
   </div>
   <div id="mac-arm64" class="platform-dl">
     <a href="/releases/latest/manthra-macos-arm64" download>↓ Download manthra-macos-arm64</a>
-    <p class="platform-note">chmod +x manthra-macos-arm64 &amp;&amp; mv manthra-macos-arm64 ~/.local/bin/manthra</p>
+    <p class="platform-note">See steps below — macOS requires signing before running.</p>
     <div class="macos-warning visible">
-      <div class="macos-warning-title">⚠ macOS will block this binary</div>
-      <p>macOS flags unsigned binaries downloaded via browser. After downloading, run these commands in Terminal:</p>
-      <code>xattr -d com.apple.quarantine ~/Downloads/manthra-macos-arm64
+      <div class="macos-warning-title">⚠ macOS will block this binary — follow these steps</div>
+      <p>macOS blocks unsigned binaries. After downloading, run these commands in Terminal:</p>
+      <code>xattr -c ~/Downloads/manthra-macos-arm64
 chmod +x ~/Downloads/manthra-macos-arm64
+codesign --force --deep --sign - ~/Downloads/manthra-macos-arm64
 mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
       <div class="or-divider">── or go to System Settings → Privacy &amp; Security → "Allow Anyway" ──</div>
       <p style="margin-top:4px;">💡 <strong style="color:var(--text)">Easiest fix:</strong> use the curl installer above — it handles this automatically.</p>
@@ -715,11 +717,12 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
       <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">macOS</h3>
       <p style="font-size:0.875rem;color:var(--text-muted);line-height:1.65;">Intel and Apple Silicon (M1/M2/M3). Install via curl or download directly.</p>
       <div style="margin-top:0.75rem;padding:10px 12px;background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.22);border-radius:6px;">
-        <p style="font-size:0.75rem;color:var(--yellow);font-weight:600;margin-bottom:5px;">⚠ Gatekeeper will block unsigned binaries</p>
-        <p style="font-size:0.72rem;color:var(--text-muted);line-height:1.5;margin-bottom:5px;">After a manual browser download, open Terminal and run:</p>
-        <code style="font-size:0.71rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;display:block;background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:4px;">xattr -d com.apple.quarantine ~/Downloads/manthra-macos-arm64</code>
-        <p style="font-size:0.71rem;color:var(--text-dim);margin-top:5px;">Then: chmod +x &amp;&amp; move to ~/.local/bin/manthra</p>
-        <p style="font-size:0.71rem;color:var(--green);margin-top:4px;">✓ The curl installer skips this entirely.</p>
+        <p style="font-size:0.75rem;color:var(--yellow);font-weight:600;margin-bottom:5px;">⚠ Gatekeeper blocks unsigned binaries</p>
+        <p style="font-size:0.72rem;color:var(--text-muted);line-height:1.5;margin-bottom:5px;">After a manual download, open Terminal and run:</p>
+        <code style="font-size:0.71rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;display:block;background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:4px;line-height:1.8;">xattr -c ~/Downloads/manthra-macos-arm64
+codesign --force --deep --sign - ~/Downloads/manthra-macos-arm64
+chmod +x ~/Downloads/manthra-macos-arm64</code>
+        <p style="font-size:0.71rem;color:var(--green);margin-top:5px;">✓ The curl installer does this automatically.</p>
       </div>
       <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
         <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">x64 (Intel)</span>

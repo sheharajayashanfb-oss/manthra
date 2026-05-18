@@ -95,9 +95,10 @@ else
   success "Installed to ${DEST}"
 fi
 
-# Strip quarantine again on the final path (belt-and-suspenders)
-if [ "$OS" = "macos" ] && command -v xattr &>/dev/null; then
-  xattr -c "$DEST" 2>/dev/null || true
+# Strip quarantine and ad-hoc sign so Gatekeeper allows the binary
+if [ "$OS" = "macos" ]; then
+  command -v xattr    &>/dev/null && xattr -c "$DEST" 2>/dev/null || true
+  command -v codesign &>/dev/null && codesign --force --deep --sign - "$DEST" 2>/dev/null || true
 fi
 
 # ── PATH check ───────────────────────────────────────────────────────────────

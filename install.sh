@@ -109,16 +109,29 @@ if ! command -v manthra &>/dev/null 2>&1; then
     echo -e "  Then restart Git Bash, or run:"
     echo -e "  ${DIM}source ~/.bashrc${NC}"
   else
+    # On macOS, bash login shells read .bash_profile (not .bashrc).
+    # On Linux, bash reads .bashrc for interactive shells.
     SHELL_RC=""
     case "${SHELL:-}" in
-      */zsh)  SHELL_RC="$HOME/.zshrc" ;;
-      */bash) SHELL_RC="$HOME/.bashrc" ;;
+      */zsh)
+        SHELL_RC="$HOME/.zshrc"
+        ;;
+      */bash)
+        if [ "$OS" = "macos" ]; then
+          SHELL_RC="$HOME/.bash_profile"
+        else
+          SHELL_RC="$HOME/.bashrc"
+        fi
+        ;;
     esac
 
     if [ -n "$SHELL_RC" ]; then
       echo -e "  Run this, then restart your terminal:"
       echo ""
       echo -e "  ${DIM}echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ${SHELL_RC}${NC}"
+      echo ""
+      echo -e "  Or apply immediately without restarting:"
+      echo -e "  ${DIM}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
       echo ""
     else
       echo "  Add this line to your shell config:"

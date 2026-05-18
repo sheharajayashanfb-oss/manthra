@@ -80,6 +80,11 @@ fi
 
 chmod +x "$TMP"
 
+# Strip quarantine on the temp file before moving so macOS doesn't re-flag it
+if [ "$OS" = "macos" ] && command -v xattr &>/dev/null; then
+  xattr -c "$TMP" 2>/dev/null || true
+fi
+
 if [ "$OS" = "windows" ]; then
   DEST="${INSTALL_DIR}/manthra.exe"
   mv "$TMP" "$DEST"
@@ -90,9 +95,9 @@ else
   success "Installed to ${DEST}"
 fi
 
-# ── macOS: strip quarantine attribute (set by curl downloads via browser) ────
+# Strip quarantine again on the final path (belt-and-suspenders)
 if [ "$OS" = "macos" ] && command -v xattr &>/dev/null; then
-  xattr -d com.apple.quarantine "$DEST" 2>/dev/null || true
+  xattr -c "$DEST" 2>/dev/null || true
 fi
 
 # ── PATH check ───────────────────────────────────────────────────────────────

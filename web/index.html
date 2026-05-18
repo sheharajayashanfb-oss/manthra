@@ -393,6 +393,33 @@
     .footer-links a:hover { color: var(--text-muted); }
     .footer-copy { font-size: 0.8rem; color: var(--text-dim); }
 
+    /* ── macOS warning banner ── */
+    .macos-warning {
+      display: none;
+      margin-top: 12px;
+      max-width: 600px;
+      background: rgba(250,204,21,0.07);
+      border: 1px solid rgba(250,204,21,0.3);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      text-align: left;
+    }
+    .macos-warning.visible { display: block; }
+    .macos-warning-title {
+      font-size: 0.8rem; font-weight: 700; color: var(--yellow);
+      margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+    }
+    .macos-warning p { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px; line-height: 1.6; }
+    .macos-warning code {
+      display: block; padding: 8px 12px; margin: 4px 0;
+      background: rgba(0,0,0,0.3); border-radius: 5px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--cyan);
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .macos-warning .or-divider {
+      text-align: center; font-size: 0.72rem; color: var(--text-dim); margin: 8px 0;
+    }
+
     /* ── Divider ── */
     .divider { height: 1px; background: var(--border); max-width: 1100px; margin: 0 auto; }
 
@@ -468,12 +495,28 @@
   <div id="mac-x64" class="platform-dl">
     <a href="/releases/latest/manthra-macos-x64" download>↓ Download manthra-macos-x64</a>
     <p class="platform-note">chmod +x manthra-macos-x64 &amp;&amp; mv manthra-macos-x64 ~/.local/bin/manthra</p>
-    <p class="platform-note" style="color:var(--yellow);margin-top:6px;">macOS security: if blocked, run — xattr -d com.apple.quarantine ./manthra-macos-x64</p>
+    <div class="macos-warning visible">
+      <div class="macos-warning-title">⚠ macOS will block this binary</div>
+      <p>macOS flags unsigned binaries downloaded via browser. After downloading, run these commands in Terminal:</p>
+      <code>xattr -d com.apple.quarantine ~/Downloads/manthra-macos-x64
+chmod +x ~/Downloads/manthra-macos-x64
+mv ~/Downloads/manthra-macos-x64 ~/.local/bin/manthra</code>
+      <div class="or-divider">── or go to System Settings → Privacy &amp; Security → "Allow Anyway" ──</div>
+      <p style="margin-top:4px;">💡 <strong style="color:var(--text)">Easiest fix:</strong> use the curl installer above — it handles this automatically.</p>
+    </div>
   </div>
   <div id="mac-arm64" class="platform-dl">
     <a href="/releases/latest/manthra-macos-arm64" download>↓ Download manthra-macos-arm64</a>
     <p class="platform-note">chmod +x manthra-macos-arm64 &amp;&amp; mv manthra-macos-arm64 ~/.local/bin/manthra</p>
-    <p class="platform-note" style="color:var(--yellow);margin-top:6px;">macOS security: if blocked, run — xattr -d com.apple.quarantine ./manthra-macos-arm64</p>
+    <div class="macos-warning visible">
+      <div class="macos-warning-title">⚠ macOS will block this binary</div>
+      <p>macOS flags unsigned binaries downloaded via browser. After downloading, run these commands in Terminal:</p>
+      <code>xattr -d com.apple.quarantine ~/Downloads/manthra-macos-arm64
+chmod +x ~/Downloads/manthra-macos-arm64
+mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
+      <div class="or-divider">── or go to System Settings → Privacy &amp; Security → "Allow Anyway" ──</div>
+      <p style="margin-top:4px;">💡 <strong style="color:var(--text)">Easiest fix:</strong> use the curl installer above — it handles this automatically.</p>
+    </div>
   </div>
   <div id="windows" class="platform-dl">
     <a href="/releases/latest/manthra-win-x64.exe" download>↓ Download manthra-win-x64.exe</a>
@@ -671,10 +714,12 @@
       <div style="font-size:1.5rem;margin-bottom:0.75rem;">🍎</div>
       <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">macOS</h3>
       <p style="font-size:0.875rem;color:var(--text-muted);line-height:1.65;">Intel and Apple Silicon (M1/M2/M3). Install via curl or download directly.</p>
-      <div style="margin-top:0.75rem;padding:8px 12px;background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.18);border-radius:6px;">
-        <p style="font-size:0.75rem;color:var(--yellow);line-height:1.5;">If macOS blocks the binary after manual download, remove the quarantine flag:</p>
-        <code style="font-size:0.72rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;display:block;margin-top:4px;">xattr -d com.apple.quarantine ./manthra-macos-arm64</code>
-        <p style="font-size:0.72rem;color:var(--text-dim);margin-top:4px;">The curl installer handles this automatically.</p>
+      <div style="margin-top:0.75rem;padding:10px 12px;background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.22);border-radius:6px;">
+        <p style="font-size:0.75rem;color:var(--yellow);font-weight:600;margin-bottom:5px;">⚠ Gatekeeper will block unsigned binaries</p>
+        <p style="font-size:0.72rem;color:var(--text-muted);line-height:1.5;margin-bottom:5px;">After a manual browser download, open Terminal and run:</p>
+        <code style="font-size:0.71rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;display:block;background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:4px;">xattr -d com.apple.quarantine ~/Downloads/manthra-macos-arm64</code>
+        <p style="font-size:0.71rem;color:var(--text-dim);margin-top:5px;">Then: chmod +x &amp;&amp; move to ~/.local/bin/manthra</p>
+        <p style="font-size:0.71rem;color:var(--green);margin-top:4px;">✓ The curl installer skips this entirely.</p>
       </div>
       <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
         <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">x64 (Intel)</span>

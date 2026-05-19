@@ -49,7 +49,9 @@ function normalizeMessages(messages: Message[]): OllamaMessage[] {
       } else if (b.type === 'tool_call') {
         toolCalls.push({ function: { name: b.name, arguments: b.input } });
       } else if (b.type === 'tool_result') {
-        toolResults.push({ content: b.content });
+        // Prefix error results so the model knows the tool failed
+        const content = b.is_error ? `[TOOL ERROR] ${b.content}` : b.content;
+        toolResults.push({ content });
       }
     }
 

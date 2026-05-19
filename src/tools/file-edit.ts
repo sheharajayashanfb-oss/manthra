@@ -15,9 +15,18 @@ export const fileEditTool: Tool = {
     required: ['path', 'old_string', 'new_string'],
   },
   async execute(input): Promise<ToolResult> {
-    const filePath = resolve(process.cwd(), input['path'] as string);
-    const oldStr = input['old_string'] as string;
-    const newStr = input['new_string'] as string;
+    if (typeof input['path'] !== 'string' || !input['path']) {
+      return { success: false, output: '', error: 'path is required and must be a string' };
+    }
+    if (typeof input['old_string'] !== 'string') {
+      return { success: false, output: '', error: 'old_string is required and must be a string' };
+    }
+    if (typeof input['new_string'] !== 'string') {
+      return { success: false, output: '', error: 'new_string is required and must be a string' };
+    }
+    const filePath = resolve(process.cwd(), input['path']);
+    const oldStr = input['old_string'];
+    const newStr = input['new_string'];
 
     if (!existsSync(filePath)) {
       return { success: false, output: '', error: `File not found: ${filePath}` };
@@ -32,7 +41,9 @@ export const fileEditTool: Tool = {
       if (occurrences > 1) {
         return { success: false, output: '', error: `old_string appears ${occurrences} times. Provide more context to make it unique.` };
       }
-      const updated = content.replace(oldStr, newStr);
+      // split/join does a literal replacement — avoids String.replace() treating
+      // $& $` $' $$ in newStr as special replacement patterns
+      const updated = content.split(oldStr).join(newStr);
       writeFileSync(filePath, updated, 'utf-8');
       return { success: true, output: `Edited ${filePath}` };
     } catch (err: unknown) {

@@ -15,9 +15,14 @@ export const fileReadTool: Tool = {
     required: ['path'],
   },
   async execute(input): Promise<ToolResult> {
-    const filePath = resolve(process.cwd(), input['path'] as string);
-    const offset = (input['offset'] as number | undefined) ?? 1;
-    const limit = input['limit'] as number | undefined;
+    if (typeof input['path'] !== 'string' || !input['path']) {
+      return { success: false, output: '', error: 'path is required and must be a string' };
+    }
+    const filePath = resolve(process.cwd(), input['path']);
+    const rawOffset = input['offset'];
+    const rawLimit = input['limit'];
+    const offset = rawOffset !== undefined ? (typeof rawOffset === 'number' ? rawOffset : 1) : 1;
+    const limit = rawLimit !== undefined ? (typeof rawLimit === 'number' ? rawLimit : undefined) : undefined;
 
     if (!existsSync(filePath)) {
       return { success: false, output: '', error: `File not found: ${filePath}` };

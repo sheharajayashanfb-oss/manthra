@@ -364,11 +364,18 @@ export class REPL {
 
       const toolResults: ContentBlock[] = [];
       for (const tc of toolCalls) {
-        const result = await executeTool(tc.name, tc.input);
+        let result;
+        try {
+          result = await executeTool(tc.name, tc.input);
+        } catch (err: unknown) {
+          result = { success: false, output: '', error: err instanceof Error ? err.message : String(err) };
+        }
+        const errMsg = result.error ?? 'Unknown error';
         toolResults.push({
           type: 'tool_result',
           tool_call_id: tc.id,
-          content: result.success ? result.output : `Error: ${result.error}`,
+          // Avoid double "Error: Error: ..." — result.error from catch blocks already has the message
+          content: result.success ? result.output : errMsg,
           is_error: !result.success,
         });
       }

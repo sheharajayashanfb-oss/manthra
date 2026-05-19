@@ -14,12 +14,14 @@ export const fileWriteTool: Tool = {
     required: ['path', 'content'],
   },
   async execute(input): Promise<ToolResult> {
-    const filePath = resolve(process.cwd(), input['path'] as string);
-    const content = input['content'] as string;
-
-    if (typeof content !== 'string') {
-      return { success: false, output: '', error: 'content must be a string' };
+    if (typeof input['path'] !== 'string' || !input['path']) {
+      return { success: false, output: '', error: 'path is required and must be a string' };
     }
+    if (typeof input['content'] !== 'string') {
+      return { success: false, output: '', error: 'content is required and must be a string' };
+    }
+    const filePath = resolve(process.cwd(), input['path']);
+    const content = input['content'];
 
     try {
       const dir = dirname(filePath);

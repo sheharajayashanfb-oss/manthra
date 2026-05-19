@@ -83,7 +83,8 @@ export interface ChatOptions {
   tools?: ToolDefinition[];
   think?: boolean | 'low' | 'medium' | 'high';
   format?: 'json' | Record<string, unknown>;
-  images?: string[]; // base64 images for vision (on the last user message)
+  images?: string[];
+  signal?: AbortSignal;
 }
 
 export interface Provider {

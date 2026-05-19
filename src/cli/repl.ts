@@ -140,6 +140,7 @@ export class REPL {
   private rl: readline.Interface | null = null;
   private isProcessing = false;
   private stopThinkingFn: (() => void) | null = null;
+  private abortController: AbortController | null = null;
 
   // Think / format modes
   private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
@@ -282,6 +283,30 @@ export class REPL {
     process.stdout.write(`\x1B[${this.inputRow};1H\x1B[2K`);
     process.stdout.write('\x1B8');
     process.stdout.write(`\x1B[${this.scrollEnd};1H`);
+  }
+
+  // Listen for a lone ESC keypress and abort the current generation.
+  // Returns a cleanup function to call when processing finishes.
+  private listenForEsc(): () => void {
+    if (!process.stdin.isTTY) return () => {};
+
+    // Resume stdin so data events fire while readline is paused.
+    process.stdin.resume();
+
+    const onData = (data: Buffer) => {
+      // A lone ESC is exactly one byte: 0x1B.
+      // Escape sequences (arrow keys etc.) send 0x1B followed by more bytes
+      // in the same chunk, so checking length === 1 filters those out.
+      if (data.length === 1 && data[0] === 0x1b) {
+        this.abortController?.abort();
+      }
+    };
+
+    process.stdin.on('data', onData);
+
+    return () => {
+      process.stdin.off('data', onData);
+    };
   }
 
   // ── Slash commands ────────────────────────────────────────────────────────
@@ -432,6 +457,7 @@ export class REPL {
           tools,
           think: this.thinkMode,
           format: this.formatMode,
+          signal: this.abortController?.signal,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -446,6 +472,10 @@ export class REPL {
 
       try {
         ({ text, toolCalls: toolCallsList, usage } = await this.processStream(stream, this.stopThinkingFn));
+        if (this.abortController?.signal.aborted) {
+          process.stdout.write(chalk.dim('\n  ⎋  interrupted\n'));
+          break;
+        }
       } catch (err: unknown) {
         if (this.stopThinkingFn) { this.stopThinkingFn(); this.stopThinkingFn = null; }
         const msg = err instanceof Error ? err.message : String(err);
@@ -549,6 +579,8 @@ export class REPL {
       printUserPrompt(input);
       this.isProcessing = true;
       this.rl!.pause();
+      this.abortController = new AbortController();
+      const cleanupEsc = this.listenForEsc();
       try {
         const { turnIn, turnOut } = await this.runTurn(input);
         this.sessionIn += turnIn;
@@ -556,6 +588,9 @@ export class REPL {
       } catch (err: unknown) {
         if (this.stopThinkingFn) { this.stopThinkingFn(); this.stopThinkingFn = null; }
         console.log(chalk.red(`\n  ${err instanceof Error ? err.message : err}`));
+      } finally {
+        cleanupEsc();
+        this.abortController = null;
       }
       this.isProcessing = false;
       this.rl!.resume();

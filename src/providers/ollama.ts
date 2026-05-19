@@ -164,7 +164,8 @@ export class OllamaProvider implements Provider {
 
     let response: Response;
     try {
-      const signal = isCloud ? AbortSignal.timeout(60000) : undefined;
+      // User abort signal takes priority; fall back to cloud connect timeout
+      const signal = options.signal ?? (isCloud ? AbortSignal.timeout(60000) : undefined);
       response = await fetch(`${this.baseURL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
@@ -222,22 +223,36 @@ export class OllamaProvider implements Provider {
       }
     };
 
+    let streamAborted = false;
     try {
       let lineBuffer = '';
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        let chunk: { done: boolean; value?: Uint8Array };
+        try {
+          chunk = await reader.read();
+        } catch (e) {
+          if ((e as { name?: string }).name === 'AbortError') { streamAborted = true; break; }
+          throw e;
+        }
+        if (chunk.done) break;
 
-        const raw = decoder.decode(value, { stream: true });
+        const raw = decoder.decode(chunk.value, { stream: true });
         const lines = (lineBuffer + raw).split('\n');
         lineBuffer = lines.pop() ?? '';
         for (const line of lines) processLine(line);
       }
-      const tail = decoder.decode();
-      if (tail) lineBuffer += tail;
-      if (lineBuffer.trim()) processLine(lineBuffer);
+      if (!streamAborted) {
+        const tail = decoder.decode();
+        if (tail) { processLine(tail); }
+      }
     } finally {
       reader.releaseLock();
+    }
+
+    // On user-initiated abort, emit nothing — repl.ts will show the interrupt message
+    if (streamAborted) {
+      yield { type: 'message_done', usage: { input_tokens: inputTokens, output_tokens: outputTokens } };
+      return;
     }
 
     if (thinkingBuffer) {

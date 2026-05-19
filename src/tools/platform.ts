@@ -2,41 +2,31 @@ import { existsSync } from 'fs';
 
 export const isWindows = process.platform === 'win32';
 
-// If SHELL env is set and the file exists, use it (covers Git Bash, WSL, macOS, Linux).
-// On native Windows (no SHELL env), resolvedShell is null → PowerShell is used instead.
 export const resolvedShell: string | null = (() => {
-  const env = process.env.SHELL;
-  if (env && existsSync(env)) return env;
-  if (isWindows) return null;
-  for (const sh of ['/bin/zsh', '/bin/bash', '/bin/sh']) {
-    if (existsSync(sh)) return sh;
+  if (!isWindows) {
+    return process.env['SHELL'] ?? '/bin/sh';
   }
-  return null;
+  // On Windows, look for Git Bash or WSL bash first
+  const candidates = [
+    'C:\\Program Files\\Git\\bin\\bash.exe',
+    'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
+    'C:\\Windows\\System32\\bash.exe',
+  ];
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return null; // Falls back to PowerShell
 })();
 
-// True only when running on native Windows without a Unix-style shell override
 export const usesPowerShell = isWindows && resolvedShell === null;
 
 export function platformSystemPrompt(): string {
-  if (usesPowerShell) {
-    return [
-      '## Shell environment',
-      '- OS: Windows',
-      '- Shell: PowerShell (powershell.exe)',
-      '- Always use PowerShell syntax for shell commands.',
-      '- File/directory ops: Get-ChildItem (ls), New-Item (mkdir/touch), Copy-Item (cp), Move-Item (mv), Remove-Item (rm), Get-Content (cat), Set-Content, Select-String (grep)',
-      '- Environment variables: $env:VAR_NAME (not $VAR_NAME or %VAR%)',
-      '- Path separator is backslash (\\), though forward slashes work in most dev tools',
-      '- Statement separator: use ; (works in PowerShell)',
-      '- Subexpressions: $(...) works in PowerShell',
-      '- Chaining: && and || are NOT supported in PowerShell 5.1 (default on Windows); use ; or if ($LASTEXITCODE -ne 0) { } instead',
-      '- Arithmetic: use [int]$a + $b or [Math]::Pow(), not $(( ))',
-      '- Here-strings: use @"..."@ or @\'...\'@ instead of bash here-docs',
-      '- dev tools (git, npm, node, python, pip, cargo, etc.) work with their standard syntax',
-    ].join('\n');
+  if (isWindows) {
+    if (usesPowerShell) {
+      return `You are running on Windows with PowerShell as the shell. Use PowerShell syntax for shell commands (e.g., Get-ChildItem instead of ls, Remove-Item instead of rm, Set-Content instead of echo). Avoid Unix-only commands.`;
+    }
+    return `You are running on Windows with Git Bash available. You can use standard Unix shell commands via bash.`;
   }
-
-  const osLabel = process.platform === 'darwin' ? 'macOS' : `Linux (${process.platform})`;
-  const shell = resolvedShell ?? 'sh';
-  return `## Shell environment\n- OS: ${osLabel}\n- Shell: ${shell}`;
+  const shellName = resolvedShell?.split('/').pop() ?? 'sh';
+  return `You are running on ${process.platform} with ${shellName} as the shell. Use standard Unix shell commands.`;
 }

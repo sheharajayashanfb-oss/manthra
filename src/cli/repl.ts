@@ -2,8 +2,6 @@ import * as readline from 'readline';
 import chalk from 'chalk';
 import type { Provider, Message, ContentBlock, StreamEvent } from '../providers/types.js';
 import { ConversationHistory } from '../conversation/index.js';
-import { getToolDefinitions } from '../tools/registry.js';
-import { executeTool } from '../tools/executor.js';
 import { getConfig } from '../config/loader.js';
 import { loadProviders, getProvider, getDefaultProvider } from '../providers/registry.js';
 import { DEFAULT_SYSTEM_PROMPT } from '../config/defaults.js';
@@ -12,12 +10,14 @@ import { getCommand } from '../slash-commands/registry.js';
 import type { CommandContext } from '../slash-commands/types.js';
 import { formatMarkdown } from '../ui/renderer.js';
 import { loadManthraMd } from '../config/manthra-md.js';
+import { getToolDefinitions } from '../tools/registry.js';
+import { executeTool } from '../tools/executor.js';
 import { platformSystemPrompt } from '../tools/platform.js';
 
 // ── Thinking animation ────────────────────────────────────────────────────────
 
 const THINKING = [
-  'Thinking', 'Reasoning', 'Processing', 'Analyzing', 'Reflecting', 'Pondering', 'Contemplating', 'Deliberating', 'Evaluating', 'Interpreting', 'Understanding', 'Figuring it out', 'Working it out', 'Breaking it down', 'Connecting ideas', 'Synthesizing', 'Formulating', 'Organizing thoughts', 'Reviewing', 'Rechecking', 'Brainstorming', 'Tinkering', 'Exploring', 'Digging in', 'Untangling', 'Decoding', 'Mapping it out', 'Piecing it together', 'Cooking up an answer', 'Sharpening logic', 'Structuring output', 'Building context', 'Scanning possibilities', 'Weighing options', 'Filtering noise', 'Optimizing reasoning', 'Searching patterns', 'Testing ideas', 'Simulating outcomes', 'Let me think', 'Let’s see', 'Hmm', 'One moment', 'Almost there', 'Thinking through this', 'Working on it', 'Getting clarity', 'Putting it together', 'Double-checking', 'Stepping through it', 'Re-evaluating', 'Getting the details right', 'Holding that thought', 'Forming response', 'Constructing answer', 'Drafting logic', 'Aligning ideas', 'Sorting information', 'Processing inputs', 'Parsing meaning', 'Extracting insight', 'Reviewing data', 'Inspecting details', 'Examining closely', 'Looking deeper', 'Going deeper', 'Thinking deeper', 'Expanding thought', 'Narrowing focus', 'Clarifying intent', 'Inferring meaning', 'Drawing conclusions', 'Reassessing', 'Reconstructing logic', 'Rebuilding understanding', 'Checking assumptions', 'Validating idea', 'Confirming reasoning', 'Running analysis', 'Mental modeling', 'Cognitive processing', 'Pattern matching', 'Signal extraction', 'Noise reduction', 'Idea exploration', 'Thought formation', 'Logic building', 'Insight generation', 'Knowledge synthesis', 'Information structuring', 'Context building', 'Thought sequencing', 'Reasoning step-by-step', 'Breaking complexity', 'Simplifying structure', 'Organizing reasoning chain', 'Evaluating possibilities', 'Exploring angles', 'Considering options', 'Weighing evidence', 'Checking consistency', 'Testing logic', 'Verifying steps', 'Debugging thought process', 'Running mental simulation', 'Iterating reasoning', 'Refining answer', 'Improving clarity', 'Enhancing logic', 'Tightening explanation', 'Strengthening argument', 'Reworking idea', 'Adjusting reasoning', 'Fine-tuning output', 'Polishing thought', 'Finalizing reasoning', 'Almost ready', 'Nearly done', 'Getting there', 'Still thinking', 'Just a second', 'Give me a moment', 'Working through details', 'Sorting complexity', 'Handling nuance', 'Parsing context', 'Reading between lines', 'Understanding structure', 'Building response', 'Preparing answer', 'Assembling logic', 'Collecting thoughts', 'Gathering insight', 'Pulling information together', 'Organizing response', 'Structuring reply', 'Composing answer', 'Writing mentally', 'Forming explanation', 'Drafting response', 'Thinking aloud', 'Internal reasoning', 'Silent analysis', 'Deep processing', 'Fast reasoning', 'Slow careful thinking', 'Careful analysis', 'Quick evaluation', 'Rapid processing', 'Thorough examination', 'Light analysis', 'Heavy reasoning', 'Deep dive', 'Surface scan', 'Mental pass', 'Second pass analysis', 'Third pass review', 'Multi-step reasoning', 'Layered thinking', 'Hierarchical analysis', 'Sequential reasoning', 'Parallel thinking', 'Concept mapping', 'Idea linking', 'Knowledge traversal', 'Reasoning traversal', 'Cognitive scan', 'Analytical sweep', 'Insight sweep', 'Thought scan', 'Reasoning pass', 'Logic pass', 'Evaluation pass', 'Review pass', 'Check pass', 'Final pass', 'Initial thinking', 'First impression analysis', 'Early reasoning', 'Mid reasoning', 'Late stage thinking', 'Pre-finalizing', 'Post-processing', 'Pre-processing thought', 'Bootstrapping reasoning', 'Stabilizing answer', 'Converging on solution', 'Diverging ideas', 'Exploring branches', 'Pruning options', 'Selecting path', 'Decision forming', 'Judgment processing', 'Opinion forming', 'Insight crystallizing', 'Thought crystallization', 'Idea refinement', 'Signal interpretation', 'Context interpretation', 'Meaning extraction', 'Intent detection', 'Goal alignment', 'Response shaping', 'Output crafting', 'Answer shaping', 'Logic shaping', 'Reasoning shaping', 'Structuring insight', 'Organizing cognition', 'Mental structuring', 'Cognitive structuring', 'Thought architecture', 'Reasoning architecture', 'Building framework', 'Constructing framework', 'Framework analysis', 'System thinking', 'Holistic reasoning', 'Linear reasoning', 'Nonlinear reasoning', 'Abstract thinking', 'Concrete reasoning', 'Meta thinking', 'Self-checking logic', 'Recursive thinking', 'Iterative thinking', 'Continuous processing', 'Active reasoning', 'Passive analysis', 'Background thinking', 'Foreground reasoning', 'Focused thinking', 'Diffuse thinking', 'Expanding analysis', 'Compressing thought', 'Condensing reasoning', 'Elaborating idea', 'Summarizing mentally', 'Extracting core idea', 'Identifying key points', 'Highlighting relevance', 'Filtering importance', 'Ranking ideas', 'Prioritizing logic', 'Ordering thoughts', 'Sequencing ideas', 'Aligning reasoning', 'Harmonizing output', 'Stabilizing logic', 'Balancing arguments', 'Cross-checking', 'Multi-angle analysis', 'Perspective shifting', 'Context switching', 'Mental adjustment', 'Adaptive reasoning', 'Dynamic thinking', 'Fluid analysis', 'Structured reasoning', 'Unstructured exploration', 'Open-ended thinking', 'Goal-oriented reasoning', 'Task-focused thinking', 'Solution search', 'Answer search', 'Insight search', 'Meaning search', 'Logic search', 'Pattern search', 'Connection search', 'Deep inspection', 'Broad scan', 'Narrow focus', 'Zooming in', 'Zooming out', 'Perspective zoom', 'Detail checking', 'Macro analysis', 'Micro analysis', 'System scan', 'Cognitive load processing', 'Thought compression', 'Idea expansion', 'Reasoning expansion', 'Clarification pass', 'Final review', 'Pre-output check', 'Output validation', 'Response preparation', 'Answer finalization', 'Done thinking',
+  'Thinking', 'Reasoning', 'Processing', 'Analyzing', 'Reflecting', 'Pondering', 'Contemplating', 'Deliberating', 'Evaluating', 'Interpreting', 'Understanding', 'Figuring it out', 'Working it out', 'Breaking it down', 'Connecting ideas', 'Synthesizing', 'Formulating', 'Organizing thoughts', 'Reviewing', 'Rechecking', 'Brainstorming', 'Tinkering', 'Exploring', 'Digging in', 'Untangling', 'Decoding', 'Mapping it out', 'Piecing it together', 'Cooking up an answer', 'Sharpening logic', 'Structuring output', 'Building context', 'Scanning possibilities', 'Weighing options', 'Filtering noise', 'Optimizing reasoning', 'Searching patterns', 'Testing ideas', 'Simulating outcomes', 'Let me think', 'Let\'s see', 'Hmm', 'One moment', 'Almost there', 'Thinking through this', 'Working on it', 'Getting clarity', 'Putting it together', 'Double-checking', 'Stepping through it', 'Re-evaluating', 'Getting the details right', 'Holding that thought', 'Forming response', 'Constructing answer', 'Drafting logic', 'Aligning ideas', 'Sorting information', 'Processing inputs', 'Parsing meaning', 'Extracting insight', 'Reviewing data', 'Inspecting details', 'Examining closely', 'Looking deeper', 'Going deeper', 'Thinking deeper', 'Expanding thought', 'Narrowing focus', 'Clarifying intent', 'Inferring meaning', 'Drawing conclusions', 'Reassessing', 'Reconstructing logic', 'Rebuilding understanding', 'Checking assumptions', 'Validating idea', 'Confirming reasoning', 'Running analysis', 'Mental modeling', 'Cognitive processing', 'Pattern matching', 'Signal extraction', 'Noise reduction', 'Idea exploration', 'Thought formation', 'Logic building', 'Insight generation', 'Knowledge synthesis', 'Information structuring', 'Context building', 'Thought sequencing', 'Reasoning step-by-step', 'Breaking complexity', 'Simplifying structure', 'Organizing reasoning chain', 'Evaluating possibilities', 'Exploring angles', 'Considering options', 'Weighing evidence', 'Checking consistency', 'Testing logic', 'Verifying steps', 'Debugging thought process', 'Running mental simulation', 'Iterating reasoning', 'Refining answer', 'Improving clarity', 'Enhancing logic', 'Tightening explanation', 'Strengthening argument', 'Reworking idea', 'Adjusting reasoning', 'Fine-tuning output', 'Polishing thought', 'Finalizing reasoning', 'Almost ready', 'Nearly done', 'Getting there', 'Still thinking', 'Just a second', 'Give me a moment', 'Working through details', 'Sorting complexity', 'Handling nuance', 'Parsing context', 'Reading between lines', 'Understanding structure', 'Building response', 'Preparing answer', 'Assembling logic', 'Collecting thoughts', 'Gathering insight', 'Pulling information together', 'Organizing response', 'Structuring reply', 'Composing answer', 'Writing mentally', 'Forming explanation', 'Drafting response', 'Thinking aloud', 'Internal reasoning', 'Silent analysis', 'Deep processing', 'Fast reasoning', 'Slow careful thinking', 'Careful analysis', 'Quick evaluation', 'Rapid processing', 'Thorough examination', 'Light analysis', 'Heavy reasoning', 'Deep dive', 'Surface scan', 'Mental pass', 'Second pass analysis', 'Third pass review', 'Multi-step reasoning', 'Layered thinking', 'Hierarchical analysis', 'Sequential reasoning', 'Parallel thinking', 'Concept mapping', 'Idea linking', 'Knowledge traversal', 'Reasoning traversal', 'Cognitive scan', 'Analytical sweep', 'Insight sweep', 'Thought scan', 'Reasoning pass', 'Logic pass', 'Evaluation pass', 'Review pass', 'Check pass', 'Final pass', 'Initial thinking', 'First impression analysis', 'Early reasoning', 'Mid reasoning', 'Late stage thinking', 'Pre-finalizing', 'Post-processing', 'Pre-processing thought', 'Bootstrapping reasoning', 'Stabilizing answer', 'Converging on solution', 'Diverging ideas', 'Exploring branches', 'Pruning options', 'Selecting path', 'Decision forming', 'Judgment processing', 'Opinion forming', 'Insight crystallizing', 'Thought crystallization', 'Idea refinement', 'Signal interpretation', 'Context interpretation', 'Meaning extraction', 'Intent detection', 'Goal alignment', 'Response shaping', 'Output crafting', 'Answer shaping', 'Logic shaping', 'Reasoning shaping', 'Structuring insight', 'Organizing cognition', 'Mental structuring', 'Cognitive structuring', 'Thought architecture', 'Reasoning architecture', 'Building framework', 'Constructing framework', 'Framework analysis', 'System thinking', 'Holistic reasoning', 'Linear reasoning', 'Nonlinear reasoning', 'Abstract thinking', 'Concrete reasoning', 'Meta thinking', 'Self-checking logic', 'Recursive thinking', 'Iterative thinking', 'Continuous processing', 'Active reasoning', 'Passive analysis', 'Background thinking', 'Foreground reasoning', 'Focused thinking', 'Diffuse thinking', 'Expanding analysis', 'Compressing thought', 'Condensing reasoning', 'Elaborating idea', 'Summarizing mentally', 'Extracting core idea', 'Identifying key points', 'Highlighting relevance', 'Filtering importance', 'Ranking ideas', 'Prioritizing logic', 'Ordering thoughts', 'Sequencing ideas', 'Aligning reasoning', 'Harmonizing output', 'Stabilizing logic', 'Balancing arguments', 'Cross-checking', 'Multi-angle analysis', 'Perspective shifting', 'Context switching', 'Mental adjustment', 'Adaptive reasoning', 'Dynamic thinking', 'Fluid analysis', 'Structured reasoning', 'Unstructured exploration', 'Open-ended thinking', 'Goal-oriented reasoning', 'Task-focused thinking', 'Solution search', 'Answer search', 'Insight search', 'Meaning search', 'Logic search', 'Pattern search', 'Connection search', 'Deep inspection', 'Broad scan', 'Narrow focus', 'Zooming in', 'Zooming out', 'Perspective zoom', 'Detail checking', 'Macro analysis', 'Micro analysis', 'System scan', 'Cognitive load processing', 'Thought compression', 'Idea expansion', 'Reasoning expansion', 'Clarification pass', 'Final review', 'Pre-output check', 'Output validation', 'Response preparation', 'Answer finalization', 'Done thinking',
 ];
 const SPIN = [
   '·',
@@ -66,13 +66,6 @@ function termCols(): number {
   return Math.min(process.stdout.columns ?? 80, 120);
 }
 
-function printStepHeader(step: number): void {
-  const label = ` step ${step} `;
-  const c = termCols();
-  const dashes = Math.max(0, c - 4 - label.length);
-  process.stdout.write('\n' + chalk.dim(`  ──${label}${'─'.repeat(dashes)}`) + '\n');
-}
-
 function printThinkingBox(content: string): void {
   const c = termCols();
   const innerWidth = c - 6;
@@ -93,13 +86,11 @@ function printThinkingBox(content: string): void {
   process.stdout.write(chalk.dim(`  ╰${'─'.repeat(c - 3)}`) + '\n');
 }
 
-function printTurnSummary(opts: { inTokens: number; outTokens: number; tools: number; steps: number; ms: number }): void {
-  const { inTokens, outTokens, tools, steps, ms } = opts;
+function printTurnSummary(opts: { inTokens: number; outTokens: number; ms: number }): void {
+  const { inTokens, outTokens, ms } = opts;
   const elapsed = (ms / 1000).toFixed(2) + 's';
   const parts: string[] = [];
   if (inTokens + outTokens > 0) parts.push(`↑ ${fmtTokens(inTokens)} ↓ ${fmtTokens(outTokens)}`);
-  if (tools > 0) parts.push(`${tools} tool${tools !== 1 ? 's' : ''}`);
-  parts.push(`${steps} step${steps !== 1 ? 's' : ''}`);
   parts.push(elapsed);
   process.stdout.write('\n' + chalk.dim('  ' + parts.join('  ·  ')) + '\n');
 }
@@ -108,6 +99,11 @@ function printUserPrompt(text: string): void {
   const c = termCols();
   process.stdout.write('\n' + chalk.bold.cyan('  you  ') + chalk.white(text) + '\n');
   process.stdout.write(chalk.dim('  ' + '─'.repeat(c - 2)) + '\n');
+}
+
+function printStepHeader(step: number): void {
+  if (step === 1) return; // Skip header for first iteration (no noise)
+  process.stdout.write(chalk.dim(`\n  ── step ${step} ──\n`));
 }
 
 // ── REPL ──────────────────────────────────────────────────────────────────────
@@ -138,7 +134,6 @@ export class REPL {
 
     this.provider = activeProvider;
 
-    // Resolve model — never let listModels() failure crash startup
     if (opts?.model) {
       this.model = opts.model;
     } else if (config.activeModel) {
@@ -151,7 +146,6 @@ export class REPL {
       }
     }
 
-    // Resolve context window — always best-effort, never shown as error
     if (this.provider && this.model) {
       try {
         const models = await this.provider.listModels();
@@ -161,8 +155,6 @@ export class REPL {
   }
 
   private buildContext(): CommandContext {
-    // Return a proxy-like object so that slash commands can mutate ctx.model
-    // and have it reflected in this.model immediately.
     const self = this;
     return {
       history: this.history,
@@ -177,23 +169,20 @@ export class REPL {
     const base = config.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
     const memory = formatMemoryForContext();
     const cwd = `Current working directory: ${process.cwd()}`;
-    const platformCtx = platformSystemPrompt();
+    const platform = platformSystemPrompt();
 
     const { content: manthraMdContent } = loadManthraMd();
-
-    // MANTHRA.md is placed FIRST — it is the primary, authoritative instruction
-    // set for this project and overrides any defaults that follow.
     const projectInstructions = manthraMdContent
       ? `# Project instructions (MANTHRA.md)\n\nThe following instructions come from the project's MANTHRA.md file. They are authoritative and override any conflicting defaults below. You MUST follow them exactly.\n\n${manthraMdContent}`
       : null;
 
-    return [projectInstructions, base, cwd, platformCtx, memory].filter(Boolean).join('\n\n');
+    return [projectInstructions, base, cwd, platform, memory].filter(Boolean).join('\n\n');
   }
 
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────
 
   private rows = process.stdout.rows ?? 24;
-  private readonly CHROME = 3; // rows reserved for fixed chrome
+  private readonly CHROME = 3;
 
   private get scrollEnd(): number { return Math.max(this.rows - this.CHROME, 5); }
   private get statusRow(): number { return this.rows - 2; }
@@ -210,12 +199,9 @@ export class REPL {
   private initLayout(): void {
     if (!process.stdout.isTTY) return;
     this.rows = process.stdout.rows ?? 24;
-    // Clear screen and home cursor — removes the blank gap left by the pre-run banner
     process.stdout.write('\x1B[2J\x1B[H');
-    // Set DECSTBM scrolling region — rows 1 to scrollEnd scroll; chrome rows are fixed
     process.stdout.write(`\x1B[1;${this.scrollEnd}r`);
     this.redrawChrome();
-    // Position cursor at top of scroll region so new content builds downward
     process.stdout.write('\x1B[1;1H');
   }
 
@@ -245,7 +231,6 @@ export class REPL {
       chalk.dim('  ' + (pName ? pName + '  ·  ' : '') + mShort) +
       tokInfo + ctxPct + chalk.dim('   Manthra');
 
-    // Draw all three chrome rows without touching the scroll region
     process.stdout.write('\x1B7');
     process.stdout.write(`\x1B[${s};1H\x1B[2K${statusLine}`);
     process.stdout.write(`\x1B[${inp};1H\x1B[2K`);
@@ -253,7 +238,6 @@ export class REPL {
     process.stdout.write('\x1B8');
   }
 
-  // Position cursor for user input and draw prompt
   private openBox(): void {
     if (!this.rl) return;
     if (!process.stdout.isTTY) { process.stdout.write('\n> '); return; }
@@ -263,10 +247,8 @@ export class REPL {
     this.rl.prompt(true);
   }
 
-  // Move cursor into scroll region so response output scrolls there
   private closeBox(): void {
     if (!process.stdout.isTTY) return;
-    // Clear the input chrome row immediately so typed text doesn't linger
     process.stdout.write('\x1B7');
     process.stdout.write(`\x1B[${this.inputRow};1H\x1B[2K`);
     process.stdout.write('\x1B8');
@@ -301,10 +283,10 @@ export class REPL {
     usage?: { input_tokens: number; output_tokens: number };
   }> {
     let text = '';
-    const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
     let usage: { input_tokens: number; output_tokens: number } | undefined;
     let thinkingBuf = '';
     let stoppedThinking = false;
+    const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
 
     for await (const event of stream) {
       if (!stoppedThinking) {
@@ -320,7 +302,11 @@ export class REPL {
           break;
         case 'tool_call_done':
           if (event.tool_call) {
-            toolCalls.push({ id: event.tool_call.id, name: event.tool_call.name, input: event.tool_call.input ?? {} });
+            toolCalls.push({
+              id: event.tool_call.id,
+              name: event.tool_call.name,
+              input: event.tool_call.input ?? {},
+            });
           }
           break;
         case 'message_done':
@@ -338,7 +324,7 @@ export class REPL {
       printThinkingBox(thinkingBuf);
     }
 
-    if (text) {
+    if (text.trim()) {
       process.stdout.write('\n' + formatMarkdown(text) + '\n');
     }
 
@@ -353,27 +339,22 @@ export class REPL {
 
     this.history.addUser(userMessage);
 
-    const systemPrompt = this.getSystemPrompt();
-    const messages: Message[] = [
-      { role: 'system', content: systemPrompt },
-      ...this.history.get(),
-    ];
-
-    let activeTools = getToolDefinitions();
+    const tools = getToolDefinitions();
+    const MAX_ITER = 15;
     let iterCount = 0;
-    const MAX_ITER = 10;
     let totalIn = 0;
     let totalOut = 0;
-    let stepCount = 0;
-    let toolCount = 0;
     const turnStart = Date.now();
-    // Stuck-loop detection: track last failed tool signature
-    let lastFailSig = '';
 
     while (iterCount < MAX_ITER) {
       iterCount++;
-      stepCount++;
-      printStepHeader(stepCount);
+      printStepHeader(iterCount);
+
+      const systemPrompt = this.getSystemPrompt();
+      const messages: Message[] = [
+        { role: 'system', content: systemPrompt },
+        ...this.history.get(),
+      ];
 
       let stream: AsyncIterable<StreamEvent>;
       try {
@@ -381,84 +362,76 @@ export class REPL {
           model: this.model,
           maxTokens: getConfig().maxTokens,
           temperature: getConfig().temperature,
-          tools: activeTools,
+          tools,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.log(chalk.red(`\n  Provider error: ${msg}`));
-        break;
+        return { turnIn: totalIn, turnOut: totalOut };
       }
 
       this.stopThinkingFn = startThinking();
-      let text: string, toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }>, usage: { input_tokens: number; output_tokens: number } | undefined;
+      let text: string;
+      let toolCallsList: Array<{ id: string; name: string; input: Record<string, unknown> }>;
+      let usage: { input_tokens: number; output_tokens: number } | undefined;
+
       try {
-        ({ text, toolCalls, usage } = await this.processStream(stream, this.stopThinkingFn));
+        ({ text, toolCalls: toolCallsList, usage } = await this.processStream(stream, this.stopThinkingFn));
       } catch (err: unknown) {
         if (this.stopThinkingFn) { this.stopThinkingFn(); this.stopThinkingFn = null; }
         const msg = err instanceof Error ? err.message : String(err);
-        if (activeTools.length > 0 && /tool|function.call/i.test(msg)) {
-          activeTools = [];
-          continue;
-        }
         console.log(chalk.red(`\n  ${msg}`));
-        break;
+        return { turnIn: totalIn, turnOut: totalOut };
       }
       this.stopThinkingFn = null;
 
-      if (usage) {
-        totalIn += usage.input_tokens ?? 0;
-        totalOut += usage.output_tokens ?? 0;
-      }
+      totalIn += usage?.input_tokens ?? 0;
+      totalOut += usage?.output_tokens ?? 0;
 
+      // Build assistant content blocks
       const assistantContent: ContentBlock[] = [];
-      if (text) assistantContent.push({ type: 'text', text });
-      for (const tc of toolCalls) {
+      if (text) {
+        assistantContent.push({ type: 'text', text });
+      }
+      for (const tc of toolCallsList) {
         assistantContent.push({ type: 'tool_call', id: tc.id, name: tc.name, input: tc.input });
       }
-
       if (assistantContent.length > 0) {
-        messages.push({ role: 'assistant', content: assistantContent });
         this.history.addAssistant(assistantContent);
       }
 
-      if (toolCalls.length === 0) break;
-
-      toolCount += toolCalls.length;
-      const toolResults: ContentBlock[] = [];
-      let stuckThisBatch = false;
-      for (const tc of toolCalls) {
-        let result;
-        try {
-          result = await executeTool(tc.name, tc.input);
-        } catch (err: unknown) {
-          result = { success: false, output: '', error: err instanceof Error ? err.message : String(err) };
-        }
-        const errMsg = result.error ?? 'Unknown error';
-        toolResults.push({
-          type: 'tool_result',
-          tool_call_id: tc.id,
-          content: result.success ? result.output : errMsg,
-          is_error: !result.success,
-        });
-
-        if (!result.success) {
-          const sig = `${tc.name}:${JSON.stringify(tc.input)}`;
-          if (sig === lastFailSig) {
-            process.stdout.write(chalk.yellow('\n  (loop detected — same tool call failed twice, stopping)\n'));
-            stuckThisBatch = true;
-          }
-          lastFailSig = sig;
-        } else {
-          lastFailSig = '';
-        }
+      // No tool calls → final answer, exit loop
+      if (toolCallsList.length === 0) {
+        break;
       }
 
-      messages.push({ role: 'user', content: toolResults });
-      this.history.add({ role: 'user', content: toolResults });
-      if (stuckThisBatch) break;
+      // Execute each tool and add results to history
+      const toolResultBlocks: ContentBlock[] = [];
+      for (const tc of toolCallsList) {
+        const result = await executeTool(tc.name, tc.input);
+        const resultContent = result.success
+          ? result.output
+          : `[ERROR] ${result.error ?? 'tool failed'}${result.output ? '\n' + result.output : ''}`;
+
+        toolResultBlocks.push({
+          type: 'tool_result',
+          tool_call_id: tc.id,
+          content: resultContent,
+          is_error: !result.success,
+        });
+      }
+
+      // Add tool results as a user message (per Ollama/OpenAI convention)
+      if (toolResultBlocks.length > 0) {
+        this.history.add({ role: 'user', content: toolResultBlocks });
+      }
     }
 
-    printTurnSummary({ inTokens: totalIn, outTokens: totalOut, tools: toolCount, steps: stepCount, ms: Date.now() - turnStart });
+    if (iterCount >= MAX_ITER) {
+      process.stdout.write(chalk.yellow('\n  (reached max tool iterations)\n'));
+    }
+
+    printTurnSummary({ inTokens: totalIn, outTokens: totalOut, ms: Date.now() - turnStart });
 
     return { turnIn: totalIn, turnOut: totalOut };
   }
@@ -475,7 +448,6 @@ export class REPL {
 
     this.initLayout();
 
-    // Show which MANTHRA.md files are active
     const { sources: mdSources } = loadManthraMd();
     if (mdSources.length > 0) {
       const cwd = process.cwd();
@@ -483,7 +455,6 @@ export class REPL {
       process.stdout.write(chalk.dim(`  ✦  MANTHRA.md: ${labels.join('  ·  ')}\n`));
     }
 
-    // Update scroll region on terminal resize
     process.stdout.on('resize', () => {
       this.rows = process.stdout.rows ?? 24;
       process.stdout.write(`\x1B[1;${this.scrollEnd}r`);
@@ -496,7 +467,7 @@ export class REPL {
 
     this.rl.on('line', async (raw) => {
       const input = raw.trim();
-      this.closeBox(); // position cursor in scroll region
+      this.closeBox();
 
       if (!input) { this.openBox(); return; }
 
@@ -524,8 +495,8 @@ export class REPL {
 
     this.rl.on('close', () => {
       if (process.stdout.isTTY) {
-        process.stdout.write('\x1B[r');                      // reset scroll region
-        process.stdout.write(`\x1B[${this.rows};1H\n`);     // move below chrome
+        process.stdout.write('\x1B[r');
+        process.stdout.write(`\x1B[${this.rows};1H\n`);
       }
       if (this.history.length() > 0) this.history.save();
       console.log(chalk.gray('  Goodbye!\n'));

@@ -7,9 +7,9 @@ export interface ToolResult {
 export interface Tool {
   name: string;
   description: string;
-  input_schema: {
+  parameters: {
     type: 'object';
-    properties: Record<string, unknown>;
+    properties: Record<string, { type: string; description: string; enum?: string[] }>;
     required?: string[];
   };
   execute(input: Record<string, unknown>): Promise<ToolResult>;

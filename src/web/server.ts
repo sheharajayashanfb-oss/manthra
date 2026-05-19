@@ -159,12 +159,6 @@ export async function startServer(port?: number): Promise<void> {
     }
   });
 
-  // GET /api/tools
-  app.get('/api/tools', async (_req, res) => {
-    const { getToolDefinitions } = await import('../tools/registry.js');
-    res.json(getToolDefinitions());
-  });
-
   // Serve the self-contained web UI (CSS+JS inlined at build time)
   app.get('*', (_req, res) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

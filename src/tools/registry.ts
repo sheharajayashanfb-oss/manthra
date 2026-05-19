@@ -1,49 +1,65 @@
 import type { Tool } from './types.js';
 import type { ToolDefinition } from '../providers/types.js';
-import { bashTool } from './bash.js';
-import { fileReadTool } from './file-read.js';
-import { fileWriteTool } from './file-write.js';
-import { fileEditTool } from './file-edit.js';
-import { multiEditTool } from './multi-edit.js';
-import { globTool } from './glob.js';
-import { grepTool } from './grep.js';
-import { webFetchTool } from './web-fetch.js';
-import { webSearchTool } from './web-search.js';
-import { listDirTool } from './list-dir.js';
-import { httpRequestTool } from './http-request.js';
-import { todoReadTool, todoWriteTool } from './todo.js';
-import { notebookReadTool, notebookEditTool } from './notebook.js';
+import { fsTools } from './fs.js';
+import { searchTools } from './search.js';
+import { shellTools } from './shell.js';
+import { gitTools } from './git.js';
+import { webTools } from './web.js';
+import { agentTools } from './agent.js';
+import { buildTools } from './build.js';
+import { infraTools } from './infra.js';
+import { dbTools } from './db.js';
+import { safetyTools } from './safety.js';
 
-const tools = new Map<string, Tool>([
-  [bashTool.name,         bashTool],
-  [fileReadTool.name,     fileReadTool],
-  [fileWriteTool.name,    fileWriteTool],
-  [fileEditTool.name,     fileEditTool],
-  [multiEditTool.name,    multiEditTool],
-  [globTool.name,         globTool],
-  [grepTool.name,         grepTool],
-  [webFetchTool.name,     webFetchTool],
-  [webSearchTool.name,    webSearchTool],
-  [listDirTool.name,      listDirTool],
-  [httpRequestTool.name,  httpRequestTool],
-  [todoReadTool.name,     todoReadTool],
-  [todoWriteTool.name,    todoWriteTool],
-  [notebookReadTool.name, notebookReadTool],
-  [notebookEditTool.name, notebookEditTool],
-]);
+const allTools: Tool[] = [
+  ...fsTools,
+  ...searchTools,
+  ...shellTools,
+  ...gitTools,
+  ...webTools,
+  ...agentTools,
+  ...buildTools,
+  ...infraTools,
+  ...dbTools,
+  ...safetyTools,
+];
+
+const toolMap = new Map<string, Tool>(allTools.map((t) => [t.name, t]));
 
 export function getTool(name: string): Tool | undefined {
-  return tools.get(name);
+  return toolMap.get(name);
 }
 
 export function getAllTools(): Tool[] {
-  return Array.from(tools.values());
+  return allTools;
 }
 
+/** Flat ToolDefinition[] compatible with ChatOptions.tools */
 export function getToolDefinitions(): ToolDefinition[] {
-  return getAllTools().map((t) => ({
+  return allTools.map((t) => ({
     name: t.name,
     description: t.description,
-    input_schema: t.input_schema,
+    parameters: t.parameters,
+  }));
+}
+
+export interface OllamaToolDefinition {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Tool['parameters'];
+  };
+}
+
+/** Ollama-wrapped format (used internally by OllamaProvider) */
+export function getOllamaToolDefinitions(): OllamaToolDefinition[] {
+  return allTools.map((t) => ({
+    type: 'function' as const,
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    },
   }));
 }

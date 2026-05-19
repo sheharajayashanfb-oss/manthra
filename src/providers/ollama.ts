@@ -276,48 +276,62 @@ export class OllamaProvider implements Provider {
     // (some models output {"name":"...","arguments":{...}} as plain text instead
     // of using the native tool_calls API field).
     let textBuffer = '';
+    let thinkingBuffer = '';
     const nativeToolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
 
+    const processLine = (line: string) => {
+      if (!line.trim()) return;
+      let chunk: OllamaChatChunk;
+      try { chunk = JSON.parse(line); } catch { return; }
+
+      if (chunk.message?.thinking) {
+        thinkingBuffer += chunk.message.thinking;
+      }
+
+      if (chunk.message?.content) {
+        textBuffer += chunk.message.content;
+      }
+
+      if (chunk.message?.tool_calls?.length) {
+        for (const tc of chunk.message.tool_calls) {
+          nativeToolCalls.push({
+            id: tc.id ?? `${tc.function.name}_${Date.now()}`,
+            name: tc.function.name,
+            input: tc.function.arguments ?? {},
+          });
+        }
+      }
+
+      if (chunk.done) {
+        if (chunk.prompt_eval_count) inputTokens = chunk.prompt_eval_count;
+        if (chunk.eval_count) outputTokens = chunk.eval_count;
+      }
+    };
+
     try {
+      // lineBuffer accumulates partial lines that span chunk boundaries
+      let lineBuffer = '';
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const raw = decoder.decode(value, { stream: true });
-        for (const line of raw.split('\n')) {
-          if (!line.trim()) continue;
-          let chunk: OllamaChatChunk;
-          try { chunk = JSON.parse(line); } catch { continue; }
-
-          // Thinking tokens stream immediately (shown in real-time by the REPL)
-          if (chunk.message?.thinking) {
-            yield { type: 'thinking_delta', delta: chunk.message.thinking };
-          }
-
-          // Buffer text — don't yield yet; we need the full content to detect tool calls
-          if (chunk.message?.content) {
-            textBuffer += chunk.message.content;
-          }
-
-          // Native tool_calls from the Ollama API
-          if (chunk.message?.tool_calls?.length) {
-            for (const tc of chunk.message.tool_calls) {
-              nativeToolCalls.push({
-                id: tc.id ?? `${tc.function.name}_${Date.now()}`,
-                name: tc.function.name,
-                input: tc.function.arguments ?? {},
-              });
-            }
-          }
-
-          if (chunk.done) {
-            if (chunk.prompt_eval_count) inputTokens = chunk.prompt_eval_count;
-            if (chunk.eval_count) outputTokens = chunk.eval_count;
-          }
-        }
+        const lines = (lineBuffer + raw).split('\n');
+        // Last element may be an incomplete line — hold it for the next iteration
+        lineBuffer = lines.pop() ?? '';
+        for (const line of lines) processLine(line);
       }
+      // Flush decoder internal buffer and any remaining line
+      const tail = decoder.decode();
+      if (tail) lineBuffer += tail;
+      if (lineBuffer.trim()) processLine(lineBuffer);
     } finally {
       reader.releaseLock();
+    }
+
+    // Emit thinking first (if any)
+    if (thinkingBuffer) {
+      yield { type: 'thinking_delta', delta: thinkingBuffer };
     }
 
     // Emit tool calls + text in order

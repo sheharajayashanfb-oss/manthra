@@ -83,7 +83,10 @@ ${chalk.bold('Examples:')}
   printProviderStatus(config.providers);
 
   const repl = new REPL();
-  await repl.init();
+  await repl.init({
+    provider: argv['provider'] as string | undefined,
+    model: argv['model'] as string | undefined,
+  });
 
   // Non-interactive: manthra --print "message"
   const printMsg = argv['print'] as string | undefined;

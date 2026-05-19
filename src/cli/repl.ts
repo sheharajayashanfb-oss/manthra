@@ -73,16 +73,20 @@ export class REPL {
   private contextWindow: number | undefined;
   private sessionStart = Date.now();
 
-  async init(): Promise<void> {
+  async init(opts?: { provider?: string; model?: string }): Promise<void> {
     const config = getConfig();
     loadProviders(config.providers);
 
-    const activeProvider = config.activeProvider
-      ? getProvider(config.activeProvider)
-      : getDefaultProvider(config.providers);
+    const activeProvider = opts?.provider
+      ? (getProvider(opts.provider) ?? getDefaultProvider(config.providers))
+      : config.activeProvider
+        ? getProvider(config.activeProvider)
+        : getDefaultProvider(config.providers);
 
     this.provider = activeProvider;
-    this.model = config.activeModel ?? (activeProvider ? (await activeProvider.listModels())[0]?.id ?? '' : '');
+    this.model = opts?.model
+      || config.activeModel
+      || (activeProvider ? (await activeProvider.listModels())[0]?.id ?? '' : '');
 
     // Resolve context window for the active model (best-effort)
     if (this.provider) {

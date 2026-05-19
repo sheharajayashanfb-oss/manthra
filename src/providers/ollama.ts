@@ -81,15 +81,18 @@ async function fetchWithFallback(paths: string[], baseURL: string, headers?: Rec
       try {
         const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(4000), headers });
         if (res.ok) return res;
+        // Surface real HTTP errors immediately (401, 403, etc.) — don't try fallbacks
+        const body = await res.text().catch(() => '');
+        throw new Error(`Ollama error ${res.status}: ${body || res.statusText}`);
       } catch (e) {
+        // Re-throw HTTP errors immediately — only retry on network failures
+        if (e instanceof Error && /^Ollama error \d+/.test(e.message)) throw e;
         lastErr = e;
       }
     }
   }
   throw new Error(
-    `Cannot reach Ollama at ${baseURL}.\n` +
-    `Make sure Ollama is running: https://ollama.ai\n` +
-    `(tried: ${candidates.join(', ')})\n` +
+    `Cannot reach Ollama at ${baseURL}. Make sure Ollama is running.\n` +
     (lastErr ? `Error: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}` : '')
   );
 }

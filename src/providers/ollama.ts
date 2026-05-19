@@ -274,14 +274,15 @@ export class OllamaProvider implements Provider {
 
     let response: Response;
     try {
-      // 60 s connect timeout — long enough for slow cloud responses but avoids
-      // hanging forever if the server is unreachable.
-      const connectTimeout = AbortSignal.timeout(60000);
+      // Cloud: 60 s connect timeout to catch unreachable endpoints fast.
+      // Local: no timeout — generation can take many minutes for complex tasks
+      // and AbortSignal.timeout applies to the entire fetch including the stream.
+      const signal = isCloud ? AbortSignal.timeout(60000) : undefined;
       response = await fetch(`${this.baseURL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
         body: JSON.stringify(body),
-        signal: connectTimeout,
+        signal,
       });
     } catch (e) {
       // Node.js wraps network errors in error.cause — surface it for debugging

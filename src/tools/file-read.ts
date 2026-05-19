@@ -25,7 +25,7 @@ export const fileReadTool: Tool = {
     const limit = rawLimit !== undefined ? (typeof rawLimit === 'number' ? rawLimit : undefined) : undefined;
 
     if (!existsSync(filePath)) {
-      return { success: false, output: '', error: `File not found: ${filePath}` };
+      return { success: false, output: '', error: `File not found: ${filePath}. The file does not exist. To create it, use the write tool instead of retrying read.` };
     }
 
     try {

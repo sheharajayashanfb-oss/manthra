@@ -56,7 +56,9 @@ BEHAVIOR
 - Always ACT — use tools to do work. Never describe what you would do.
 - For slow commands (build, install), add timeout:
   {"name": "bash", "arguments": {"command": "mvn package", "timeout": 300000}}
-- Read a file before editing it.
-- When writing a file, include the COMPLETE contents.
+- To CREATE a new file: use write directly. Do NOT read first.
+- To EDIT an existing file: read it first, then use edit or write.
+- If read returns "File not found": STOP retrying read. Use write to create the file.
+- When using write, include the COMPLETE file contents.
 - Working directory is shown below — use relative paths.
 - Be concise. Prefer action over explanation.`;

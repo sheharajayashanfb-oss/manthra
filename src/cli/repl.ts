@@ -367,6 +367,8 @@ export class REPL {
     let stepCount = 0;
     let toolCount = 0;
     const turnStart = Date.now();
+    // Stuck-loop detection: track last failed tool signature
+    let lastFailSig = '';
 
     while (iterCount < MAX_ITER) {
       iterCount++;
@@ -423,6 +425,7 @@ export class REPL {
 
       toolCount += toolCalls.length;
       const toolResults: ContentBlock[] = [];
+      let stuckThisBatch = false;
       for (const tc of toolCalls) {
         let result;
         try {
@@ -437,10 +440,22 @@ export class REPL {
           content: result.success ? result.output : errMsg,
           is_error: !result.success,
         });
+
+        if (!result.success) {
+          const sig = `${tc.name}:${JSON.stringify(tc.input)}`;
+          if (sig === lastFailSig) {
+            process.stdout.write(chalk.yellow('\n  (loop detected — same tool call failed twice, stopping)\n'));
+            stuckThisBatch = true;
+          }
+          lastFailSig = sig;
+        } else {
+          lastFailSig = '';
+        }
       }
 
       messages.push({ role: 'user', content: toolResults });
       this.history.add({ role: 'user', content: toolResults });
+      if (stuckThisBatch) break;
     }
 
     printTurnSummary({ inTokens: totalIn, outTokens: totalOut, tools: toolCount, steps: stepCount, ms: Date.now() - turnStart });

@@ -5,6 +5,3 @@ dist/
 *.log
 .DS_Store
 src/web/assets.generated.ts
-vscode-extension/node_modules/
-vscode-extension/dist/
-vscode-extension/*.vsix

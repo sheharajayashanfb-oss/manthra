@@ -108,8 +108,11 @@ interface TextToolCall {
 // The set of tool names manthra actually exposes.
 // Used to reject false positives (e.g. {"name":"my-app",...} from a package.json display block).
 const KNOWN_TOOLS = new Set([
-  'read', 'write', 'edit', 'bash',
-  'glob', 'grep', 'list_dir', 'web_fetch', 'http_request',
+  'read', 'write', 'edit', 'multi_edit', 'bash',
+  'glob', 'grep', 'list_dir',
+  'web_fetch', 'web_search', 'http_request',
+  'todo_read', 'todo_write',
+  'notebook_read', 'notebook_edit',
 ]);
 
 /**

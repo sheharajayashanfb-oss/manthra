@@ -6,28 +6,44 @@ import { startSpinner } from '../ui/spinner.js';
 import type { ToolResult } from './types.js';
 
 // Tools that never touch the filesystem — always allowed
-const ALWAYS_ALLOW = new Set(['read', 'list_dir', 'glob', 'grep', 'web_fetch', 'http_request']);
+const ALWAYS_ALLOW = new Set([
+  'read', 'list_dir', 'glob', 'grep',
+  'web_fetch', 'web_search', 'http_request',
+  'todo_read', 'todo_write',
+  'notebook_read',
+]);
 
 // File-mutating tools: auto-allow when path is within CWD, ask otherwise
-const FILE_TOOLS = new Set(['write', 'edit']);
+const FILE_TOOLS = new Set(['write', 'edit', 'multi_edit', 'notebook_edit']);
 
 // Shell tool: auto-allow (runs with CWD as working directory)
 const SHELL_TOOLS = new Set(['bash']);
 
 function formatToolInput(toolName: string, input: Record<string, unknown>): string {
   switch (toolName) {
-    case 'bash':      return `$ ${input['command']}`;
-    case 'read':      return `${input['path']}${input['offset'] ? `:${input['offset']}` : ''}`;
+    case 'bash':         return `$ ${input['command']}`;
+    case 'read':         return `${input['path']}${input['offset'] ? `:${input['offset']}` : ''}`;
     case 'write': {
       const lines = String(input['content']).split('\n');
       const firstLine = lines[0]?.slice(0, 60) ?? '';
       return `→ ${input['path']} (${lines.length} lines)  ${firstLine}`;
     }
-    case 'edit':      return `${input['path']}: "${String(input['old_string']).slice(0, 40)}…"`;
-    case 'glob':      return `${input['pattern']}`;
-    case 'grep':      return `"${input['pattern']}" in ${input['path'] ?? '.'}`;
-    case 'web_fetch': return `${input['url']}`;
-    default:          return JSON.stringify(input);
+    case 'edit':         return `${input['path']}: "${String(input['old_string']).slice(0, 40)}…"`;
+    case 'multi_edit': {
+      const edits = Array.isArray(input['edits']) ? input['edits'].length : '?';
+      return `${input['path']} (${edits} edits)`;
+    }
+    case 'glob':         return `${input['pattern']}`;
+    case 'grep':         return `"${input['pattern']}" in ${input['path'] ?? '.'}`;
+    case 'web_fetch':    return `${input['url']}`;
+    case 'web_search':   return `"${input['query']}"`;
+    case 'todo_write': {
+      const count = Array.isArray(input['todos']) ? input['todos'].length : '?';
+      return `(${count} items)`;
+    }
+    case 'notebook_read':  return `${input['path']}${input['cell_index'] != null ? ` cell ${input['cell_index']}` : ''}`;
+    case 'notebook_edit':  return `${input['path']} cell ${input['cell_index']}`;
+    default:             return JSON.stringify(input);
   }
 }
 

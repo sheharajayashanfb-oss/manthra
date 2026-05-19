@@ -235,15 +235,24 @@ export class OllamaProvider implements Provider {
   async *chat(messages: Message[], options: ChatOptions): AsyncIterable<StreamEvent> {
     const normalized = normalizeMessages(messages);
 
+    const isCloud = this.baseURL.startsWith('https://');
+
     const body: Record<string, unknown> = {
       model: options.model,
       messages: normalized,
       stream: true,
-      options: {
-        temperature: options.temperature,
-        num_predict: options.maxTokens,
-      },
     };
+
+    // Local Ollama uses nested `options`; cloud uses top-level fields
+    if (isCloud) {
+      if (options.temperature != null) body['temperature'] = options.temperature;
+      if (options.maxTokens != null) body['max_tokens'] = options.maxTokens;
+    } else {
+      body['options'] = {
+        ...(options.temperature != null ? { temperature: options.temperature } : {}),
+        ...(options.maxTokens != null ? { num_predict: options.maxTokens } : {}),
+      };
+    }
 
     if (options.tools && options.tools.length > 0) {
       body.tools = options.tools.map((t) => ({
@@ -256,11 +265,22 @@ export class OllamaProvider implements Provider {
       }));
     }
 
-    const response = await fetch(`${this.baseURL}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
-      body: JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseURL}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      // Node.js wraps network errors in error.cause — surface it for debugging
+      const cause = (e instanceof Error && (e as Error & { cause?: unknown }).cause);
+      const detail = cause instanceof Error ? cause.message : (cause ? String(cause) : '');
+      throw new Error(
+        `Cannot reach Ollama at ${this.baseURL}` +
+        (detail ? ` — ${detail}` : ' — fetch failed (check network / URL)')
+      );
+    }
 
     if (!response.ok || !response.body) {
       const errText = await response.text().catch(() => response.statusText);

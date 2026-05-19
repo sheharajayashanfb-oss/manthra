@@ -93,15 +93,25 @@ export class REPL {
         : getDefaultProvider(config.providers);
 
     this.provider = activeProvider;
-    this.model = opts?.model
-      || config.activeModel
-      || (activeProvider ? (await activeProvider.listModels())[0]?.id ?? '' : '');
 
-    // Resolve context window for the active model (best-effort)
-    if (this.provider) {
+    // Resolve model — never let listModels() failure crash startup
+    if (opts?.model) {
+      this.model = opts.model;
+    } else if (config.activeModel) {
+      this.model = config.activeModel;
+    } else if (activeProvider) {
+      try {
+        this.model = (await activeProvider.listModels())[0]?.id ?? '';
+      } catch {
+        this.model = '';
+      }
+    }
+
+    // Resolve context window — always best-effort, never shown as error
+    if (this.provider && this.model) {
       try {
         const models = await this.provider.listModels();
-        this.contextWindow = models.find(m => m.id === this.model)?.contextWindow;
+        this.contextWindow = models.find((m) => m.id === this.model)?.contextWindow;
       } catch { /* ignore */ }
     }
   }
@@ -158,11 +168,13 @@ export class REPL {
     if (!process.stdout.isTTY) return;
     this.rows = process.stdout.rows ?? 24;
     this.cols = process.stdout.columns ?? 80;
+    // Clear screen and home cursor — removes the blank gap left by the pre-run banner
+    process.stdout.write('\x1B[2J\x1B[H');
     // Set DECSTBM scrolling region — rows 1 to scrollEnd scroll; chrome rows are fixed
     process.stdout.write(`\x1B[1;${this.scrollEnd}r`);
     this.redrawChrome();
-    // Position cursor at bottom of scroll region so first output lands there
-    process.stdout.write(`\x1B[${this.scrollEnd};1H`);
+    // Position cursor at top of scroll region so new content builds downward
+    process.stdout.write('\x1B[1;1H');
   }
 
   private redrawChrome(): void {

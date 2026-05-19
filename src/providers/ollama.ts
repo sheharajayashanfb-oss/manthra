@@ -81,7 +81,9 @@ async function fetchWithFallback(paths: string[], baseURL: string, headers?: Rec
   for (const base of candidates) {
     for (const path of paths) {
       try {
-        const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(4000), headers });
+        // Local: 4 s is plenty. Cloud: allow 15 s for TLS + DNS + round-trip.
+        const timeoutMs = base.startsWith('https://') ? 15000 : 4000;
+        const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(timeoutMs), headers });
         if (res.ok) return res;
         // Surface real HTTP errors immediately (401, 403, etc.) — don't try fallbacks
         const body = await res.text().catch(() => '');
@@ -272,10 +274,14 @@ export class OllamaProvider implements Provider {
 
     let response: Response;
     try {
+      // 60 s connect timeout — long enough for slow cloud responses but avoids
+      // hanging forever if the server is unreachable.
+      const connectTimeout = AbortSignal.timeout(60000);
       response = await fetch(`${this.baseURL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
         body: JSON.stringify(body),
+        signal: connectTimeout,
       });
     } catch (e) {
       // Node.js wraps network errors in error.cause — surface it for debugging

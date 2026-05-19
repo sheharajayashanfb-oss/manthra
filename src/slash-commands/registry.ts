@@ -6,6 +6,7 @@ import { helpCommand } from './help.js';
 import { clearCommand } from './clear.js';
 import { modelCommand } from './model.js';
 import { rememberCommand, forgetCommand, memoryCommand } from './memory.js';
+import { doctorCommand } from './doctor.js';
 
 const webCommand: SlashCommand = {
   name: 'web',
@@ -27,6 +28,7 @@ const commands: SlashCommand[] = [
   rememberCommand,
   forgetCommand,
   memoryCommand,
+  doctorCommand,
   initCommand,
   webCommand,
   exitCommand,

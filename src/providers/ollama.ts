@@ -287,9 +287,14 @@ export class OllamaProvider implements Provider {
       // Node.js wraps network errors in error.cause — surface it for debugging
       const cause = (e instanceof Error && (e as Error & { cause?: unknown }).cause);
       const detail = cause instanceof Error ? cause.message : (cause ? String(cause) : '');
+      const isCloud = this.baseURL.startsWith('https://');
+      const hint = isCloud
+        ? '\n  Check: network connectivity, firewall, and API key in `manthra web`.\n  Run `curl ' + this.baseURL + '/api/tags` to verify reachability.'
+        : '\n  Make sure Ollama is running: `ollama serve`';
       throw new Error(
         `Cannot reach Ollama at ${this.baseURL}` +
-        (detail ? ` — ${detail}` : ' — fetch failed (check network / URL)')
+        (detail ? ` — ${detail}` : ' — connection failed') +
+        hint
       );
     }
 

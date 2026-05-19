@@ -14,6 +14,7 @@ export const helpCommand: SlashCommand = {
       { name: '/help',            desc: 'Show this help message' },
       { name: '/clear',           desc: 'Clear conversation history and start fresh' },
       { name: '/model [name]',    desc: 'Show current model, or switch to a different one' },
+      { name: '/doctor',          desc: 'Test connectivity to all configured providers' },
       { name: '/remember <text>', desc: 'Save something to persistent memory' },
       { name: '/forget <id>',     desc: 'Remove a memory entry by ID' },
       { name: '/memory',          desc: 'List all saved memory entries' },

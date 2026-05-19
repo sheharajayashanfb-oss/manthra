@@ -322,7 +322,6 @@ export class REPL {
         const msg = err instanceof Error ? err.message : String(err);
         if (activeTools.length > 0 && /tool|function.call/i.test(msg)) {
           activeTools = [];
-          iterCount--;
           continue;
         }
         console.log(chalk.red(`\n  ${msg}`));

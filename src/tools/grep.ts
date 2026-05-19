@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, statSync } from 'fs';
 import fg from 'fast-glob';
 import type { Tool, ToolResult } from './types.js';
 
@@ -32,7 +32,7 @@ export const grepTool: Tool = {
 
     let files: string[];
     if (existsSync(searchPath) && !fg.isDynamicPattern(searchPath)) {
-      const stat = (await import('fs')).statSync(searchPath);
+      const stat = statSync(searchPath);
       files = stat.isFile() ? [searchPath] : await fg(include, { cwd: searchPath, ignore: ['**/node_modules/**', '**/.git/**'], dot: false, onlyFiles: true, absolute: true });
     } else {
       files = await fg(include, { cwd: searchPath, ignore: ['**/node_modules/**', '**/.git/**'], dot: false, onlyFiles: true });

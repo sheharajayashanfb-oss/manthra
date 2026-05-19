@@ -162,7 +162,7 @@ function extractTextToolCalls(text: string): { toolCalls: TextToolCall[]; remain
       const startIdx = i;
       let acc = '';
       let resolved = false;
-      for (let j = i; j < Math.min(lines.length, i + 80); j++) {
+      for (let j = i; j < Math.min(lines.length, i + 500); j++) {
         acc += (j === i ? '' : '\n') + lines[j];
         try {
           JSON.parse(acc); // throws until the object is complete
@@ -203,7 +203,7 @@ function tryParseToolCall(json: string): TextToolCall | null {
     if (!KNOWN_TOOLS.has(obj.name)) return null;
     const input = (obj.arguments ?? obj.input ?? obj.parameters ?? {}) as Record<string, unknown>;
     if (typeof input !== 'object' || input === null) return null;
-    return { id: `${obj.name}_${Date.now()}`, name: obj.name, input };
+    return { id: `${obj.name}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: obj.name, input };
   } catch {
     return null;
   }

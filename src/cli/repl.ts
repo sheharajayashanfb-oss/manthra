@@ -104,6 +104,12 @@ function printTurnSummary(opts: { inTokens: number; outTokens: number; tools: nu
   process.stdout.write('\n' + chalk.dim('  ' + parts.join('  ·  ')) + '\n');
 }
 
+function printUserPrompt(text: string): void {
+  const c = termCols();
+  process.stdout.write('\n' + chalk.bold.cyan('  you  ') + chalk.white(text) + '\n');
+  process.stdout.write(chalk.dim('  ' + '─'.repeat(c - 2)) + '\n');
+}
+
 // ── REPL ──────────────────────────────────────────────────────────────────────
 
 export class REPL {
@@ -260,6 +266,10 @@ export class REPL {
   // Move cursor into scroll region so response output scrolls there
   private closeBox(): void {
     if (!process.stdout.isTTY) return;
+    // Clear the input chrome row immediately so typed text doesn't linger
+    process.stdout.write('\x1B7');
+    process.stdout.write(`\x1B[${this.inputRow};1H\x1B[2K`);
+    process.stdout.write('\x1B8');
     process.stdout.write(`\x1B[${this.scrollEnd};1H`);
   }
 
@@ -481,6 +491,7 @@ export class REPL {
         return;
       }
 
+      printUserPrompt(input);
       this.isProcessing = true;
       this.rl!.pause();
       try {

@@ -107,8 +107,7 @@ interface TextToolCall {
   input: Record<string, unknown>;
 }
 
-// The set of tool names manthra actually exposes.
-// Used to reject false positives (e.g. {"name":"my-app",...} from a package.json display block).
+// Canonical tool names Manthra exposes
 const KNOWN_TOOLS = new Set([
   'read', 'write', 'edit', 'multi_edit', 'bash',
   'glob', 'grep', 'list_dir',
@@ -117,80 +116,239 @@ const KNOWN_TOOLS = new Set([
   'notebook_read', 'notebook_edit',
 ]);
 
+// Fuzzy name map — covers aliases, typos, and hallucinated names across Ollama models
+const TOOL_NAME_MAP: Record<string, string> = {
+  // bash
+  bash: 'bash', shell: 'bash', run_bash: 'bash', execute_bash: 'bash',
+  run_command: 'bash', execute_command: 'bash', run_shell: 'bash',
+  terminal: 'bash', exec: 'bash', cmd: 'bash', sh: 'bash', zsh: 'bash',
+  execute: 'bash', run: 'bash', command: 'bash', execute_code: 'bash',
+  // read
+  read: 'read', read_file: 'read', file_read: 'read', get_file: 'read',
+  open_file: 'read', view_file: 'read', cat: 'read', show_file: 'read',
+  read_files: 'read', file_content: 'read', get_file_content: 'read',
+  // write
+  write: 'write', write_file: 'write', create_file: 'write', save_file: 'write',
+  create: 'write', new_file: 'write', file_write: 'write', overwrite: 'write',
+  // edit
+  edit: 'edit', edit_file: 'edit', replace: 'edit', update_file: 'edit',
+  patch: 'edit', str_replace: 'edit', str_replace_editor: 'edit',
+  file_edit: 'edit', replace_in_file: 'edit', modify_file: 'edit',
+  // multi_edit
+  multi_edit: 'multi_edit', multi_replace: 'multi_edit', batch_edit: 'multi_edit',
+  // list_dir
+  list_dir: 'list_dir', ls: 'list_dir', list_files: 'list_dir',
+  list_directory: 'list_dir', dir: 'list_dir', list: 'list_dir',
+  directory_listing: 'list_dir', get_directory: 'list_dir',
+  // glob
+  glob: 'glob', find_files: 'glob', find: 'glob', search_files: 'glob',
+  file_search: 'glob', glob_files: 'glob',
+  // grep
+  grep: 'grep', search_content: 'grep', search_in_files: 'grep', rg: 'grep',
+  search_code: 'grep', find_in_files: 'grep', search_text: 'grep',
+  // web_fetch
+  web_fetch: 'web_fetch', fetch: 'web_fetch', fetch_url: 'web_fetch',
+  get_url: 'web_fetch', http_get: 'web_fetch', curl: 'web_fetch',
+  browse: 'web_fetch', visit: 'web_fetch', open_url: 'web_fetch',
+  get_webpage: 'web_fetch', retrieve_url: 'web_fetch', load_url: 'web_fetch',
+  // web_search
+  web_search: 'web_search', search: 'web_search', search_web: 'web_search',
+  google: 'web_search', bing: 'web_search', lookup: 'web_search',
+  internet_search: 'web_search', online_search: 'web_search',
+  // http_request
+  http_request: 'http_request', http: 'http_request', request: 'http_request',
+  api_call: 'http_request', api_request: 'http_request',
+  // todo
+  todo_read: 'todo_read', todo_write: 'todo_write',
+  // notebook
+  notebook_read: 'notebook_read', notebook_edit: 'notebook_edit',
+};
+
+function resolveToolName(raw: string): string | null {
+  const key = raw.toLowerCase().replace(/-/g, '_').replace(/\s+/g, '_');
+  return TOOL_NAME_MAP[key] ?? null;
+}
+
+// Primary arg key for each tool — used when model provides a bare string value
+const PRIMARY_ARG: Record<string, string> = {
+  bash: 'command', read: 'path', write: 'path', edit: 'path',
+  list_dir: 'path', glob: 'pattern', grep: 'pattern',
+  web_fetch: 'url', web_search: 'query', http_request: 'url',
+};
+
+function makeTCId(name: string): string {
+  return `${name}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+// Reject JSON objects that look like project configs / display data, not tool calls
+const DISPLAY_FIELDS = new Set(['version', 'dependencies', 'devDependencies', 'scripts', 'license', 'description', 'author', 'main', 'type', 'exports']);
+
+function looksLikeDisplayObject(obj: Record<string, unknown>): boolean {
+  return [...DISPLAY_FIELDS].some((f) => obj[f] !== undefined);
+}
+
+// Infer tool name from argument shape alone (most-specific match first)
+function inferToolFromArgs(args: Record<string, unknown>): string | null {
+  if (typeof args.url === 'string') return 'web_fetch';
+  if (typeof args.command === 'string') return 'bash';
+  if (typeof args.query === 'string') return 'web_search';
+  if (typeof args.path === 'string' && typeof args.old_string === 'string' && typeof args.new_string === 'string') return 'edit';
+  if (typeof args.path === 'string' && typeof args.content === 'string') return 'write';
+  if (typeof args.path === 'string' && typeof args.pattern === 'string') return 'grep';
+  if (typeof args.path === 'string') return 'read';
+  if (typeof args.pattern === 'string') return 'glob';
+  if (typeof args.method === 'string' || typeof args.headers === 'object') return 'http_request';
+  return null;
+}
+
+// Resolve the arguments object from a parsed JSON blob — handles nested and flat layouts
+function resolveArgs(obj: Record<string, unknown>): Record<string, unknown> {
+  const nested = obj.arguments ?? obj.input ?? obj.parameters ?? obj.params ?? obj.kwargs;
+  return (typeof nested === 'object' && nested !== null)
+    ? (nested as Record<string, unknown>)
+    : obj;
+}
+
+function buildToolCall(name: string, args: Record<string, unknown>): TextToolCall {
+  return { id: makeTCId(name), name, input: args };
+}
+
+// Parse a JSON string → TextToolCall or null
+function tryParseJSON(json: string): TextToolCall | null {
+  let obj: Record<string, unknown>;
+  try { obj = JSON.parse(json) as Record<string, unknown>; } catch { return null; }
+
+  // 1. Has a valid or fuzzy-matched name
+  if (typeof obj.name === 'string') {
+    const name = KNOWN_TOOLS.has(obj.name) ? obj.name : resolveToolName(obj.name);
+    if (name) {
+      const args = resolveArgs(obj);
+      return buildToolCall(name, args);
+    }
+  }
+
+  // 2. No/unknown name — try arg-shape inference
+  if (looksLikeDisplayObject(obj)) return null;
+  const args = resolveArgs(obj);
+  if (!looksLikeDisplayObject(args)) {
+    const name = inferToolFromArgs(args);
+    if (name) return buildToolCall(name, args);
+  }
+
+  return null;
+}
+
 /**
- * Some Ollama models (notably qwen2.5-coder) output tool calls as plain text
- * instead of using the native tool_calls API field.  Three formats seen in the wild:
- *
- *   1. Markdown fence:    ```json\n{"name":"bash","arguments":{...}}\n```
- *   2. Single-line JSON:  {"name":"read","arguments":{"path":"file.ts"}}
- *   3. Multi-line JSON:   {\n  "name": "write",\n  "arguments": {...}\n}
- *
- * Tool calls are identified by having a `name` that matches a known manthra tool,
- * plus an `arguments` / `input` / `parameters` object.  Everything else is kept as
- * display text so the user still sees explanatory content from the model.
+ * Extract tool calls from any text a model might produce.
+ * Handles 7 formats seen across Ollama models:
+ *   1. Native tool_calls API (handled upstream, not here)
+ *   2. XML <tool_call> / <function_call> tags
+ *   3. Markdown fences ```json / ```tool_call
+ *   4. Function-call notation: tool_name({"arg":"val"}) or tool_name("val")
+ *   5. Single-line bare JSON
+ *   6. Multi-line bare JSON
+ *   7. Fuzzy name + arg-shape inference for all of the above
  */
 function extractTextToolCalls(text: string): { toolCalls: TextToolCall[]; remainingText: string } {
   const toolCalls: TextToolCall[] = [];
   let remaining = text;
 
-  // ── Pattern 1: markdown code fence ──────────────────────────────────────
-  // Take the entire content of the fence so nested `}` in the JSON are handled.
+  // ── Pattern 1: XML tool_call / function_call tags ────────────────────────
+  // Matches: <tool_call>JSON</tool_call>  <function_call>JSON</function_call>
   remaining = remaining.replace(
-    /```(?:json)?\s*\n([\s\S]*?)\n```/g,
+    /<(?:tool_call|function_call|tool_use)\b[^>]*>([\s\S]*?)<\/(?:tool_call|function_call|tool_use)>/gi,
     (match, content) => {
-      const tc = tryParseToolCall(content.trim());
+      const tc = tryParseJSON(content.trim());
       if (tc) { toolCalls.push(tc); return ''; }
-      return match; // not a tool call — keep as display code block
+      return match;
     },
   );
 
-  // ── Pattern 2: single-line bare JSON ────────────────────────────────────
+  // ── Pattern 2: Anthropic-style XML ──────────────────────────────────────
+  // <function_calls><invoke><tool_name>bash</tool_name><parameters>{"command":"ls"}</parameters></invoke></function_calls>
+  remaining = remaining.replace(
+    /<invoke>\s*<tool_name>([\s\S]*?)<\/tool_name>\s*<parameters>([\s\S]*?)<\/parameters>\s*<\/invoke>/gi,
+    (match, toolRaw, paramsRaw) => {
+      const name = resolveToolName(toolRaw.trim());
+      if (!name) return match;
+      let args: Record<string, unknown>;
+      try { args = JSON.parse(paramsRaw.trim()); } catch { args = {}; }
+      toolCalls.push(buildToolCall(name, args));
+      return '';
+    },
+  );
+
+  // ── Pattern 3: markdown fences (json / tool_call / function / empty) ─────
+  remaining = remaining.replace(
+    /```(?:json|tool_call|function_call|tool|function)?\s*\n([\s\S]*?)\n```/gi,
+    (match, content) => {
+      const tc = tryParseJSON(content.trim());
+      if (tc) { toolCalls.push(tc); return ''; }
+      return match;
+    },
+  );
+
+  // ── Pattern 4: function-call notation ────────────────────────────────────
+  // Matches: bash({"command":"ls"})  read("src/index.ts")  web_fetch("https://...")
+  remaining = remaining.replace(
+    /^([\w]+)\s*\(\s*((?:\{[\s\S]*?\}|"[^"\n]*"|'[^'\n]*'))\s*\)\s*$/gm,
+    (match, fnRaw, argsRaw) => {
+      const name = resolveToolName(fnRaw);
+      if (!name) return match;
+      let args: Record<string, unknown>;
+      try {
+        const parsed = JSON.parse(argsRaw);
+        args = (typeof parsed === 'object' && parsed !== null)
+          ? (parsed as Record<string, unknown>)
+          : { [PRIMARY_ARG[name] ?? 'value']: parsed };
+      } catch {
+        const val = argsRaw.replace(/^['"]|['"]$/g, '');
+        args = { [PRIMARY_ARG[name] ?? 'value']: val };
+      }
+      toolCalls.push(buildToolCall(name, args));
+      return '';
+    },
+  );
+
+  // ── Pattern 5: single-line bare JSON ─────────────────────────────────────
   remaining = remaining
     .split('\n')
     .filter((line) => {
       const t = line.trim();
       if (t.startsWith('{') && t.endsWith('}')) {
-        const tc = tryParseToolCall(t);
+        const tc = tryParseJSON(t);
         if (tc) { toolCalls.push(tc); return false; }
       }
       return true;
     })
     .join('\n');
 
-  // ── Pattern 3: multi-line bare JSON ─────────────────────────────────────
-  // Accumulate lines starting from a `{` until JSON.parse succeeds.
-  // Cap at 80 lines to avoid run-away accumulation.
+  // ── Pattern 6: multi-line bare JSON ──────────────────────────────────────
   const lines = remaining.split('\n');
   const out: string[] = [];
   let i = 0;
   while (i < lines.length) {
     const t = lines[i].trim();
-    if (t === '{' || (t.startsWith('{') && /"name"\s*:/.test(t))) {
+    if (t === '{' || t.startsWith('{')) {
       const startIdx = i;
       let acc = '';
       let resolved = false;
       for (let j = i; j < Math.min(lines.length, i + 500); j++) {
         acc += (j === i ? '' : '\n') + lines[j];
-        try {
-          JSON.parse(acc); // throws until the object is complete
-          const tc = tryParseToolCall(acc);
-          if (tc) {
-            toolCalls.push(tc);
-          } else {
-            out.push(...lines.slice(startIdx, j + 1));
-          }
-          i = j + 1;
-          resolved = true;
-          break;
-        } catch {
-          // incomplete — keep accumulating
+        let parsed: unknown;
+        try { parsed = JSON.parse(acc); } catch { continue; }
+        if (typeof parsed === 'object' && parsed !== null) {
+          const tc = tryParseJSON(acc);
+          if (tc) { toolCalls.push(tc); }
+          else { out.push(...lines.slice(startIdx, j + 1)); }
+        } else {
+          out.push(...lines.slice(startIdx, j + 1));
         }
+        i = j + 1;
+        resolved = true;
+        break;
       }
-      if (!resolved) {
-        // Never closed within the window — treat as plain text
-        out.push(lines[i]);
-        i++;
-      }
+      if (!resolved) { out.push(lines[i]); i++; }
     } else {
       out.push(lines[i]);
       i++;
@@ -201,69 +359,9 @@ function extractTextToolCalls(text: string): { toolCalls: TextToolCall[]; remain
   return { toolCalls, remainingText: remaining };
 }
 
+// tryParseToolCall kept as thin alias so native tool_call path still works
 function tryParseToolCall(json: string): TextToolCall | null {
-  try {
-    const obj = JSON.parse(json) as Record<string, unknown>;
-    if (typeof obj.name !== 'string') {
-      // No name field — try to infer tool from argument shape
-      return tryInferToolCall(obj);
-    }
-    if (!KNOWN_TOOLS.has(obj.name)) {
-      // Unknown/hallucinated tool name — try to infer from arguments
-      return tryInferToolCall(obj);
-    }
-    const input = (obj.arguments ?? obj.input ?? obj.parameters ?? {}) as Record<string, unknown>;
-    if (typeof input !== 'object' || input === null) return null;
-    return { id: `${obj.name}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: obj.name, input };
-  } catch {
-    return null;
-  }
-}
-
-// Infer a tool name from the argument shape when the model omits or invents the "name" field.
-// Only matches unambiguous shapes (e.g. "url" → web_fetch, "command" → bash).
-function tryInferToolCall(obj: Record<string, unknown>): TextToolCall | null {
-  // Resolve actual args: could be nested under arguments/input, or flat at top level
-  const nested = obj.arguments ?? obj.input ?? obj.parameters;
-  const args = (typeof nested === 'object' && nested !== null)
-    ? (nested as Record<string, unknown>)
-    : obj;
-
-  // Reject obvious non-tool objects (package.json, configs, etc.)
-  const displayFields = ['version', 'dependencies', 'devDependencies', 'scripts', 'license', 'description'];
-  if (displayFields.some((f) => args[f] !== undefined || obj[f] !== undefined)) return null;
-
-  // Must have at least one recognisable tool argument key
-  const hasArg = typeof args.command === 'string' || typeof args.url === 'string' ||
-    typeof args.query === 'string' || typeof args.path === 'string' ||
-    typeof args.pattern === 'string';
-  if (!hasArg) return null;
-
-  // Infer tool — most-specific first to avoid wrong matches
-  let toolName: string;
-  if (typeof args.url === 'string') {
-    toolName = 'web_fetch';
-  } else if (typeof args.command === 'string') {
-    toolName = 'bash';
-  } else if (typeof args.query === 'string') {
-    toolName = 'web_search';
-  } else if (typeof args.path === 'string' && typeof args.old_string === 'string' && typeof args.new_string === 'string') {
-    toolName = 'edit';
-  } else if (typeof args.path === 'string' && typeof args.content === 'string') {
-    toolName = 'write';
-  } else if (typeof args.path === 'string') {
-    toolName = 'read';
-  } else if (typeof args.pattern === 'string') {
-    toolName = 'glob';
-  } else {
-    return null;
-  }
-
-  return {
-    id: `${toolName}_inferred_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-    name: toolName,
-    input: args,
-  };
+  return tryParseJSON(json);
 }
 
 export class OllamaProvider implements Provider {

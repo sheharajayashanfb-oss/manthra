@@ -178,6 +178,7 @@ function editProvider(id) {
   document.getElementById('form-type').value = 'ollama';
   document.getElementById('form-name').value = p.name;
   document.getElementById('form-baseurl').value = p.baseURL || 'http://localhost:11434';
+  document.getElementById('form-apikey').value = p.apiKey || '';
   document.getElementById('form-defaultmodel').value = p.defaultModel || '';
   document.getElementById('form-enabled').checked = p.enabled !== false;
   document.getElementById('test-result').style.display = 'none';
@@ -203,18 +204,27 @@ document.getElementById('modal-overlay').addEventListener('click', (e) => {
 function getFormBody() {
   const name = document.getElementById('form-name').value.trim();
   const baseURL = document.getElementById('form-baseurl').value.trim();
+  const apiKey = document.getElementById('form-apikey').value.trim();
   const defaultModel = document.getElementById('form-defaultmodel').value.trim();
   const enabled = document.getElementById('form-enabled').checked;
-  return { type: 'ollama', name, baseURL, defaultModel, enabled };
+  return { type: 'ollama', name, baseURL, apiKey, defaultModel, enabled };
+}
+
+function toggleApiKey() {
+  const input = document.getElementById('form-apikey');
+  const btn = document.querySelector('.toggle-visibility');
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = 'Hide'; }
+  else { input.type = 'password'; btn.textContent = 'Show'; }
 }
 
 async function saveProvider() {
-  const { type, name, baseURL, defaultModel, enabled } = getFormBody();
+  const { type, name, baseURL, apiKey, defaultModel, enabled } = getFormBody();
 
   if (!name) { toast('Please enter a display name', 'error'); return; }
 
   const body = { type, name, enabled };
   if (baseURL) body.baseURL = baseURL;
+  if (apiKey && !apiKey.startsWith('***')) body.apiKey = apiKey;
   if (defaultModel) body.defaultModel = defaultModel;
 
   try {
@@ -250,8 +260,10 @@ async function testProvider() {
     if (editingId) {
       result = await api('POST', `/providers/${editingId}/test`);
     } else {
-      const { type, name, baseURL, defaultModel, enabled } = getFormBody();
-      result = await api('POST', '/providers/test-inline', { type, name, baseURL, defaultModel, enabled });
+      const { type, name, baseURL, apiKey, defaultModel, enabled } = getFormBody();
+      const body = { type, name, baseURL, defaultModel, enabled };
+      if (apiKey && !apiKey.startsWith('***')) body.apiKey = apiKey;
+      result = await api('POST', '/providers/test-inline', body);
     }
     const failHint = !result.ok ? ' — is Ollama running? Try: ollama serve' : '';
     resultEl.textContent = (result.ok ? '✓ ' : '✗ ') + result.message + failHint;
@@ -279,8 +291,10 @@ async function listModels() {
     if (editingId) {
       models = await api('GET', `/providers/${editingId}/models`);
     } else {
-      const { type, name, baseURL, defaultModel, enabled } = getFormBody();
-      models = await api('POST', '/providers/list-models-inline', { type, name, baseURL, defaultModel, enabled });
+      const { type, name, baseURL, apiKey, defaultModel, enabled } = getFormBody();
+      const body = { type, name, baseURL, defaultModel, enabled };
+      if (apiKey && !apiKey.startsWith('***')) body.apiKey = apiKey;
+      models = await api('POST', '/providers/list-models-inline', body);
     }
 
     let html = '';

@@ -7,7 +7,7 @@ const registry = new Map<string, Provider>();
 export function createProvider(config: ProviderConfig): Provider {
   switch (config.type) {
     case 'ollama':
-      return new OllamaProvider({ id: config.id, name: config.name, type: config.type, baseURL: config.baseURL ?? 'http://127.0.0.1:11434' });
+      return new OllamaProvider({ id: config.id, name: config.name, type: config.type, baseURL: config.baseURL ?? 'http://127.0.0.1:11434', apiKey: config.apiKey });
     default:
       throw new Error(`Unknown provider type: ${config.type}`);
   }

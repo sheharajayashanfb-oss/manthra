@@ -68,7 +68,7 @@ function normalizeMessages(messages: Message[]): OllamaMessage[] {
 }
 
 // Try multiple base URLs in order — handles localhost IPv4/IPv6 variance across OS
-async function fetchWithFallback(paths: string[], baseURL: string): Promise<Response> {
+async function fetchWithFallback(paths: string[], baseURL: string, headers?: Record<string, string>): Promise<Response> {
   // If the user explicitly set a non-default base URL, use it directly
   const defaults = ['http://localhost:11434', 'http://127.0.0.1:11434'];
   const candidates = defaults.includes(baseURL)
@@ -79,7 +79,7 @@ async function fetchWithFallback(paths: string[], baseURL: string): Promise<Resp
   for (const base of candidates) {
     for (const path of paths) {
       try {
-        const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(4000) });
+        const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(4000), headers });
         if (res.ok) return res;
       } catch (e) {
         lastErr = e;
@@ -211,15 +211,22 @@ export class OllamaProvider implements Provider {
   readonly name: string;
   readonly type: string;
   private baseURL: string;
+  private apiKey?: string;
 
-  constructor(config: { id: string; name: string; type: string; baseURL?: string }) {
+  constructor(config: { id: string; name: string; type: string; baseURL?: string; apiKey?: string }) {
     this.id = config.id;
     this.name = config.name;
     this.type = config.type;
-    // Normalize localhost → 127.0.0.1 to avoid IPv6 resolution issues on some systems
+    this.apiKey = config.apiKey;
+    // Normalize localhost → 127.0.0.1 to avoid IPv6 resolution issues on some systems.
+    // Skip normalization for remote/cloud URLs.
     this.baseURL = (config.baseURL ?? 'http://localhost:11434')
       .replace(/\/$/, '')
       .replace(/^(https?:\/\/)localhost(:\d+)/i, '$1127.0.0.1$2');
+  }
+
+  private authHeaders(): Record<string, string> {
+    return this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {};
   }
 
   async *chat(messages: Message[], options: ChatOptions): AsyncIterable<StreamEvent> {
@@ -248,7 +255,7 @@ export class OllamaProvider implements Provider {
 
     const response = await fetch(`${this.baseURL}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
       body: JSON.stringify(body),
     });
 
@@ -335,14 +342,14 @@ export class OllamaProvider implements Provider {
 
   async listModels(): Promise<ModelInfo[]> {
     // Throws on failure so the web UI can surface the real error
-    const res = await fetchWithFallback(['/api/tags'], this.baseURL);
+    const res = await fetchWithFallback(['/api/tags'], this.baseURL, this.authHeaders());
     const data = await res.json() as { models?: OllamaModel[] };
     return (data.models ?? []).map((m) => ({ id: m.name, name: m.name }));
   }
 
   async testConnection(): Promise<boolean> {
     try {
-      await fetchWithFallback(['/api/tags'], this.baseURL);
+      await fetchWithFallback(['/api/tags'], this.baseURL, this.authHeaders());
       return true;
     } catch {
       return false;

@@ -108,7 +108,15 @@
           <div class="form-group">
             <label>Base URL</label>
             <input type="url" id="form-baseurl" placeholder="http://localhost:11434">
-            <p class="field-hint">Default: http://localhost:11434</p>
+            <p class="field-hint">Local default: http://localhost:11434 · Cloud: use your remote Ollama URL</p>
+          </div>
+
+          <div class="form-group">
+            <label>API Key <span class="hint">optional — for cloud / authenticated instances</span></label>
+            <div class="input-with-toggle">
+              <input type="password" id="form-apikey" placeholder="Leave blank for local Ollama" autocomplete="off">
+              <button type="button" class="toggle-visibility" onclick="toggleApiKey()">Show</button>
+            </div>
           </div>
 
           <div class="form-group">

@@ -62,6 +62,26 @@ const webFetchTool: Tool = {
   async execute(input): Promise<ToolResult> {
     try {
       const url = String(input['url']);
+      const apiKey = process.env['OLLAMA_API_KEY'];
+
+      if (apiKey) {
+        try {
+          const res = await fetch('https://ollama.com/api/web_fetch', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({ url }),
+            signal: AbortSignal.timeout(15000),
+          });
+          if (res.ok) {
+            const data = await res.json() as { content?: string; title?: string };
+            return { success: true, output: `${data.title ? data.title + '\n\n' : ''}${data.content ?? ''}` };
+          }
+        } catch { /* fall through to direct fetch */ }
+      }
+
       const content = await fetchText(url);
       return { success: true, output: content };
     } catch (err) {
@@ -83,6 +103,30 @@ const webSearchTool: Tool = {
   async execute(input): Promise<ToolResult> {
     try {
       const query = String(input['query']);
+      const apiKey = process.env['OLLAMA_API_KEY'];
+
+      if (apiKey) {
+        try {
+          const res = await fetch('https://ollama.com/api/web_search', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({ query, max_results: 8 }),
+            signal: AbortSignal.timeout(15000),
+          });
+          if (res.ok) {
+            const data = await res.json() as { results?: Array<{ title: string; url: string; content: string }> };
+            const results = (data.results ?? []).map((r, i) =>
+              `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.content}`
+            );
+            return { success: true, output: `Search results for "${query}":\n\n${results.join('\n\n')}` };
+          }
+        } catch { /* fall through to DuckDuckGo */ }
+      }
+
+      // DuckDuckGo fallback
       const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
       const html = await fetch(url, {
         headers: {

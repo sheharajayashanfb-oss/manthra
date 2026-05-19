@@ -10,6 +10,7 @@ import { buildTools } from './build.js';
 import { infraTools } from './infra.js';
 import { dbTools } from './db.js';
 import { safetyTools } from './safety.js';
+import { embedTools } from './embed.js';
 
 const allTools: Tool[] = [
   ...fsTools,
@@ -22,6 +23,7 @@ const allTools: Tool[] = [
   ...infraTools,
   ...dbTools,
   ...safetyTools,
+  ...embedTools,
 ];
 
 const toolMap = new Map<string, Tool>(allTools.map((t) => [t.name, t]));

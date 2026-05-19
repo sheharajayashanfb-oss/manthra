@@ -17,7 +17,13 @@ export interface ToolResultContent {
   is_error?: boolean;
 }
 
-export type ContentBlock = TextContent | ToolCallContent | ToolResultContent;
+export interface ImageContent {
+  type: 'image';
+  data: string; // base64 encoded
+  mimeType?: string;
+}
+
+export type ContentBlock = TextContent | ToolCallContent | ToolResultContent | ImageContent;
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';
@@ -75,6 +81,9 @@ export interface ChatOptions {
   temperature?: number;
   system?: string;
   tools?: ToolDefinition[];
+  think?: boolean | 'low' | 'medium' | 'high';
+  format?: 'json' | Record<string, unknown>;
+  images?: string[]; // base64 images for vision (on the last user message)
 }
 
 export interface Provider {
@@ -85,4 +94,5 @@ export interface Provider {
   chat(messages: Message[], options: ChatOptions): AsyncIterable<StreamEvent>;
   listModels(): Promise<ModelInfo[]>;
   testConnection(): Promise<boolean>;
+  embed?(model: string, input: string | string[], opts?: { dimensions?: number; truncate?: boolean }): Promise<number[][]>;
 }

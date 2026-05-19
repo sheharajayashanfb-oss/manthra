@@ -1,6 +1,8 @@
 import * as readline from 'readline';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 import chalk from 'chalk';
-import type { Provider, Message, ContentBlock, StreamEvent } from '../providers/types.js';
+import type { Provider, Message, ContentBlock, StreamEvent, ImageContent } from '../providers/types.js';
 import { ConversationHistory } from '../conversation/index.js';
 import { getConfig } from '../config/loader.js';
 import { loadProviders, getProvider, getDefaultProvider } from '../providers/registry.js';
@@ -108,6 +110,29 @@ function printStepHeader(step: number): void {
 
 // ── REPL ──────────────────────────────────────────────────────────────────────
 
+// ── Vision helpers ────────────────────────────────────────────────────────────
+
+function extractImages(text: string): { cleanedText: string; images: ImageContent[] } {
+  const images: ImageContent[] = [];
+  const cleaned = text.replace(/@([^\s]+\.(png|jpg|jpeg|gif|webp|bmp))/gi, (match, filePath: string) => {
+    try {
+      const resolved = resolve(process.cwd(), filePath);
+      if (existsSync(resolved)) {
+        const data = readFileSync(resolved);
+        const ext = filePath.split('.').pop()?.toLowerCase() ?? 'png';
+        const mimeMap: Record<string, string> = {
+          png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+          gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp',
+        };
+        images.push({ type: 'image', data: data.toString('base64'), mimeType: mimeMap[ext] ?? 'image/png' });
+        return `[image: ${filePath}]`;
+      }
+    } catch { /* ignore unreadable files */ }
+    return match;
+  });
+  return { cleanedText: cleaned, images };
+}
+
 export class REPL {
   private history = new ConversationHistory();
   private provider: Provider | undefined;
@@ -115,6 +140,10 @@ export class REPL {
   private rl: readline.Interface | null = null;
   private isProcessing = false;
   private stopThinkingFn: (() => void) | null = null;
+
+  // Think / format modes
+  private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
+  private formatMode: 'json' | Record<string, unknown> | undefined = undefined;
 
   // Token accounting
   private sessionIn = 0;
@@ -263,6 +292,34 @@ export class REPL {
     const [, name, args = ''] = match;
     if (!name) return;
 
+    // Built-in REPL-level commands
+    if (name === 'think') {
+      const val = args.trim().toLowerCase();
+      if (val === 'off' || val === 'false' || val === '0') {
+        this.thinkMode = undefined;
+        console.log(chalk.dim('\n  Think mode: off\n'));
+      } else if (val === 'low' || val === 'medium' || val === 'high') {
+        this.thinkMode = val as 'low' | 'medium' | 'high';
+        console.log(chalk.dim(`\n  Think mode: ${val}\n`));
+      } else {
+        this.thinkMode = true;
+        console.log(chalk.dim('\n  Think mode: on\n'));
+      }
+      return;
+    }
+
+    if (name === 'format') {
+      const val = args.trim().toLowerCase();
+      if (val === 'off' || val === 'false' || val === '0' || val === '') {
+        this.formatMode = undefined;
+        console.log(chalk.dim('\n  Format mode: off\n'));
+      } else {
+        this.formatMode = 'json';
+        console.log(chalk.dim('\n  Format mode: json\n'));
+      }
+      return;
+    }
+
     const command = getCommand(name);
     if (!command) {
       console.log(chalk.yellow(`\n  Unknown command: /${name}`));
@@ -337,7 +394,17 @@ export class REPL {
       return { turnIn: 0, turnOut: 0 };
     }
 
-    this.history.addUser(userMessage);
+    // Extract @image.png references from user message
+    const { cleanedText, images } = extractImages(userMessage);
+    const effectiveMessage = cleanedText;
+
+    if (images.length > 0) {
+      // Add user message with image content blocks
+      const contentBlocks: ContentBlock[] = [{ type: 'text', text: effectiveMessage }, ...images];
+      this.history.add({ role: 'user', content: contentBlocks });
+    } else {
+      this.history.addUser(effectiveMessage);
+    }
 
     const tools = getToolDefinitions();
     const MAX_ITER = 15;
@@ -363,6 +430,8 @@ export class REPL {
           maxTokens: getConfig().maxTokens,
           temperature: getConfig().temperature,
           tools,
+          think: this.thinkMode,
+          format: this.formatMode,
         });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

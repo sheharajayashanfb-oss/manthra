@@ -4,6 +4,7 @@ interface OllamaMessage {
   role: string;
   content: string;
   tool_calls?: OllamaToolCall[];
+  images?: string[];
 }
 
 interface OllamaModel {
@@ -41,6 +42,7 @@ function normalizeMessages(messages: Message[]): OllamaMessage[] {
     const blocks = m.content as ContentBlock[];
     const textParts: string[] = [];
     const toolCalls: OllamaToolCall[] = [];
+    const images: string[] = [];
 
     for (const b of blocks) {
       if (b.type === 'text') {
@@ -55,6 +57,8 @@ function normalizeMessages(messages: Message[]): OllamaMessage[] {
         result.push({ role: 'tool', content });
         // Skip adding to textParts/toolCalls — it's its own message
         continue;
+      } else if (b.type === 'image') {
+        images.push(b.data);
       }
     }
 
@@ -62,9 +66,12 @@ function normalizeMessages(messages: Message[]): OllamaMessage[] {
     if (toolCalls.length > 0) {
       const msg: OllamaMessage = { role: m.role, content: textParts.join('') };
       msg.tool_calls = toolCalls;
+      if (images.length > 0) msg.images = images;
       result.push(msg);
-    } else if (textParts.length > 0) {
-      result.push({ role: m.role, content: textParts.join('') });
+    } else if (textParts.length > 0 || images.length > 0) {
+      const msg: OllamaMessage = { role: m.role, content: textParts.join('') };
+      if (images.length > 0) msg.images = images;
+      result.push(msg);
     }
   }
 
@@ -151,6 +158,9 @@ export class OllamaProvider implements Provider {
         },
       }));
     }
+
+    if (options.think != null) body['think'] = options.think;
+    if (options.format != null) body['format'] = options.format;
 
     let response: Response;
     try {
@@ -266,5 +276,26 @@ export class OllamaProvider implements Provider {
     } catch {
       return false;
     }
+  }
+
+  async embed(model: string, input: string | string[], opts?: { dimensions?: number; truncate?: boolean }): Promise<number[][]> {
+    const body: Record<string, unknown> = { model, input };
+    if (opts?.dimensions != null) body['dimensions'] = opts.dimensions;
+    if (opts?.truncate != null) body['truncate'] = opts.truncate;
+
+    const response = await fetch(`${this.baseURL}/api/embed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this.authHeaders() },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!response.ok) {
+      const err = await response.text().catch(() => response.statusText);
+      throw new Error(`Ollama embed error ${response.status}: ${err}`);
+    }
+
+    const data = await response.json() as { embeddings: number[][] };
+    return data.embeddings;
   }
 }

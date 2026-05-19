@@ -58,12 +58,50 @@ function startThinking(): () => void {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function stripAnsi(s: string): string {
-  return s.replace(/\x1B\[[0-9;]*[mGKHFA-Z]/g, '');
-}
-
 function fmtTokens(n: number): string {
   return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+}
+
+function termCols(): number {
+  return Math.min(process.stdout.columns ?? 80, 120);
+}
+
+function printStepHeader(step: number): void {
+  const label = ` step ${step} `;
+  const c = termCols();
+  const dashes = Math.max(0, c - 4 - label.length);
+  process.stdout.write('\n' + chalk.dim(`  ──${label}${'─'.repeat(dashes)}`) + '\n');
+}
+
+function printThinkingBox(content: string): void {
+  const c = termCols();
+  const innerWidth = c - 6;
+  const lines = content.split('\n').map((l) => l.trimEnd()).filter(Boolean);
+  const cap = 15;
+  const shown = lines.slice(0, cap);
+  const rest = lines.length - shown.length;
+
+  const labelPart = '─ thinking ';
+  const topFill = Math.max(0, c - 3 - labelPart.length);
+  process.stdout.write('\n' + chalk.dim(`  ╭${labelPart}${'─'.repeat(topFill)}`) + '\n');
+  for (const line of shown) {
+    process.stdout.write(chalk.dim(`  │  ${line.slice(0, innerWidth)}\n`));
+  }
+  if (rest > 0) {
+    process.stdout.write(chalk.dim(`  │  … ${rest} more line${rest !== 1 ? 's' : ''}\n`));
+  }
+  process.stdout.write(chalk.dim(`  ╰${'─'.repeat(c - 3)}`) + '\n');
+}
+
+function printTurnSummary(opts: { inTokens: number; outTokens: number; tools: number; steps: number; ms: number }): void {
+  const { inTokens, outTokens, tools, steps, ms } = opts;
+  const elapsed = (ms / 1000).toFixed(2) + 's';
+  const parts: string[] = [];
+  if (inTokens + outTokens > 0) parts.push(`↑ ${fmtTokens(inTokens)} ↓ ${fmtTokens(outTokens)}`);
+  if (tools > 0) parts.push(`${tools} tool${tools !== 1 ? 's' : ''}`);
+  parts.push(`${steps} step${steps !== 1 ? 's' : ''}`);
+  parts.push(elapsed);
+  process.stdout.write('\n' + chalk.dim('  ' + parts.join('  ·  ')) + '\n');
 }
 
 // ── REPL ──────────────────────────────────────────────────────────────────────
@@ -149,7 +187,6 @@ export class REPL {
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────
 
   private rows = process.stdout.rows ?? 24;
-  private cols = process.stdout.columns ?? 80;
   private readonly CHROME = 3; // rows reserved for fixed chrome
 
   private get scrollEnd(): number { return Math.max(this.rows - this.CHROME, 5); }
@@ -167,7 +204,6 @@ export class REPL {
   private initLayout(): void {
     if (!process.stdout.isTTY) return;
     this.rows = process.stdout.rows ?? 24;
-    this.cols = process.stdout.columns ?? 80;
     // Clear screen and home cursor — removes the blank gap left by the pre-run banner
     process.stdout.write('\x1B[2J\x1B[H');
     // Set DECSTBM scrolling region — rows 1 to scrollEnd scroll; chrome rows are fixed
@@ -258,20 +294,16 @@ export class REPL {
     const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
     let usage: { input_tokens: number; output_tokens: number } | undefined;
     let thinkingBuf = '';
-    let thinkingStarted = false;
+    let stoppedThinking = false;
 
     for await (const event of stream) {
+      if (!stoppedThinking) {
+        stopThinking();
+        stoppedThinking = true;
+      }
       switch (event.type) {
         case 'thinking_delta':
-          if (event.delta) {
-            if (!thinkingStarted) {
-              stopThinking();
-              thinkingStarted = true;
-              process.stdout.write('\n  ' + chalk.italic.dim('Thought: '));
-            }
-            process.stdout.write(chalk.italic.dim(event.delta));
-            thinkingBuf += event.delta;
-          }
+          if (event.delta) thinkingBuf += event.delta;
           break;
         case 'text_delta':
           if (event.delta) text += event.delta;
@@ -285,7 +317,6 @@ export class REPL {
           if (event.usage) usage = event.usage;
           break;
         case 'error':
-          stopThinking();
           console.error(chalk.red(`\n  Stream error: ${event.error}`));
           break;
       }
@@ -293,11 +324,10 @@ export class REPL {
 
     stopThinking();
 
-    if (thinkingStarted) {
-      process.stdout.write('\n');
+    if (thinkingBuf.trim()) {
+      printThinkingBox(thinkingBuf);
     }
 
-    // Render formatted response
     if (text) {
       process.stdout.write('\n' + formatMarkdown(text) + '\n');
     }
@@ -324,8 +354,15 @@ export class REPL {
     const MAX_ITER = 10;
     let totalIn = 0;
     let totalOut = 0;
+    let stepCount = 0;
+    let toolCount = 0;
+    const turnStart = Date.now();
 
-    while (iterCount++ < MAX_ITER) {
+    while (iterCount < MAX_ITER) {
+      iterCount++;
+      stepCount++;
+      printStepHeader(stepCount);
+
       let stream: AsyncIterable<StreamEvent>;
       try {
         stream = this.provider.chat(messages, {
@@ -374,6 +411,7 @@ export class REPL {
 
       if (toolCalls.length === 0) break;
 
+      toolCount += toolCalls.length;
       const toolResults: ContentBlock[] = [];
       for (const tc of toolCalls) {
         let result;
@@ -386,7 +424,6 @@ export class REPL {
         toolResults.push({
           type: 'tool_result',
           tool_call_id: tc.id,
-          // Avoid double "Error: Error: ..." — result.error from catch blocks already has the message
           content: result.success ? result.output : errMsg,
           is_error: !result.success,
         });
@@ -395,6 +432,8 @@ export class REPL {
       messages.push({ role: 'user', content: toolResults });
       this.history.add({ role: 'user', content: toolResults });
     }
+
+    printTurnSummary({ inTokens: totalIn, outTokens: totalOut, tools: toolCount, steps: stepCount, ms: Date.now() - turnStart });
 
     return { turnIn: totalIn, turnOut: totalOut };
   }
@@ -422,7 +461,6 @@ export class REPL {
     // Update scroll region on terminal resize
     process.stdout.on('resize', () => {
       this.rows = process.stdout.rows ?? 24;
-      this.cols = process.stdout.columns ?? 80;
       process.stdout.write(`\x1B[1;${this.scrollEnd}r`);
       this.redrawChrome();
       process.stdout.write(`\x1B[${this.inputRow};1H\x1B[2K`);

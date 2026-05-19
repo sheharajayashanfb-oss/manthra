@@ -24,26 +24,25 @@ function formatToolInput(toolName: string, input: Record<string, unknown>): stri
     case 'bash':         return `$ ${input['command']}`;
     case 'read':         return `${input['path']}${input['offset'] ? `:${input['offset']}` : ''}`;
     case 'write': {
-      const lines = String(input['content']).split('\n');
-      const firstLine = lines[0]?.slice(0, 60) ?? '';
-      return `→ ${input['path']} (${lines.length} lines)  ${firstLine}`;
+      const lines = String(input['content'] ?? '').split('\n');
+      return `${input['path']}  (${lines.length} lines)`;
     }
-    case 'edit':         return `${input['path']}: "${String(input['old_string']).slice(0, 40)}…"`;
+    case 'edit':         return `${input['path']}`;
     case 'multi_edit': {
       const edits = Array.isArray(input['edits']) ? input['edits'].length : '?';
-      return `${input['path']} (${edits} edits)`;
+      return `${input['path']}  (${edits} edits)`;
     }
     case 'glob':         return `${input['pattern']}`;
-    case 'grep':         return `"${input['pattern']}" in ${input['path'] ?? '.'}`;
+    case 'grep':         return `"${input['pattern']}"  in  ${input['path'] ?? '.'}`;
     case 'web_fetch':    return `${input['url']}`;
     case 'web_search':   return `"${input['query']}"`;
     case 'todo_write': {
       const count = Array.isArray(input['todos']) ? input['todos'].length : '?';
-      return `(${count} items)`;
+      return `${count} items`;
     }
-    case 'notebook_read':  return `${input['path']}${input['cell_index'] != null ? ` cell ${input['cell_index']}` : ''}`;
-    case 'notebook_edit':  return `${input['path']} cell ${input['cell_index']}`;
-    default:             return JSON.stringify(input);
+    case 'notebook_read':  return `${input['path']}${input['cell_index'] != null ? `  cell ${input['cell_index']}` : ''}`;
+    case 'notebook_edit':  return `${input['path']}  cell ${input['cell_index']}`;
+    default:             return JSON.stringify(input).slice(0, 80);
   }
 }
 
@@ -52,6 +51,35 @@ function isWithinCwd(filePath: string): boolean {
   const abs = resolve(cwd, filePath);
   const rel = relative(cwd, abs);
   return !rel.startsWith('..');
+}
+
+function cols(): number {
+  return Math.min(process.stdout.columns ?? 80, 120);
+}
+
+function rule(label: string, color: (s: string) => string = chalk.dim): string {
+  const inner = ` ${label} `;
+  const remaining = Math.max(0, cols() - inner.length - 2);
+  return color(inner + '─'.repeat(remaining));
+}
+
+function printOutputLines(lines: string[], isError: boolean): void {
+  const c = cols();
+  const cap = 40;
+  const shown = lines.slice(0, cap);
+  const rest = lines.length - shown.length;
+
+  for (const line of shown) {
+    const txt = line.slice(0, c - 5);
+    process.stdout.write(
+      isError
+        ? chalk.red(`  │  ${txt}\n`)
+        : chalk.dim(`  │  ${txt}\n`),
+    );
+  }
+  if (rest > 0) {
+    process.stdout.write(chalk.dim(`  │  … ${rest} more line${rest !== 1 ? 's' : ''}\n`));
+  }
 }
 
 export async function executeTool(
@@ -64,7 +92,7 @@ export async function executeTool(
     return { success: false, output: '', error: `Unknown tool: ${toolName}` };
   }
 
-  // ── permission check (before spinner — may prompt user) ──────────────────
+  // ── permission check ──────────────────────────────────────────────────────
   let allowed = false;
 
   if (ALWAYS_ALLOW.has(toolName)) {
@@ -84,36 +112,63 @@ export async function executeTool(
     return { success: false, output: '', error: 'Permission denied by user' };
   }
 
-  // ── run with spinner ──────────────────────────────────────────────────────
   if (opts?.silent) {
     return await tool.execute(input);
   }
 
+  // ── header (running) ──────────────────────────────────────────────────────
   const desc = formatToolInput(toolName, input);
   const stop = startSpinner(`${toolName}  ${desc}`);
+  const t0 = Date.now();
   const result = await tool.execute(input);
   stop();
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(2) + 's';
 
   if (result.success) {
-    process.stdout.write(chalk.dim(`  ✓  ${toolName}  ${desc}\n`));
-    // Show up to 6 non-empty lines of output as a preview (write returns a content snippet)
-    const preview = result.output
-      .split('\n')
-      .map(l => l.trimEnd())
-      .filter(l => l.length > 0)
-      .slice(0, 6);
-    for (const line of preview) {
-      process.stdout.write(chalk.dim(`     ${line.slice(0, 120)}\n`));
+    // ── success ──────────────────────────────────────────────────────────────
+    const headerRight = chalk.dim(elapsed);
+    const nameTag = chalk.cyan.bold(toolName);
+    const descTag = chalk.white(desc);
+    const icon = chalk.green('✓');
+
+    // Top bar: ✓  tool  desc ─── elapsed
+    const leftPart = `  ${icon}  ${nameTag}  ${descTag}  `;
+    const rawLeft = `     ${toolName}  ${desc}  `;
+    const dashCount = Math.max(2, cols() - rawLeft.length - elapsed.length - 1);
+    process.stdout.write(`${leftPart}${chalk.dim('─'.repeat(dashCount))}  ${headerRight}\n`);
+
+    // Output lines
+    if (result.output) {
+      const lines = result.output.split('\n').map((l) => l.trimEnd());
+      const nonEmpty = lines.filter((l) => l.length > 0);
+      if (nonEmpty.length > 0) {
+        printOutputLines(nonEmpty, false);
+      }
     }
+
+    process.stdout.write(chalk.dim(`  ${'─'.repeat(cols() - 2)}\n`));
   } else {
-    const isOsPermErr = result.error?.includes('EACCES') || result.error?.includes('EPERM');
-    if (isOsPermErr) {
-      process.stdout.write(chalk.red(`  ✗  Permission denied: ${input['path'] ?? input['command'] ?? ''}\n`));
-      process.stdout.write(chalk.dim(`     Check directory permissions or run with elevated privileges.\n`));
-    } else {
-      process.stdout.write(chalk.red(`  ✗  ${toolName}  ${result.error}\n`));
-    }
+    // ── failure ───────────────────────────────────────────────────────────────
+    const nameTag = chalk.red.bold(toolName);
+    const descTag = chalk.dim(desc);
+    const icon = chalk.red('✗');
+
+    const leftPart = `  ${icon}  ${nameTag}  ${descTag}  `;
+    const rawLeft = `     ${toolName}  ${desc}  `;
+    const dashCount = Math.max(2, cols() - rawLeft.length - elapsed.length - 1);
+    process.stdout.write(`${leftPart}${chalk.dim('─'.repeat(dashCount))}  ${chalk.dim(elapsed)}\n`);
+
+    const errText = result.error ?? 'Unknown error';
+    const isOsPermErr = errText.includes('EACCES') || errText.includes('EPERM');
+    const errLines = isOsPermErr
+      ? [`Permission denied: ${input['path'] ?? input['command'] ?? ''}`, 'Check directory permissions or run with elevated privileges.']
+      : errText.split('\n').map((l) => l.trimEnd()).filter(Boolean);
+
+    printOutputLines(errLines, true);
+    process.stdout.write(chalk.dim(`  ${'─'.repeat(cols() - 2)}\n`));
   }
 
   return result;
 }
+
+export { rule };

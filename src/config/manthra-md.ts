@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'fs';
-import { join, dirname, resolve, homedir } from 'path';
+import { join, dirname, resolve } from 'path';
+import { homedir } from 'os';
 
 const FILENAME = 'MANTHRA.md';
 

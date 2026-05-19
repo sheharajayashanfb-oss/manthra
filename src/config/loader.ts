@@ -24,7 +24,18 @@ export function loadConfig(): AppConfig {
     return DEFAULT_CONFIG;
   }
   try {
-    const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8'));
+    const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8')) as Record<string, unknown>;
+    // Strip providers with unknown types (forward-compat with old multi-provider configs)
+    if (Array.isArray(raw['providers'])) {
+      raw['providers'] = (raw['providers'] as Array<Record<string, unknown>>).filter(
+        (p) => p['type'] === 'ollama',
+      );
+    }
+    // Clear activeProvider if it pointed to a removed provider
+    const ids = new Set((raw['providers'] as Array<Record<string, unknown>>).map((p) => p['id']));
+    if (raw['activeProvider'] && !ids.has(raw['activeProvider'])) {
+      raw['activeProvider'] = undefined;
+    }
     const parsed = AppConfigSchema.safeParse({ ...DEFAULT_CONFIG, ...raw });
     if (!parsed.success) {
       _config = DEFAULT_CONFIG;

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manthra — AI coding assistant for your terminal</title>
-  <meta name="description" content="AI-powered CLI coding assistant. Multi-provider support, file editing, shell commands — all from your terminal. Install in seconds.">
+  <title>Manthra — AI coding assistant powered by Ollama</title>
+  <meta name="description" content="AI-powered CLI coding assistant built for Ollama. File editing, shell commands, fully local — no API key needed. Install in seconds.">
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="shortcut icon" href="/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -464,18 +464,18 @@
 
 <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
 <section class="hero">
-  <div class="hero-badge">✦ Open source · Free to use</div>
-  <h1>AI coding assistant<br><span>for your terminal</span></h1>
+  <div class="hero-badge">✦ Open source · Fully local · No API key</div>
+  <h1>AI coding assistant<br><span>powered by Ollama</span></h1>
   <p class="hero-sub">
-    Reads, edits, and creates files in any project. Supports Claude, GPT-4, Gemini, Ollama, and more — right from your CLI.
+    Reads, edits, and creates files in any project. Runs fully local with any Ollama model — private, fast, no API key required.
   </p>
 
   <div class="providers-row">
-    <span class="provider-chip">Anthropic Claude</span>
-    <span class="provider-chip">OpenAI GPT-4</span>
-    <span class="provider-chip">Google Gemini</span>
-    <span class="provider-chip active">Ollama (local)</span>
-    <span class="provider-chip">OpenRouter</span>
+    <span class="provider-chip active">qwen2.5-coder</span>
+    <span class="provider-chip">deepseek-r1</span>
+    <span class="provider-chip">llama3.2</span>
+    <span class="provider-chip">mistral</span>
+    <span class="provider-chip">gemma3</span>
   </div>
 
   <!-- Install command -->
@@ -573,7 +573,7 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
     </div>
     <div class="term-status">
       <span class="term-sq">■</span>
-      <span class="term-status-text">Chat  ·  Anthropic  ·  claude-sonnet-4-5  ·  12s</span>
+      <span class="term-status-text">Chat  ·  Ollama  ·  qwen2.5-coder:latest  ·  12s</span>
     </div>
     <div class="term-input-row">
       <span class="term-input-prompt">  </span>
@@ -590,9 +590,9 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
 
   <div class="features-grid">
     <div class="feature-card">
-      <div class="feature-icon blue">🤖</div>
-      <h3>Multi-provider AI</h3>
-      <p>Switch between Anthropic Claude, OpenAI GPT-4, Google Gemini, Ollama (local), OpenRouter, and Zen — all from one config.</p>
+      <div class="feature-icon blue">🟣</div>
+      <h3>Ollama-native AI</h3>
+      <p>Runs with any model available in your local Ollama install — qwen2.5-coder, deepseek-r1, llama3, mistral, and more. No API key ever.</p>
     </div>
     <div class="feature-card">
       <div class="feature-icon cyan">🔧</div>
@@ -641,8 +641,8 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
     <div class="step">
       <div class="step-num">2</div>
       <div class="step-content">
-        <h3>Configure your AI provider</h3>
-        <p>On first run, Manthra opens a browser to configure your provider and API key. Or run it manually anytime.</p>
+        <h3>Configure Ollama</h3>
+        <p>Open the web UI to add your local Ollama instance, pick a model, and test the connection. No API key needed.</p>
         <div class="step-code">manthra web</div>
       </div>
     </div>
@@ -707,10 +707,10 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
 
       <div style="padding:1.5rem;background:var(--bg-card);">
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:0.75rem;">Step 4 — Connect in Manthra</div>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Open the Manthra web UI, add an Ollama provider, and click <strong style="color:var(--text)">List Models</strong> to see your local models:</p>
+        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Open the Manthra web UI, add an Ollama instance, and click <strong style="color:var(--text)">List Models</strong> to see your local models:</p>
         <div style="background:var(--bg-term);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--cyan);line-height:1.9;">
           manthra web<br>
-          <span style="color:var(--text-dim)"># → Add Provider → Ollama</span><br>
+          <span style="color:var(--text-dim)"># → Add Instance</span><br>
           <span style="color:var(--text-dim)"># Base URL: http://127.0.0.1:11434</span><br>
           <span style="color:var(--text-dim)"># → List Models → select one → Save</span>
         </div>
@@ -721,44 +721,43 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
     <div style="padding:14px 18px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);border-radius:var(--radius-sm);font-size:0.82rem;color:var(--text-muted);line-height:1.65;max-width:700px;">
       <strong style="color:var(--text);">💡 Tip:</strong> Once Manthra is configured with Ollama, launch it from your project as normal —
       <code style="color:var(--cyan);font-size:0.78rem;">manthra</code>. Everything works offline. Use
-      <code style="color:var(--cyan);font-size:0.78rem;">manthra web</code> anytime to switch between your local Ollama models
-      and cloud providers like Claude or GPT-4.
+      <code style="color:var(--cyan);font-size:0.78rem;">manthra web</code> anytime to switch models or add another Ollama instance.
     </div>
   </div>
 </section>
 
 <div class="divider"></div>
 
-<!-- ── Providers ──────────────────────────────────────────────────────────── -->
+<!-- ── Models ──────────────────────────────────────────────────────────── -->
 <section class="providers-section">
-  <p class="section-label">Providers</p>
-  <h2 class="section-title">Use any AI model</h2>
-  <p class="section-sub">Bring your own API key or run fully local with Ollama. Switch any time.</p>
+  <p class="section-label">Models</p>
+  <h2 class="section-title">Any model in your Ollama library</h2>
+  <p class="section-sub">Pull any open-source model and Manthra uses it instantly. No restarts, no config changes.</p>
 
   <div class="providers-grid">
     <div class="provider-card">
-      Anthropic Claude
-      <span>claude-sonnet · claude-opus</span>
+      qwen2.5-coder
+      <span>Best for code generation</span>
     </div>
     <div class="provider-card">
-      OpenAI
-      <span>gpt-4o · o1 · o3</span>
+      deepseek-r1
+      <span>Strong reasoning</span>
     </div>
     <div class="provider-card">
-      Google Gemini
-      <span>gemini-2.0 · gemini-1.5</span>
+      llama3.2
+      <span>Fast general purpose</span>
     </div>
     <div class="provider-card">
-      Ollama
-      <span>Local · No API key</span>
+      mistral
+      <span>Lightweight &amp; fast</span>
     </div>
     <div class="provider-card">
-      OpenRouter
-      <span>200+ models</span>
+      gemma3
+      <span>Google open model</span>
     </div>
     <div class="provider-card">
-      Zen
-      <span>Local · No API key</span>
+      + any Ollama model
+      <span>ollama.ai/library</span>
     </div>
   </div>
 </section>

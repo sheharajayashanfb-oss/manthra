@@ -46,13 +46,13 @@ export const bashTool: Tool = {
     type: 'object',
     properties: {
       command: { type: 'string', description: 'The command to execute' },
-      timeout: { type: 'number', description: 'Timeout in milliseconds (default: 30000)' },
+      timeout: { type: 'number', description: 'Timeout in milliseconds (default: 120000). Increase for slow commands like package installs or build steps.' },
     },
     required: ['command'],
   },
   async execute(input): Promise<ToolResult> {
     const command = input['command'] as string;
-    const timeout = (input['timeout'] as number) ?? 30000;
+    const timeout = (input['timeout'] as number) ?? 120000;
 
     if (!command) return { success: false, output: '', error: 'No command provided' };
     if (isBlocked(command)) return { success: false, output: '', error: 'Command blocked for safety' };

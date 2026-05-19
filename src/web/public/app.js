@@ -3,35 +3,7 @@ let providers = [];
 let config = {};
 let editingId = null;
 
-// Provider metadata
-const PROVIDER_META = {
-  anthropic:      { icon: '🟠', label: 'Anthropic', needsKey: true, hasBaseUrl: false, hasApiVersion: false },
-  openai:         { icon: '🟢', label: 'OpenAI', needsKey: true, hasBaseUrl: false, hasApiVersion: false },
-  'azure-openai': { icon: '🔵', label: 'Azure OpenAI', needsKey: true, hasBaseUrl: true, hasApiVersion: true },
-  gemini:         { icon: '🟡', label: 'Google Gemini', needsKey: true, hasBaseUrl: false, hasApiVersion: false },
-  ollama:         { icon: '🟣', label: 'Ollama', needsKey: false, hasBaseUrl: true, hasApiVersion: false, defaultUrl: 'http://127.0.0.1:11434' },
-  lmstudio:       { icon: '🩵', label: 'LM Studio', needsKey: false, hasBaseUrl: true, hasApiVersion: false, defaultUrl: 'http://127.0.0.1:1234' },
-  openrouter:     { icon: '🔀', label: 'OpenRouter', needsKey: true, hasBaseUrl: false, hasApiVersion: false, hasFree: true },
-  zen:            { icon: '⚡', label: 'ZEN (OpenCode)', needsKey: true, hasBaseUrl: false, hasApiVersion: false, hasFree: true },
-  'custom-openai':{ icon: '⚙️', label: 'Custom OpenAI-compatible', needsKey: true, hasBaseUrl: true, hasApiVersion: false },
-};
-
-const API_KEY_HINTS = {
-  anthropic:      'Get your API key at console.anthropic.com',
-  openai:         'Get your API key at platform.openai.com',
-  'azure-openai': 'Find your key in Azure portal → Cognitive Services → Keys',
-  gemini:         'Get your API key at aistudio.google.com',
-  openrouter:     'Get a free API key at openrouter.ai — free models available without billing',
-  zen:            'Get your API key at opencode.ai — free models: Big Pickle, DeepSeek V4 Flash, and more',
-  'custom-openai':'API key for your custom endpoint (leave blank or use "none" if no auth required)',
-};
-
-const BASE_URL_HINTS = {
-  'azure-openai': 'e.g. https://your-resource.openai.azure.com',
-  ollama: 'Default: http://localhost:11434',
-  lmstudio: 'Default: http://localhost:1234',
-  'custom-openai': 'Base URL of your OpenAI-compatible API',
-};
+const OLLAMA_META = { icon: '🟣', label: 'Ollama' };
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
@@ -82,7 +54,7 @@ async function loadProviders() {
     renderProviders();
     updateSettingsProviderSelect();
   } catch (e) {
-    toast('Failed to load providers: ' + e.message, 'error');
+    toast('Failed to load instances: ' + e.message, 'error');
   }
 }
 
@@ -97,19 +69,14 @@ function renderProviders() {
   document.getElementById('providers-empty').style.display = 'none';
 
   for (const p of providers) {
-    const meta = PROVIDER_META[p.type] || { icon: '⚡', label: p.type };
     const isActive = p.id === config.activeProvider;
 
     const card = document.createElement('div');
-    card.className = `provider-card type-${p.type}${isActive ? ' active-card' : ''}`;
+    card.className = `provider-card type-ollama${isActive ? ' active-card' : ''}`;
 
-    // Status badges row
     const badges = [];
-    if (PROVIDER_META[p.type]?.hasFree) {
-      badges.push('<span class="badge-free">has free</span>');
-    }
     if (isActive) {
-      badges.push('<span class="badge badge-current">● Current</span>');
+      badges.push('<span class="badge badge-current">● Active</span>');
     } else if (!p.enabled) {
       badges.push('<span class="badge badge-disabled">● Disabled</span>');
     }
@@ -117,10 +84,10 @@ function renderProviders() {
     card.innerHTML = `
       <div class="provider-card-header">
         <div class="provider-info">
-          <div class="provider-icon">${meta.icon}</div>
+          <div class="provider-icon">${OLLAMA_META.icon}</div>
           <div>
             <div class="provider-name">${esc(p.name)}</div>
-            <div class="provider-type">${meta.label || p.type}</div>
+            <div class="provider-type">Ollama</div>
           </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
@@ -130,7 +97,6 @@ function renderProviders() {
       <div class="provider-card-body">
         ${p.defaultModel ? `<div class="provider-detail"><span class="provider-detail-label">Model</span><span class="provider-detail-value">${esc(p.defaultModel)}</span></div>` : ''}
         ${p.baseURL ? `<div class="provider-detail"><span class="provider-detail-label">Endpoint</span><span class="provider-detail-value">${esc(p.baseURL)}</span></div>` : ''}
-        ${p.apiKey ? `<div class="provider-detail"><span class="provider-detail-label">API Key</span><span class="provider-detail-value">${esc(p.apiKey)}</span></div>` : ''}
       </div>
       <div class="provider-card-footer">
         <button class="btn btn-secondary btn-sm" onclick="testCard('${p.id}', this)">Test</button>
@@ -168,7 +134,7 @@ async function setActive(id) {
     config.activeModel = provider.defaultModel || '';
     renderProviders();
     updateSettingsProviderSelect();
-    toast(`Active provider → ${provider.name}`, 'success');
+    toast(`Active instance → ${provider.name}`, 'success');
   } catch (e) {
     toast('Failed: ' + e.message, 'error');
   }
@@ -176,13 +142,13 @@ async function setActive(id) {
 
 async function deleteProvider(id) {
   const p = providers.find(p => p.id === id);
-  if (!p || !confirm(`Delete provider "${p.name}"?`)) return;
+  if (!p || !confirm(`Delete instance "${p.name}"?`)) return;
   try {
     await api('DELETE', `/providers/${id}`);
     providers = providers.filter(p => p.id !== id);
     if (config.activeProvider === id) config.activeProvider = '';
     renderProviders();
-    toast('Provider deleted', 'success');
+    toast('Instance deleted', 'success');
   } catch (e) {
     toast('Delete failed: ' + e.message, 'error');
   }
@@ -192,11 +158,12 @@ async function deleteProvider(id) {
 
 function showAddForm() {
   editingId = null;
-  document.getElementById('modal-title').textContent = 'Add Provider';
+  document.getElementById('modal-title').textContent = 'Add Ollama Instance';
   document.getElementById('provider-form').reset();
   document.getElementById('form-provider-id').value = '';
+  document.getElementById('form-type').value = 'ollama';
+  document.getElementById('form-baseurl').value = 'http://localhost:11434';
   document.getElementById('form-enabled').checked = true;
-  resetTypeFields('');
   document.getElementById('test-result').style.display = 'none';
   document.getElementById('models-dropdown').style.display = 'none';
   showModal();
@@ -206,16 +173,13 @@ function editProvider(id) {
   const p = providers.find(p => p.id === id);
   if (!p) return;
   editingId = id;
-  document.getElementById('modal-title').textContent = 'Edit Provider';
+  document.getElementById('modal-title').textContent = 'Edit Ollama Instance';
   document.getElementById('form-provider-id').value = id;
-  document.getElementById('form-type').value = p.type;
+  document.getElementById('form-type').value = 'ollama';
   document.getElementById('form-name').value = p.name;
-  document.getElementById('form-apikey').value = p.apiKey || '';
-  document.getElementById('form-baseurl').value = p.baseURL || '';
-  document.getElementById('form-apiversion').value = p.apiVersion || '';
+  document.getElementById('form-baseurl').value = p.baseURL || 'http://localhost:11434';
   document.getElementById('form-defaultmodel').value = p.defaultModel || '';
   document.getElementById('form-enabled').checked = p.enabled !== false;
-  onTypeChange(p.type);
   document.getElementById('test-result').style.display = 'none';
   document.getElementById('models-dropdown').style.display = 'none';
   showModal();
@@ -234,81 +198,35 @@ document.getElementById('modal-overlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeModal();
 });
 
-function onTypeChange(type) {
-  const meta = PROVIDER_META[type] || {};
-  resetTypeFields(type);
-
-  const keyField = document.getElementById('field-apikey');
-  keyField.style.display = meta.needsKey !== false ? 'block' : 'none';
-  document.getElementById('apikey-hint').textContent = API_KEY_HINTS[type] || '';
-
-  const urlField = document.getElementById('field-baseurl');
-  urlField.style.display = meta.hasBaseUrl ? 'block' : 'none';
-  document.getElementById('baseurl-hint').textContent = BASE_URL_HINTS[type] || '';
-  if (meta.defaultUrl && !document.getElementById('form-baseurl').value) {
-    document.getElementById('form-baseurl').value = meta.defaultUrl;
-  }
-
-  document.getElementById('field-apiversion').style.display = meta.hasApiVersion ? 'block' : 'none';
-  document.getElementById('btn-list-models').style.display = type ? 'inline-flex' : 'none';
-}
-
-function resetTypeFields(type) {
-  if (!type) {
-    document.getElementById('field-apikey').style.display = 'block';
-    document.getElementById('field-baseurl').style.display = 'none';
-    document.getElementById('field-apiversion').style.display = 'none';
-    document.getElementById('btn-list-models').style.display = 'none';
-  }
-}
-
-function toggleApiKey() {
-  const input = document.getElementById('form-apikey');
-  const btn = document.querySelector('.toggle-visibility');
-  if (input.type === 'password') {
-    input.type = 'text';
-    btn.textContent = 'Hide';
-  } else {
-    input.type = 'password';
-    btn.textContent = 'Show';
-  }
-}
-
-// ── Save provider ─────────────────────────────────────────────────────────────
+// ── Save instance ─────────────────────────────────────────────────────────────
 
 function getFormBody() {
-  const type = document.getElementById('form-type').value;
   const name = document.getElementById('form-name').value.trim();
-  const apiKey = document.getElementById('form-apikey').value.trim();
   const baseURL = document.getElementById('form-baseurl').value.trim();
-  const apiVersion = document.getElementById('form-apiversion').value.trim();
   const defaultModel = document.getElementById('form-defaultmodel').value.trim();
   const enabled = document.getElementById('form-enabled').checked;
-  return { type, name, apiKey, baseURL, apiVersion, defaultModel, enabled };
+  return { type: 'ollama', name, baseURL, defaultModel, enabled };
 }
 
 async function saveProvider() {
-  const { type, name, apiKey, baseURL, apiVersion, defaultModel, enabled } = getFormBody();
+  const { type, name, baseURL, defaultModel, enabled } = getFormBody();
 
-  if (!type) { toast('Please select a provider type', 'error'); return; }
   if (!name) { toast('Please enter a display name', 'error'); return; }
 
   const body = { type, name, enabled };
-  if (apiKey && !apiKey.startsWith('***')) body.apiKey = apiKey;
   if (baseURL) body.baseURL = baseURL;
-  if (apiVersion) body.apiVersion = apiVersion;
   if (defaultModel) body.defaultModel = defaultModel;
 
   try {
     if (editingId) {
       const updated = await api('PUT', `/providers/${editingId}`, body);
       providers = providers.map(p => p.id === editingId ? updated : p);
-      toast('Provider updated', 'success');
+      toast('Instance updated', 'success');
     } else {
       const created = await api('POST', '/providers', body);
       providers.push(created);
-      editingId = created.id; // so test/models work after add
-      toast('Provider added — you can now test connection or list models', 'success');
+      editingId = created.id;
+      toast('Instance added — you can now test connection or list models', 'success');
     }
     renderProviders();
     updateSettingsProviderSelect();
@@ -330,24 +248,12 @@ async function testProvider() {
   try {
     let result;
     if (editingId) {
-      // Test saved provider
       result = await api('POST', `/providers/${editingId}/test`);
     } else {
-      // Test with current form values (no save needed)
-      const { type, name, apiKey, baseURL, apiVersion, defaultModel, enabled } = getFormBody();
-      if (!type) { toast('Select a provider type first', 'error'); btn.textContent = 'Test Connection'; btn.disabled = false; return; }
-      const body = { type, name, enabled };
-      if (apiKey && !apiKey.startsWith('***')) body.apiKey = apiKey;
-      if (baseURL) body.baseURL = baseURL;
-      if (apiVersion) body.apiVersion = apiVersion;
-      if (defaultModel) body.defaultModel = defaultModel;
-      result = await api('POST', '/providers/test-inline', body);
+      const { type, name, baseURL, defaultModel, enabled } = getFormBody();
+      result = await api('POST', '/providers/test-inline', { type, name, baseURL, defaultModel, enabled });
     }
-    const type = document.getElementById('form-type').value;
-    const isOllama = type === 'ollama' || type === 'lmstudio';
-    const failHint = (!result.ok && isOllama)
-      ? ' — is Ollama running? Try: ollama serve'
-      : '';
+    const failHint = !result.ok ? ' — is Ollama running? Try: ollama serve' : '';
     resultEl.textContent = (result.ok ? '✓ ' : '✗ ') + result.message + failHint;
     resultEl.className = `test-result ${result.ok ? 'success' : 'error'}`;
     resultEl.style.display = 'block';
@@ -373,67 +279,31 @@ async function listModels() {
     if (editingId) {
       models = await api('GET', `/providers/${editingId}/models`);
     } else {
-      // Fetch models using current form values (no save needed)
-      const { type, name, apiKey, baseURL, apiVersion, defaultModel, enabled } = getFormBody();
-      if (!type) { dropdown.innerHTML = '<div style="padding:10px;color:var(--error)">Select a provider type first</div>'; return; }
-      const body = { type, name, enabled };
-      if (apiKey && !apiKey.startsWith('***')) body.apiKey = apiKey;
-      if (baseURL) body.baseURL = baseURL;
-      if (apiVersion) body.apiVersion = apiVersion;
-      if (defaultModel) body.defaultModel = defaultModel;
-      models = await api('POST', '/providers/list-models-inline', body);
+      const { type, name, baseURL, defaultModel, enabled } = getFormBody();
+      models = await api('POST', '/providers/list-models-inline', { type, name, baseURL, defaultModel, enabled });
     }
-
-    const free = models.filter(m => m.plan === 'free');
-    const rest = models.filter(m => m.plan !== 'free');
-    const ordered = [...free, ...rest];
 
     let html = '';
-    if (free.length > 0) {
-      html += `<div style="padding:6px 12px 2px;font-size:11px;color:#34d399;font-weight:600;letter-spacing:.5px">FREE MODELS</div>`;
-    }
-    ordered.forEach((m, i) => {
-      if (i === free.length && rest.length > 0) {
-        html += `<div style="padding:6px 12px 2px;font-size:11px;color:var(--text-muted);font-weight:600;letter-spacing:.5px">PAID / PREVIEW</div>`;
-      }
+    models.forEach(m => {
       html += `<div class="model-option" onclick="selectModel('${esc(m.id)}')">
-        <div class="model-option-name">${esc(m.id)}${planBadgeHTML(m.plan)}</div>
-        <div class="model-option-ctx">${m.name !== m.id ? esc(m.name || '') + ' · ' : ''}${m.contextWindow ? (m.contextWindow/1000).toFixed(0)+'k ctx' : ''}</div>
+        <div class="model-option-name">${esc(m.id)}</div>
+        <div class="model-option-ctx">${m.name !== m.id ? esc(m.name || '') : ''}</div>
       </div>`;
     });
+
     if (html) {
       dropdown.innerHTML = html;
     } else {
-      const type = document.getElementById('form-type').value;
-      const isOllama = type === 'ollama' || type === 'lmstudio';
-      dropdown.innerHTML = isOllama
-        ? `<div style="padding:12px;color:var(--warning);font-size:12px;line-height:1.6">
-            No models found. Make sure Ollama is running:<br>
-            <code style="color:var(--cyan)">ollama serve</code><br><br>
-            Then pull a model, e.g.:<br>
-            <code style="color:var(--cyan)">ollama pull llama3.2</code>
-           </div>`
-        : '<div style="padding:10px;color:var(--text-muted)">No models found</div>';
+      dropdown.innerHTML = `<div style="padding:12px;color:var(--warning);font-size:12px;line-height:1.6">
+          No models found. Make sure Ollama is running:<br>
+          <code style="color:var(--cyan)">ollama serve</code><br><br>
+          Then pull a model, e.g.:<br>
+          <code style="color:var(--cyan)">ollama pull qwen2.5-coder</code>
+         </div>`;
     }
   } catch (e) {
-    const type = document.getElementById('form-type').value;
-    const isOllama = type === 'ollama' || type === 'lmstudio';
-    const hint = isOllama
-      ? '<br><br>Make sure Ollama is running (<code style="color:var(--cyan)">ollama serve</code>) and the base URL is correct.'
-      : '';
-    dropdown.innerHTML = `<div style="padding:10px;color:var(--error);font-size:12px;line-height:1.6">${esc(e.message)}${hint}</div>`;
+    dropdown.innerHTML = `<div style="padding:10px;color:var(--error);font-size:12px;line-height:1.6">${esc(e.message)}<br><br>Make sure Ollama is running (<code style="color:var(--cyan)">ollama serve</code>) and the base URL is correct.</div>`;
   }
-}
-
-function planBadgeHTML(plan) {
-  if (!plan) return '';
-  const styles = {
-    free:    'background:#064e3b;color:#34d399;border:1px solid #065f46',
-    paid:    'background:#1e1b4b;color:#818cf8;border:1px solid #312e81',
-    preview: 'background:#451a03;color:#fbbf24;border:1px solid #78350f',
-  };
-  const style = styles[plan] || styles.paid;
-  return `<span style="font-size:10px;padding:1px 6px;border-radius:10px;margin-left:6px;${style}">${plan}</span>`;
 }
 
 function selectModel(id) {

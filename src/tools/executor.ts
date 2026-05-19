@@ -18,7 +18,11 @@ function formatToolInput(toolName: string, input: Record<string, unknown>): stri
   switch (toolName) {
     case 'bash':      return `$ ${input['command']}`;
     case 'read':      return `${input['path']}${input['offset'] ? `:${input['offset']}` : ''}`;
-    case 'write':     return `→ ${input['path']} (${String(input['content']).length} chars)`;
+    case 'write': {
+      const lines = String(input['content']).split('\n');
+      const firstLine = lines[0]?.slice(0, 60) ?? '';
+      return `→ ${input['path']} (${lines.length} lines)  ${firstLine}`;
+    }
     case 'edit':      return `${input['path']}: "${String(input['old_string']).slice(0, 40)}…"`;
     case 'glob':      return `${input['pattern']}`;
     case 'grep':      return `"${input['pattern']}" in ${input['path'] ?? '.'}`;
@@ -76,12 +80,12 @@ export async function executeTool(
 
   if (result.success) {
     process.stdout.write(chalk.dim(`  ✓  ${toolName}  ${desc}\n`));
-    // Show up to 3 non-empty lines of output as a preview
+    // Show up to 6 non-empty lines of output as a preview (write returns a content snippet)
     const preview = result.output
       .split('\n')
       .map(l => l.trimEnd())
       .filter(l => l.length > 0)
-      .slice(0, 3);
+      .slice(0, 6);
     for (const line of preview) {
       process.stdout.write(chalk.dim(`     ${line.slice(0, 120)}\n`));
     }

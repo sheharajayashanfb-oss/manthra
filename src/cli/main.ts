@@ -6,7 +6,7 @@ import minimist from 'minimist';
 import chalk from 'chalk';
 import { printWelcome } from '../ui/renderer.js';
 import { loadConfig } from '../config/loader.js';
-import { autoInitProviders, syncEnvApiKeys } from '../config/auto-init.js';
+import { autoInitProviders } from '../config/auto-init.js';
 import { REPL } from './repl.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,18 +21,15 @@ function getVersion(): string {
   }
 }
 
-function printProviderStatus(providers: Array<{ name: string; id: string; type: string; apiKey?: string; enabled: boolean }>): void {
+function printProviderStatus(providers: Array<{ name: string; id: string; type: string; baseURL?: string; enabled: boolean }>): void {
   const active = providers.filter((p) => p.enabled);
   if (active.length === 0) {
-    console.log(chalk.yellow('  No providers configured. Run `manthra web` to add one.\n'));
+    console.log(chalk.yellow('  No Ollama instances configured. Run `manthra web` to add one.\n'));
     return;
   }
   console.log(
-    chalk.dim('  Providers: ') +
-    active.map((p) => {
-      const hasKey = p.apiKey || ['ollama', 'lmstudio', 'zen', 'openrouter'].includes(p.type);
-      return hasKey ? chalk.green(p.name) : chalk.dim(`${p.name} (needs key)`);
-    }).join(chalk.dim(' · ')),
+    chalk.dim('  Ollama: ') +
+    active.map((p) => chalk.green(`${p.name}${p.baseURL ? ` (${p.baseURL})` : ''}`)).join(chalk.dim(' · ')),
   );
   console.log(chalk.dim('  Run `manthra web` to configure · /exit to quit\n'));
 }
@@ -51,14 +48,13 @@ async function main(): Promise<void> {
 
   if (argv['help']) {
     console.log(`
-${chalk.bold('manthra')} — AI coding assistant with multi-provider support
+${chalk.bold('manthra')} — AI coding assistant powered by Ollama
 
 ${chalk.bold('Usage:')}
   manthra [options] [message]
-  manthra web                  Start the provider management GUI
+  manthra web                  Start the Ollama configuration GUI
 
 ${chalk.bold('Options:')}
-  -p, --provider <id>          Use a specific provider
   -m, --model <id>             Use a specific model
   --print <message>            Run a single prompt and exit (non-interactive)
   -v, --version                Show version
@@ -66,17 +62,15 @@ ${chalk.bold('Options:')}
 
 ${chalk.bold('Examples:')}
   manthra                      Start interactive REPL
-  manthra web                  Open provider management GUI
+  manthra web                  Open configuration GUI
   manthra --print "hello"      Single prompt mode
-  manthra -m big-pickle        Use ZEN's free Big Pickle model
+  manthra -m qwen2.5-coder     Use a specific Ollama model
 `);
     process.exit(0);
   }
 
-  // Bootstrap: auto-init built-in providers, sync env API keys
   let config = loadConfig();
   ({ config } = autoInitProviders(config));
-  ({ config } = syncEnvApiKeys(config));
 
   // Handle "manthra web" subcommand
   if (argv._[0] === 'web') {

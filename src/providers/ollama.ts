@@ -94,6 +94,118 @@ async function fetchWithFallback(paths: string[], baseURL: string): Promise<Resp
   );
 }
 
+interface TextToolCall {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+// The set of tool names manthra actually exposes.
+// Used to reject false positives (e.g. {"name":"my-app",...} from a package.json display block).
+const KNOWN_TOOLS = new Set([
+  'read', 'write', 'edit', 'bash',
+  'glob', 'grep', 'list_dir', 'web_fetch', 'http_request',
+]);
+
+/**
+ * Some Ollama models (notably qwen2.5-coder) output tool calls as plain text
+ * instead of using the native tool_calls API field.  Three formats seen in the wild:
+ *
+ *   1. Markdown fence:    ```json\n{"name":"bash","arguments":{...}}\n```
+ *   2. Single-line JSON:  {"name":"read","arguments":{"path":"file.ts"}}
+ *   3. Multi-line JSON:   {\n  "name": "write",\n  "arguments": {...}\n}
+ *
+ * Tool calls are identified by having a `name` that matches a known manthra tool,
+ * plus an `arguments` / `input` / `parameters` object.  Everything else is kept as
+ * display text so the user still sees explanatory content from the model.
+ */
+function extractTextToolCalls(text: string): { toolCalls: TextToolCall[]; remainingText: string } {
+  const toolCalls: TextToolCall[] = [];
+  let remaining = text;
+
+  // ── Pattern 1: markdown code fence ──────────────────────────────────────
+  // Take the entire content of the fence so nested `}` in the JSON are handled.
+  remaining = remaining.replace(
+    /```(?:json)?\s*\n([\s\S]*?)\n```/g,
+    (match, content) => {
+      const tc = tryParseToolCall(content.trim());
+      if (tc) { toolCalls.push(tc); return ''; }
+      return match; // not a tool call — keep as display code block
+    },
+  );
+
+  // ── Pattern 2: single-line bare JSON ────────────────────────────────────
+  remaining = remaining
+    .split('\n')
+    .filter((line) => {
+      const t = line.trim();
+      if (t.startsWith('{') && t.endsWith('}')) {
+        const tc = tryParseToolCall(t);
+        if (tc) { toolCalls.push(tc); return false; }
+      }
+      return true;
+    })
+    .join('\n');
+
+  // ── Pattern 3: multi-line bare JSON ─────────────────────────────────────
+  // Accumulate lines starting from a `{` until JSON.parse succeeds.
+  // Cap at 80 lines to avoid run-away accumulation.
+  const lines = remaining.split('\n');
+  const out: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const t = lines[i].trim();
+    if (t === '{' || (t.startsWith('{') && /"name"\s*:/.test(t))) {
+      const startIdx = i;
+      let acc = '';
+      let resolved = false;
+      for (let j = i; j < Math.min(lines.length, i + 80); j++) {
+        acc += (j === i ? '' : '\n') + lines[j];
+        try {
+          JSON.parse(acc); // throws until the object is complete
+          const tc = tryParseToolCall(acc);
+          if (tc) {
+            toolCalls.push(tc);
+          } else {
+            out.push(...lines.slice(startIdx, j + 1));
+          }
+          i = j + 1;
+          resolved = true;
+          break;
+        } catch {
+          // incomplete — keep accumulating
+        }
+      }
+      if (!resolved) {
+        // Never closed within the window — treat as plain text
+        out.push(lines[i]);
+        i++;
+      }
+    } else {
+      out.push(lines[i]);
+      i++;
+    }
+  }
+  remaining = out.join('\n');
+
+  return { toolCalls, remainingText: remaining };
+}
+
+function tryParseToolCall(json: string): TextToolCall | null {
+  try {
+    const obj = JSON.parse(json) as Record<string, unknown>;
+    if (typeof obj.name !== 'string') return null;
+    // Reject if the name is not a recognised manthra tool (avoids grabbing
+    // display code blocks like {"name":"my-package","version":"1.0.0",...})
+    if (!KNOWN_TOOLS.has(obj.name)) return null;
+    const input = (obj.arguments ?? obj.input ?? obj.parameters ?? {}) as Record<string, unknown>;
+    if (typeof input !== 'object' || input === null) return null;
+    return { id: `${obj.name}_${Date.now()}`, name: obj.name, input };
+  } catch {
+    return null;
+  }
+}
+
 export class OllamaProvider implements Provider {
   readonly id: string;
   readonly name: string;
@@ -150,49 +262,75 @@ export class OllamaProvider implements Provider {
     let inputTokens = 0;
     let outputTokens = 0;
 
+    // Buffer text content so we can detect Qwen-style text-based tool calls
+    // (some models output {"name":"...","arguments":{...}} as plain text instead
+    // of using the native tool_calls API field).
+    let textBuffer = '';
+    const nativeToolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
+
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value, { stream: true });
-        for (const line of text.split('\n')) {
+        const raw = decoder.decode(value, { stream: true });
+        for (const line of raw.split('\n')) {
           if (!line.trim()) continue;
           let chunk: OllamaChatChunk;
           try { chunk = JSON.parse(line); } catch { continue; }
 
+          // Thinking tokens stream immediately (shown in real-time by the REPL)
           if (chunk.message?.thinking) {
             yield { type: 'thinking_delta', delta: chunk.message.thinking };
           }
 
+          // Buffer text — don't yield yet; we need the full content to detect tool calls
           if (chunk.message?.content) {
-            yield { type: 'text_delta', delta: chunk.message.content };
+            textBuffer += chunk.message.content;
           }
 
+          // Native tool_calls from the Ollama API
           if (chunk.message?.tool_calls?.length) {
             for (const tc of chunk.message.tool_calls) {
-              const id = tc.id ?? `${tc.function.name}_${Date.now()}`;
-              yield {
-                type: 'tool_call_done',
-                tool_call: { id, name: tc.function.name, input: tc.function.arguments ?? {} },
-              };
+              nativeToolCalls.push({
+                id: tc.id ?? `${tc.function.name}_${Date.now()}`,
+                name: tc.function.name,
+                input: tc.function.arguments ?? {},
+              });
             }
           }
 
           if (chunk.done) {
             if (chunk.prompt_eval_count) inputTokens = chunk.prompt_eval_count;
             if (chunk.eval_count) outputTokens = chunk.eval_count;
-
-            yield {
-              type: 'message_done',
-              usage: { input_tokens: inputTokens, output_tokens: outputTokens },
-            };
           }
         }
       }
     } finally {
       reader.releaseLock();
     }
+
+    // Emit tool calls + text in order
+    if (nativeToolCalls.length > 0) {
+      // Native API tool calls take precedence
+      for (const tc of nativeToolCalls) {
+        yield { type: 'tool_call_done', tool_call: tc };
+      }
+      if (textBuffer.trim()) yield { type: 'text_delta', delta: textBuffer };
+    } else {
+      // Fall back: scan text for Qwen/text-based tool calls
+      const { toolCalls, remainingText } = extractTextToolCalls(textBuffer);
+      if (toolCalls.length > 0) {
+        for (const tc of toolCalls) {
+          yield { type: 'tool_call_done', tool_call: tc };
+        }
+        if (remainingText.trim()) yield { type: 'text_delta', delta: remainingText };
+      } else {
+        if (textBuffer.trim()) yield { type: 'text_delta', delta: textBuffer };
+      }
+    }
+
+    yield { type: 'message_done', usage: { input_tokens: inputTokens, output_tokens: outputTokens } };
   }
 
   async listModels(): Promise<ModelInfo[]> {

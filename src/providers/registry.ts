@@ -1,34 +1,13 @@
 import type { Provider } from './types.js';
 import type { ProviderConfig } from '../config/types.js';
-import { AnthropicProvider } from './anthropic.js';
-import { OpenAIProvider } from './openai.js';
-import { GeminiProvider } from './gemini.js';
 import { OllamaProvider } from './ollama.js';
-import { OpenRouterProvider } from './openrouter.js';
-import { ZenProvider } from './zen.js';
 
 const registry = new Map<string, Provider>();
 
 export function createProvider(config: ProviderConfig): Provider {
   switch (config.type) {
-    case 'anthropic':
-      return new AnthropicProvider({ id: config.id, name: config.name, apiKey: config.apiKey, baseURL: config.baseURL });
-    case 'openai':
-      return new OpenAIProvider({ id: config.id, name: config.name, type: config.type, apiKey: config.apiKey, baseURL: config.baseURL });
-    case 'azure-openai':
-      return new OpenAIProvider({ id: config.id, name: config.name, type: config.type, apiKey: config.apiKey, baseURL: config.baseURL, apiVersion: config.apiVersion });
-    case 'gemini':
-      return new GeminiProvider({ id: config.id, name: config.name, apiKey: config.apiKey });
     case 'ollama':
       return new OllamaProvider({ id: config.id, name: config.name, type: config.type, baseURL: config.baseURL ?? 'http://127.0.0.1:11434' });
-    case 'lmstudio':
-      return new OllamaProvider({ id: config.id, name: config.name, type: config.type, baseURL: config.baseURL ?? 'http://127.0.0.1:1234' });
-    case 'openrouter':
-      return new OpenRouterProvider({ id: config.id, name: config.name, apiKey: config.apiKey });
-    case 'zen':
-      return new ZenProvider({ id: config.id, name: config.name, apiKey: config.apiKey });
-    case 'custom-openai':
-      return new OpenAIProvider({ id: config.id, name: config.name, type: config.type, apiKey: config.apiKey, baseURL: config.baseURL });
     default:
       throw new Error(`Unknown provider type: ${config.type}`);
   }

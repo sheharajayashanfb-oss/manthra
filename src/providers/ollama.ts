@@ -204,16 +204,66 @@ function extractTextToolCalls(text: string): { toolCalls: TextToolCall[]; remain
 function tryParseToolCall(json: string): TextToolCall | null {
   try {
     const obj = JSON.parse(json) as Record<string, unknown>;
-    if (typeof obj.name !== 'string') return null;
-    // Reject if the name is not a recognised manthra tool (avoids grabbing
-    // display code blocks like {"name":"my-package","version":"1.0.0",...})
-    if (!KNOWN_TOOLS.has(obj.name)) return null;
+    if (typeof obj.name !== 'string') {
+      // No name field — try to infer tool from argument shape
+      return tryInferToolCall(obj);
+    }
+    if (!KNOWN_TOOLS.has(obj.name)) {
+      // Unknown/hallucinated tool name — try to infer from arguments
+      return tryInferToolCall(obj);
+    }
     const input = (obj.arguments ?? obj.input ?? obj.parameters ?? {}) as Record<string, unknown>;
     if (typeof input !== 'object' || input === null) return null;
     return { id: `${obj.name}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name: obj.name, input };
   } catch {
     return null;
   }
+}
+
+// Infer a tool name from the argument shape when the model omits or invents the "name" field.
+// Only matches unambiguous shapes (e.g. "url" → web_fetch, "command" → bash).
+function tryInferToolCall(obj: Record<string, unknown>): TextToolCall | null {
+  // Resolve actual args: could be nested under arguments/input, or flat at top level
+  const nested = obj.arguments ?? obj.input ?? obj.parameters;
+  const args = (typeof nested === 'object' && nested !== null)
+    ? (nested as Record<string, unknown>)
+    : obj;
+
+  // Reject obvious non-tool objects (package.json, configs, etc.)
+  const displayFields = ['version', 'dependencies', 'devDependencies', 'scripts', 'license', 'description'];
+  if (displayFields.some((f) => args[f] !== undefined || obj[f] !== undefined)) return null;
+
+  // Must have at least one recognisable tool argument key
+  const hasArg = typeof args.command === 'string' || typeof args.url === 'string' ||
+    typeof args.query === 'string' || typeof args.path === 'string' ||
+    typeof args.pattern === 'string';
+  if (!hasArg) return null;
+
+  // Infer tool — most-specific first to avoid wrong matches
+  let toolName: string;
+  if (typeof args.url === 'string') {
+    toolName = 'web_fetch';
+  } else if (typeof args.command === 'string') {
+    toolName = 'bash';
+  } else if (typeof args.query === 'string') {
+    toolName = 'web_search';
+  } else if (typeof args.path === 'string' && typeof args.old_string === 'string' && typeof args.new_string === 'string') {
+    toolName = 'edit';
+  } else if (typeof args.path === 'string' && typeof args.content === 'string') {
+    toolName = 'write';
+  } else if (typeof args.path === 'string') {
+    toolName = 'read';
+  } else if (typeof args.pattern === 'string') {
+    toolName = 'glob';
+  } else {
+    return null;
+  }
+
+  return {
+    id: `${toolName}_inferred_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    name: toolName,
+    input: args,
+  };
 }
 
 export class OllamaProvider implements Provider {

@@ -71,11 +71,28 @@ function termCols(): number {
 
 function wrapText(line: string, width: number): string[] {
   if (line.length <= width) return [line];
-  const chunks: string[] = [];
-  for (let i = 0; i < line.length; i += width) {
-    chunks.push(line.slice(i, i + width));
+  const result: string[] = [];
+  const words = line.split(' ');
+  let current = '';
+  for (const word of words) {
+    // Word itself is longer than width — hard-break it
+    if (word.length >= width) {
+      if (current) { result.push(current); current = ''; }
+      for (let i = 0; i < word.length; i += width) {
+        result.push(word.slice(i, i + width));
+      }
+      continue;
+    }
+    const candidate = current ? current + ' ' + word : word;
+    if (candidate.length <= width) {
+      current = candidate;
+    } else {
+      if (current) result.push(current);
+      current = word;
+    }
   }
-  return chunks;
+  if (current) result.push(current);
+  return result;
 }
 
 function printThinkingBox(content: string): void {

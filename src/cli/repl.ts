@@ -136,6 +136,10 @@ export class REPL {
   private stopThinkingFn: (() => void) | null = null;
   private abortController: AbortController | null = null;
 
+  // Multi-line paste coalescing
+  private lineBuffer: string[] = [];
+  private coalesceTimer: ReturnType<typeof setTimeout> | null = null;
+
   // Think / format modes
   private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
   private formatMode: 'json' | Record<string, unknown> | undefined = undefined;
@@ -530,6 +534,40 @@ export class REPL {
     return { turnIn: totalIn, turnOut: totalOut };
   }
 
+  // ── Input processing ─────────────────────────────────────────────────────
+
+  private async processLineInput(input: string): Promise<void> {
+    this.closeBox();
+
+    if (!input) { this.openBox(); return; }
+
+    if (input.startsWith('/')) {
+      await this.handleSlashCommand(input);
+      this.openBox();
+      return;
+    }
+
+    printUserPrompt(input);
+    this.isProcessing = true;
+    this.rl!.pause();
+    this.abortController = new AbortController();
+    const cleanupEsc = this.listenForEsc();
+    try {
+      const { turnIn, turnOut } = await this.runTurn(input);
+      this.sessionIn += turnIn;
+      this.sessionOut += turnOut;
+    } catch (err: unknown) {
+      if (this.stopThinkingFn) { this.stopThinkingFn(); this.stopThinkingFn = null; }
+      console.log(chalk.red(`\n  ${err instanceof Error ? err.message : err}`));
+    } finally {
+      cleanupEsc();
+      this.abortController = null;
+    }
+    this.isProcessing = false;
+    this.rl!.resume();
+    this.openBox();
+  }
+
   // ── Main loop ─────────────────────────────────────────────────────────────
 
   async run(): Promise<void> {
@@ -559,37 +597,15 @@ export class REPL {
 
     this.openBox();
 
-    this.rl.on('line', async (raw) => {
-      const input = raw.trim();
-      this.closeBox();
-
-      if (!input) { this.openBox(); return; }
-
-      if (input.startsWith('/')) {
-        await this.handleSlashCommand(input);
-        this.openBox();
-        return;
-      }
-
-      printUserPrompt(input);
-      this.isProcessing = true;
-      this.rl!.pause();
-      this.abortController = new AbortController();
-      const cleanupEsc = this.listenForEsc();
-      try {
-        const { turnIn, turnOut } = await this.runTurn(input);
-        this.sessionIn += turnIn;
-        this.sessionOut += turnOut;
-      } catch (err: unknown) {
-        if (this.stopThinkingFn) { this.stopThinkingFn(); this.stopThinkingFn = null; }
-        console.log(chalk.red(`\n  ${err instanceof Error ? err.message : err}`));
-      } finally {
-        cleanupEsc();
-        this.abortController = null;
-      }
-      this.isProcessing = false;
-      this.rl!.resume();
-      this.openBox();
+    this.rl.on('line', (raw) => {
+      if (this.coalesceTimer) clearTimeout(this.coalesceTimer);
+      this.lineBuffer.push(raw);
+      this.coalesceTimer = setTimeout(() => {
+        const input = this.lineBuffer.join('\n').trim();
+        this.lineBuffer = [];
+        this.coalesceTimer = null;
+        void this.processLineInput(input);
+      }, 20);
     });
 
     this.rl.on('close', () => {

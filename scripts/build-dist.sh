@@ -44,7 +44,12 @@ done
 
 echo "${VERSION}" > "$OUT/version.txt"
 
-# Step 3: symlink/copy to latest/
+# Step 3: Node.js-based Windows package (no unsigned binary — avoids AppControl blocks)
+echo "  → building Node.js Windows package (manthra-win.cjs + manthra-win.cmd)..."
+cp dist-pkg/manthra.cjs "$OUT/manthra-win.cjs"
+printf '@echo off\r\nnode "%%~dp0manthra-win.cjs" %%*\r\n' > "$OUT/manthra-win.cmd"
+
+# Step 4: symlink/copy to latest/
 mkdir -p releases/latest
 cp "$OUT"/manthra-* releases/latest/
 cp "$OUT/version.txt" releases/latest/version.txt

@@ -8,12 +8,14 @@ REMOTE_DIR="/var/www/manthra"
 
 echo "Deploying to ${VM_HOST}:${REMOTE_DIR}..."
 
-# Upload install script (served as /install — no extension on server)
-rsync -avz install.sh "${VM_HOST}:${REMOTE_DIR}/install"
+# Upload install scripts
+rsync -avz install.sh  "${VM_HOST}:${REMOTE_DIR}/install"
+rsync -avz install.ps1 "${VM_HOST}:${REMOTE_DIR}/install.ps1"
 
 # Upload all release binaries
 rsync -avz --progress releases/ "${VM_HOST}:${REMOTE_DIR}/releases/"
 
 echo ""
-echo "Deployed. Test with:"
-echo "  curl -fsSL https://manthra.informaticsint.au/install | bash"
+echo "Deployed. Install commands:"
+echo "  Linux/macOS : curl -fsSL https://manthra.informaticsint.au/install | bash"
+echo "  Windows PS1 : iwr https://manthra.informaticsint.au/install.ps1 | iex"

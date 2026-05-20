@@ -1,4 +1,5 @@
 import * as readline from 'readline';
+import { PassThrough } from 'stream';
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import chalk from 'chalk';
@@ -582,11 +583,65 @@ export class REPL {
   // ── Main loop ─────────────────────────────────────────────────────────────
 
   async run(): Promise<void> {
+    // ── Bracketed paste setup ───────────────────────────────────────────────
+    // Route stdin through a PassThrough proxy so we can intercept bracketed
+    // paste sequences (\x1B[200~ … \x1B[201~) before readline sees them.
+    // Paste content is captured as a whole and submitted as one message.
+    // Normal keystrokes are forwarded to the proxy unchanged.
+    let rlInput: NodeJS.ReadableStream = process.stdin;
+    let disablePaste = () => {};
+
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      process.stdout.write('\x1B[?2004h'); // enable bracketed paste
+
+      const proxy = new PassThrough();
+      rlInput = proxy;
+
+      let pasting = false;
+      let pasteBuf = '';
+
+      const onData = (chunk: Buffer) => {
+        const s = chunk.toString('utf8');
+
+        if (pasting || s.includes('\x1B[200~')) {
+          if (!pasting) {
+            pasting = true;
+            pasteBuf = s.slice(s.indexOf('\x1B[200~') + 6);
+          } else {
+            pasteBuf += s;
+          }
+
+          if (pasteBuf.includes('\x1B[201~')) {
+            const content = pasteBuf.slice(0, pasteBuf.indexOf('\x1B[201~'));
+            pasting = false;
+            pasteBuf = '';
+            if (this.rl && !this.isProcessing) {
+              void this.processLineInput(content.trim());
+            }
+          }
+          return; // don't forward paste bytes to readline
+        }
+
+        proxy.write(chunk);
+      };
+
+      process.stdin.on('data', onData);
+      process.stdin.once('end', () => proxy.end());
+      process.stdin.once('close', () => proxy.destroy());
+
+      disablePaste = () => {
+        process.stdin.off('data', onData);
+        process.stdout.write('\x1B[?2004l'); // disable bracketed paste
+      };
+    }
+
     this.rl = readline.createInterface({
-      input: process.stdin,
+      input: rlInput,
       output: process.stdout,
       prompt: '',
-      terminal: true,
+      terminal: process.stdin.isTTY,
     });
 
     this.initLayout();
@@ -620,6 +675,7 @@ export class REPL {
     });
 
     this.rl.on('close', () => {
+      disablePaste();
       if (process.stdout.isTTY) {
         process.stdout.write('\x1B[r');
         process.stdout.write(`\x1B[${this.rows};1H\n`);

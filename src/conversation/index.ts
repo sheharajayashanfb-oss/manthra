@@ -49,4 +49,29 @@ export class ConversationHistory {
   length(): number {
     return this.messages.length;
   }
+
+  // Rough token estimate: ~4 chars per token across all message content
+  estimateTokens(): number {
+    let chars = 0;
+    for (const m of this.messages) {
+      if (typeof m.content === 'string') {
+        chars += m.content.length;
+      } else {
+        for (const b of m.content) {
+          if (b.type === 'text') chars += b.text.length;
+          else if (b.type === 'tool_result') chars += b.content.length;
+          else if (b.type === 'tool_call') chars += JSON.stringify(b.input).length + b.name.length;
+        }
+      }
+    }
+    return Math.ceil(chars / 4);
+  }
+
+  stats(): { total: number; byRole: Record<string, number>; estimatedTokens: number } {
+    const byRole: Record<string, number> = {};
+    for (const m of this.messages) {
+      byRole[m.role] = (byRole[m.role] ?? 0) + 1;
+    }
+    return { total: this.messages.length, byRole, estimatedTokens: this.estimateTokens() };
+  }
 }

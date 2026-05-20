@@ -5,6 +5,7 @@ export interface CommandContext {
   history: ConversationHistory;
   provider: Provider | undefined;
   model: string;
+  contextWindow?: number;
 }
 
 export interface SlashCommand {

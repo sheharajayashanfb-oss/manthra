@@ -191,6 +191,7 @@ export class REPL {
       provider: this.provider,
       get model() { return self.model; },
       set model(v: string) { self.model = v; },
+      get contextWindow() { return self.contextWindow; },
     };
   }
 

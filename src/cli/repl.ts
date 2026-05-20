@@ -68,6 +68,15 @@ function termCols(): number {
   return Math.min(process.stdout.columns ?? 80, 120);
 }
 
+function wrapText(line: string, width: number): string[] {
+  if (line.length <= width) return [line];
+  const chunks: string[] = [];
+  for (let i = 0; i < line.length; i += width) {
+    chunks.push(line.slice(i, i + width));
+  }
+  return chunks;
+}
+
 function printThinkingBox(content: string): void {
   const c = termCols();
   const innerWidth = c - 6;
@@ -77,7 +86,9 @@ function printThinkingBox(content: string): void {
   const topFill = Math.max(0, c - 3 - labelPart.length);
   process.stdout.write('\n' + chalk.dim(`  ╭${labelPart}${'─'.repeat(topFill)}`) + '\n');
   for (const line of lines) {
-    process.stdout.write(chalk.dim(`  │  ${line.slice(0, innerWidth)}\n`));
+    for (const chunk of wrapText(line, innerWidth)) {
+      process.stdout.write(chalk.dim(`  │  ${chunk}\n`));
+    }
   }
   process.stdout.write(chalk.dim(`  ╰${'─'.repeat(c - 3)}`) + '\n');
 }

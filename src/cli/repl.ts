@@ -97,18 +97,21 @@ function wrapText(line: string, width: number): string[] {
 
 function printThinkingBox(content: string): void {
   const c = termCols();
-  const innerWidth = c - 6;
+  // Layout: "  │  " (5) + content + "  │" (3) = 8 overhead
+  const innerWidth = Math.max(1, c - 8);
   const lines = content.split('\n').map((l) => l.trimEnd()).filter(Boolean);
 
   const labelPart = '─ thinking ';
-  const topFill = Math.max(0, c - 3 - labelPart.length);
-  process.stdout.write('\n' + chalk.dim(`  ╭${labelPart}${'─'.repeat(topFill)}`) + '\n');
+  // Top:    "  ╭" (3) + label (11) + fill + "╮" (1) = c
+  const topFill = Math.max(0, c - 4 - labelPart.length);
+  process.stdout.write('\n' + chalk.dim(`  ╭${labelPart}${'─'.repeat(topFill)}╮`) + '\n');
   for (const line of lines) {
     for (const chunk of wrapText(line, innerWidth)) {
-      process.stdout.write(chalk.dim(`  │  ${chunk}\n`));
+      process.stdout.write(chalk.dim(`  │  ${chunk.padEnd(innerWidth)}  │`) + '\n');
     }
   }
-  process.stdout.write(chalk.dim(`  ╰${'─'.repeat(c - 3)}`) + '\n');
+  // Bottom: "  ╰" (3) + fill + "╯" (1) = c
+  process.stdout.write(chalk.dim(`  ╰${'─'.repeat(c - 4)}╯`) + '\n');
 }
 
 function printTurnSummary(opts: { inTokens: number; outTokens: number; ms: number }): void {

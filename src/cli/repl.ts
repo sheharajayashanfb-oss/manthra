@@ -72,18 +72,12 @@ function printThinkingBox(content: string): void {
   const c = termCols();
   const innerWidth = c - 6;
   const lines = content.split('\n').map((l) => l.trimEnd()).filter(Boolean);
-  const cap = 15;
-  const shown = lines.slice(0, cap);
-  const rest = lines.length - shown.length;
 
   const labelPart = '─ thinking ';
   const topFill = Math.max(0, c - 3 - labelPart.length);
   process.stdout.write('\n' + chalk.dim(`  ╭${labelPart}${'─'.repeat(topFill)}`) + '\n');
-  for (const line of shown) {
+  for (const line of lines) {
     process.stdout.write(chalk.dim(`  │  ${line.slice(0, innerWidth)}\n`));
-  }
-  if (rest > 0) {
-    process.stdout.write(chalk.dim(`  │  … ${rest} more line${rest !== 1 ? 's' : ''}\n`));
   }
   process.stdout.write(chalk.dim(`  ╰${'─'.repeat(c - 3)}`) + '\n');
 }

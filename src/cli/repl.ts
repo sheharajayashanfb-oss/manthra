@@ -1,7 +1,8 @@
 import * as readline from 'readline';
 import { PassThrough } from 'stream';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { resolve } from 'path';
+import { spawnSync, execSync } from 'child_process';
 import chalk from 'chalk';
 import type { Provider, Message, ContentBlock, StreamEvent, ImageContent } from '../providers/types.js';
 import { ConversationHistory } from '../conversation/index.js';
@@ -290,7 +291,7 @@ export class REPL {
       : '';
     const bottomBar =
       chalk.dim('  ' + (pName ? pName + '  ·  ' : '') + mShort) +
-      tokInfo + ctxPct + chalk.dim('   Manthra');
+      tokInfo + ctxPct + chalk.dim('   Ctrl+E: editor  ·  Manthra');
 
     process.stdout.write('\x1B7');
     process.stdout.write(`\x1B[${s};1H\x1B[2K${statusLine}`);
@@ -566,6 +567,66 @@ export class REPL {
     return { turnIn: totalIn, turnOut: totalOut };
   }
 
+  // ── Input helpers ─────────────────────────────────────────────────────────
+
+  private async openEditor(): Promise<void> {
+    if (!this.rl || this.isProcessing) return;
+
+    const tmpFile = `/tmp/manthra-${Date.now()}.txt`;
+    writeFileSync(tmpFile, '');
+    const editor = process.env.EDITOR ?? process.env.VISUAL ?? 'nano';
+
+    // Restore terminal to normal state before handing off to editor
+    process.stdin.setRawMode(false);
+    process.stdout.write('\x1B[?2004l');
+    process.stdout.write('\x1B[r');
+    process.stdout.write('\x1B[2J\x1B[H');
+
+    spawnSync(editor, [tmpFile], { stdio: 'inherit' });
+
+    // Restore our layout
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdout.write('\x1B[?2004h');
+    this.initLayout();
+
+    const content = readFileSync(tmpFile, 'utf8').trim();
+    try { unlinkSync(tmpFile); } catch { /* ignore */ }
+
+    if (content) {
+      void this.processLineInput(content);
+    } else {
+      this.openBox();
+    }
+  }
+
+  private pasteFromClipboard(): void {
+    if (!this.rl || this.isProcessing) return;
+    try {
+      let text: string;
+      if (process.platform === 'darwin') {
+        text = execSync('pbpaste').toString();
+      } else if (process.platform === 'linux') {
+        try {
+          text = execSync('xclip -selection clipboard -o').toString();
+        } catch {
+          text = execSync('xsel --clipboard --output').toString();
+        }
+      } else {
+        return;
+      }
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      if (!trimmed.includes('\n')) {
+        this.rl.write(trimmed);
+      } else {
+        const lineCount = trimmed.split('\n').length;
+        process.stdout.write(chalk.dim(`\n  ✦ Pasting ${lineCount} lines…\n`));
+        void this.processLineInput(trimmed);
+      }
+    } catch { /* clipboard not available */ }
+  }
+
   // ── Input processing ─────────────────────────────────────────────────────
 
   private async processLineInput(input: string): Promise<void> {
@@ -625,6 +686,18 @@ export class REPL {
       const onData = (chunk: Buffer) => {
         const s = chunk.toString('utf8');
 
+        // Ctrl+E (0x05): open external editor for multi-line composition
+        if (chunk.length === 1 && chunk[0] === 0x05 && !this.isProcessing) {
+          void this.openEditor();
+          return;
+        }
+
+        // Ctrl+V (0x16): explicit clipboard paste for terminals without bracketed paste
+        if (chunk.length === 1 && chunk[0] === 0x16 && !this.isProcessing) {
+          this.pasteFromClipboard();
+          return;
+        }
+
         if (pasting || s.includes('\x1B[200~')) {
           if (!pasting) {
             pasting = true;
@@ -638,7 +711,16 @@ export class REPL {
             pasting = false;
             pasteBuf = '';
             if (this.rl && !this.isProcessing) {
-              void this.processLineInput(content.trim());
+              const trimmed = content.trim();
+              if (!trimmed.includes('\n')) {
+                // Single-line paste: insert into buffer so user can edit before submitting
+                this.rl.write(trimmed);
+              } else {
+                // Multi-line paste: show line count and submit
+                const lineCount = trimmed.split('\n').length;
+                process.stdout.write(chalk.dim(`\n  ✦ Pasting ${lineCount} lines…\n`));
+                void this.processLineInput(trimmed);
+              }
             }
           }
           return; // don't forward paste bytes to readline

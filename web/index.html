@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manthra — AI coding assistant powered by Ollama</title>
-  <meta name="description" content="AI-powered CLI coding assistant built for Ollama. File editing, shell commands, fully local — no API key needed. Install in seconds.">
+  <title>Manthra — AI coding assistant for your terminal</title>
+  <meta name="description" content="Manthra is an open-source AI coding assistant CLI. Reads, edits, and runs code with any Ollama model — fully local, no API key required.">
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
-  <link rel="shortcut icon" href="/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,29 +13,29 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #000000;
-      --bg-card:   #080808;
-      --bg-term:   #000000;
-      --border:    rgba(0,255,65,0.12);
-      --border-hi: rgba(0,255,65,0.28);
-      --green:     #00ff41;
-      --green-dim: #00cc33;
-      --green-glow:rgba(0,255,65,0.18);
-      --green-bg:  rgba(0,255,65,0.06);
-      --white:     #ffffff;
-      --text:      #e8e8e8;
-      --text-muted:#888888;
-      --text-dim:  #444444;
-      --yellow:    #ffff00;
-      --red:       #ff4444;
-      --radius:    4px;
-      --radius-sm: 2px;
+      --bg:          #ffffff;
+      --bg-card:     #fafafa;
+      --bg-alt:      #f5f5f5;
+      --bg-dark:     #0a0a0a;
+      --bg-dark-2:   #141414;
+      --border:      #e5e5e5;
+      --border-hi:   #c8c8c8;
+      --text:        #0a0a0a;
+      --text-sec:    #525252;
+      --text-muted:  #8a8a8a;
+      --text-dim:    #c0c0c0;
+      --on-dark:     #e8e8e8;
+      --on-dark-dim: #6b6b6b;
+      --on-dark-muted:#4a4a4a;
+      --radius:      4px;
+      --radius-sm:   2px;
+      --mono:        'JetBrains Mono', 'Courier New', monospace;
     }
 
     html { scroll-behavior: smooth; }
 
     body {
-      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-family: var(--mono);
       background: var(--bg);
       color: var(--text);
       line-height: 1.6;
@@ -44,142 +43,89 @@
       overflow-x: hidden;
     }
 
-    /* Scanline overlay */
-    body::after {
-      content: '';
-      position: fixed; inset: 0; z-index: 9999;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.03) 2px,
-        rgba(0,0,0,0.03) 4px
-      );
-      pointer-events: none;
-    }
-
     /* ── Nav ── */
     nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      position: sticky; top: 0; left: 0; right: 0; z-index: 100;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 2rem;
-      height: 56px;
-      background: rgba(0,0,0,0.92);
+      padding: 0 2rem; height: 56px;
+      background: rgba(255,255,255,0.96);
       backdrop-filter: blur(8px);
       border-bottom: 1px solid var(--border);
     }
     .nav-logo {
       display: flex; align-items: center; gap: 10px;
-      font-weight: 700; font-size: 1rem; color: var(--green);
-      text-decoration: none; letter-spacing: 0.05em;
+      font-weight: 700; font-size: 0.95rem; color: var(--text);
+      text-decoration: none; letter-spacing: 0.03em;
     }
-    .nav-logo-icon {
-      width: 26px; height: 26px; background: transparent;
-      border: 1px solid var(--green);
-      border-radius: 2px; display: flex; align-items: center; justify-content: center;
-      font-size: 13px; color: var(--green);
-      box-shadow: 0 0 8px var(--green-glow);
-    }
-    .nav-links { display: flex; align-items: center; gap: 0.5rem; }
+    .nav-logo img { display: block; border-radius: 2px; }
+    .nav-links { display: flex; align-items: center; gap: 0.25rem; }
     .nav-links a {
       color: var(--text-muted); text-decoration: none; font-size: 0.8rem;
-      padding: 5px 12px; border-radius: 2px; transition: color .15s, background .15s;
-      letter-spacing: 0.04em;
+      padding: 5px 12px; border-radius: var(--radius-sm);
+      transition: color .15s, background .15s; letter-spacing: 0.02em;
     }
-    .nav-links a:hover { color: var(--green); background: var(--green-bg); }
+    .nav-links a:hover { color: var(--text); background: var(--bg-alt); }
     .nav-links .btn-nav {
-      color: var(--green); background: var(--green-bg);
-      border: 1px solid var(--border-hi); font-weight: 600;
+      color: var(--bg); background: var(--text);
+      border: 1px solid var(--text); font-weight: 600; margin-left: 4px;
     }
-    .nav-links .btn-nav:hover { background: rgba(0,255,65,0.12); box-shadow: 0 0 10px var(--green-glow); }
+    .nav-links .btn-nav:hover { background: var(--text-sec); border-color: var(--text-sec); }
 
     /* ── Hero ── */
     .hero {
-      min-height: 100vh;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      text-align: center;
-      padding: 100px 2rem 60px;
-      position: relative;
-      overflow: hidden;
-    }
-    .hero::before {
-      content: '';
-      position: absolute; top: -150px; left: 50%; transform: translateX(-50%);
-      width: 700px; height: 700px;
-      background: radial-gradient(circle, rgba(0,255,65,0.06) 0%, transparent 65%);
-      pointer-events: none;
+      padding: 96px 2rem 72px;
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; border-bottom: 1px solid var(--border);
     }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 8px;
-      padding: 5px 14px; border-radius: 2px;
-      background: var(--green-bg); border: 1px solid var(--border-hi);
-      font-size: 0.72rem; font-weight: 600; color: var(--green);
-      margin-bottom: 1.5rem; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 4px 14px; border-radius: 100px;
+      background: var(--bg-alt); border: 1px solid var(--border);
+      font-size: 0.72rem; font-weight: 600; color: var(--text-sec);
+      margin-bottom: 1.75rem; letter-spacing: 0.08em; text-transform: uppercase;
     }
     .hero h1 {
-      font-size: clamp(2rem, 5.5vw, 4rem);
-      font-weight: 700;
-      line-height: 1.08;
-      letter-spacing: -0.01em;
-      max-width: 820px;
-      margin-bottom: 1.25rem;
-      color: var(--white);
+      font-size: clamp(2rem, 5vw, 3.75rem);
+      font-weight: 700; line-height: 1.06;
+      letter-spacing: -0.02em; max-width: 780px; margin-bottom: 1.25rem;
+      color: var(--text);
     }
-    .hero h1 span { color: var(--green); text-shadow: 0 0 20px rgba(0,255,65,0.4); }
     .hero-sub {
-      font-size: clamp(0.85rem, 1.8vw, 1rem);
-      color: var(--text-muted);
-      max-width: 520px;
-      margin-bottom: 3rem;
-      line-height: 1.8;
+      font-size: clamp(0.85rem, 1.6vw, 1rem); color: var(--text-muted);
+      max-width: 500px; margin-bottom: 3rem; line-height: 1.8;
     }
-    .providers-row {
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
-      margin-bottom: 3rem;
-    }
-    .provider-chip {
-      padding: 3px 10px; border-radius: 2px;
-      background: transparent; border: 1px solid var(--border);
-      font-size: 0.72rem; color: var(--text-dim); font-weight: 500;
-      letter-spacing: 0.04em;
-    }
-    .provider-chip.active { color: var(--green); border-color: var(--border-hi); background: var(--green-bg); }
 
-    /* Install command */
+    /* Install box */
     .install-box {
       display: flex; align-items: center;
-      background: var(--bg-term);
-      border: 1px solid var(--border-hi);
+      background: var(--bg-dark);
+      border: 1px solid #2a2a2a;
       border-radius: var(--radius);
-      max-width: 620px; width: 100%;
-      margin: 0 auto 2rem;
+      max-width: 640px; width: 100%; margin: 0 auto 1.5rem;
       overflow: hidden;
-      box-shadow: 0 0 24px rgba(0,255,65,0.08);
     }
     .install-prefix {
-      padding: 14px 14px;
-      color: var(--green); font-family: 'JetBrains Mono', monospace; font-size: 0.875rem;
-      border-right: 1px solid var(--border);
-      user-select: none; white-space: nowrap;
+      padding: 14px 16px; color: var(--on-dark-dim);
+      font-family: var(--mono); font-size: 0.875rem;
+      border-right: 1px solid #2a2a2a; user-select: none;
     }
     .install-cmd {
-      flex: 1; padding: 14px 14px;
-      font-family: 'JetBrains Mono', monospace; font-size: 0.875rem;
-      color: var(--text); overflow-x: auto; white-space: nowrap;
-      background: transparent;
+      flex: 1; padding: 14px 16px;
+      font-family: var(--mono); font-size: 0.875rem;
+      color: var(--on-dark); overflow-x: auto; white-space: nowrap;
     }
     .copy-btn {
       padding: 7px 14px; margin: 6px;
-      background: transparent; border: 1px solid var(--border-hi);
+      background: transparent; border: 1px solid #3a3a3a;
       border-radius: var(--radius-sm);
-      color: var(--green); font-size: 0.72rem; font-weight: 600; font-family: inherit;
-      cursor: pointer; transition: all .15s; white-space: nowrap;
-      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--on-dark-dim); font-size: 0.72rem; font-weight: 600;
+      font-family: var(--mono); cursor: pointer; transition: all .15s;
+      letter-spacing: 0.06em; text-transform: uppercase;
     }
-    .copy-btn:hover { background: var(--green-bg); box-shadow: 0 0 10px var(--green-glow); }
-    .copy-btn.copied { color: var(--white); border-color: var(--green); background: rgba(0,255,65,0.15); }
+    .copy-btn:hover { border-color: #888; color: var(--on-dark); }
+    .copy-btn.copied { border-color: #888; color: #fff; }
 
-    /* Platform downloads */
+    /* Platform tabs */
     .platform-tabs {
       display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
       margin-bottom: 1rem;
@@ -187,261 +133,317 @@
     .platform-tab {
       padding: 5px 14px; border-radius: var(--radius-sm);
       background: transparent; border: 1px solid var(--border);
-      color: var(--text-dim); font-size: 0.75rem; font-weight: 500; font-family: inherit;
-      cursor: pointer; transition: all .15s; letter-spacing: 0.03em;
+      color: var(--text-muted); font-size: 0.75rem; font-weight: 500;
+      font-family: var(--mono); cursor: pointer; transition: all .15s;
     }
     .platform-tab:hover { border-color: var(--border-hi); color: var(--text); }
-    .platform-tab.active {
-      background: var(--green-bg); border-color: var(--border-hi); color: var(--green);
-    }
+    .platform-tab.active { background: var(--text); border-color: var(--text); color: var(--bg); }
     .platform-dl { display: none; text-align: center; }
     .platform-dl.active { display: block; }
     .platform-dl a {
       display: inline-flex; align-items: center; gap: 8px;
-      padding: 9px 18px; border-radius: var(--radius-sm);
+      padding: 9px 20px; border-radius: var(--radius-sm);
       background: transparent; border: 1px solid var(--border-hi);
-      color: var(--green); text-decoration: none; font-size: 0.8rem; font-weight: 600;
-      font-family: inherit; transition: all .15s; letter-spacing: 0.04em;
+      color: var(--text); text-decoration: none; font-size: 0.8rem;
+      font-weight: 600; font-family: var(--mono); transition: all .15s;
     }
-    .platform-dl a:hover { background: var(--green-bg); box-shadow: 0 0 12px var(--green-glow); }
-    .platform-note { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.6rem; font-family: 'JetBrains Mono', monospace; }
+    .platform-dl a:hover { background: var(--bg-alt); border-color: var(--text); }
+    .platform-note { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.6rem; }
 
-    /* ── Terminal mockup ── */
-    .terminal-section {
-      padding: 60px 2rem;
-      display: flex; justify-content: center;
-    }
-    .terminal {
-      width: 100%; max-width: 780px;
-      background: #000;
-      border: 1px solid var(--border-hi);
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: 0 0 40px rgba(0,255,65,0.08), 0 24px 60px rgba(0,0,0,0.8);
-    }
-    .term-bar {
-      display: flex; align-items: center; padding: 10px 16px; gap: 8px;
-      border-bottom: 1px solid var(--border);
-      background: #050505;
-    }
-    .term-dot { width: 10px; height: 10px; border-radius: 50%; }
-    .term-dot.r { background: #333; }
-    .term-dot.y { background: #333; }
-    .term-dot.g { background: var(--green); box-shadow: 0 0 6px var(--green-glow); }
-    .term-title { flex: 1; text-align: center; font-size: 0.72rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
-    .term-body { padding: 20px 24px; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.8; }
-    .term-line { display: flex; gap: 10px; }
-    .term-prompt { color: var(--green); user-select: none; }
-    .term-cmd { color: var(--white); }
-    .term-out { color: var(--text-muted); }
-    .term-dim { color: var(--text-dim); }
-    .term-tool { color: var(--green); }
-    .term-success { color: var(--green); text-shadow: 0 0 8px var(--green-glow); }
-    .term-ai { color: var(--text); }
-    .term-thinking { color: var(--text-dim); font-style: italic; }
-    .term-status {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 24px;
-      border-top: 1px solid var(--border);
-      background: #050505;
-    }
-    .term-sq { color: var(--green); font-size: 0.8rem; }
-    .term-status-text { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text-dim); }
-    .term-input-row {
-      padding: 9px 24px;
-      border-top: 1px solid var(--border);
-      display: flex; align-items: center; gap: 10px;
-      background: #020202;
-    }
-    .term-input-prompt { color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; }
-    .term-cursor {
-      display: inline-block; width: 8px; height: 15px;
-      background: var(--green); margin-left: 2px;
-      box-shadow: 0 0 6px var(--green-glow);
-      animation: blink 1s step-end infinite;
-    }
-    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
-
-    /* ── Features ── */
-    .features {
-      padding: 80px 2rem;
-      max-width: 1100px; margin: 0 auto;
-    }
-    .section-label {
-      text-align: center; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.18em;
-      text-transform: uppercase; color: var(--green); margin-bottom: 0.75rem;
-    }
-    .section-title {
-      text-align: center; font-size: clamp(1.5rem, 3vw, 2.4rem); font-weight: 700;
-      letter-spacing: -0.01em; margin-bottom: 1rem; color: var(--white);
-    }
-    .section-sub {
-      text-align: center; color: var(--text-muted); font-size: 0.9rem; max-width: 500px;
-      margin: 0 auto 3rem;
-    }
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1px;
-      background: var(--border);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-    .feature-card {
-      padding: 1.75rem;
-      background: var(--bg-card);
-      transition: background .15s;
-    }
-    .feature-card:hover { background: #0d0d0d; }
-    .feature-icon {
-      width: 36px; height: 36px; border-radius: 2px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1rem; margin-bottom: 1rem;
-      border: 1px solid var(--border);
-    }
-    .feature-icon.blue  { background: var(--green-bg); }
-    .feature-icon.cyan  { background: var(--green-bg); }
-    .feature-icon.green { background: var(--green-bg); }
-    .feature-icon.purple{ background: var(--green-bg); }
-    .feature-icon.yellow{ background: var(--green-bg); }
-    .feature-icon.red   { background: var(--green-bg); }
-    .feature-card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.4rem; color: var(--white); letter-spacing: 0.02em; }
-    .feature-card p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.7; }
-
-    /* ── How it works ── */
-    .how { padding: 80px 2rem; max-width: 900px; margin: 0 auto; }
-    .steps { display: flex; flex-direction: column; gap: 0; margin-top: 3rem; }
-    .step {
-      display: grid; grid-template-columns: 52px 1fr;
-      gap: 0 1.5rem; position: relative;
-    }
-    .step:not(:last-child)::before {
-      content: '';
-      position: absolute; left: 25px; top: 52px; bottom: -20px;
-      width: 1px; background: var(--border);
-    }
-    .step-num {
-      width: 52px; height: 52px; border-radius: 2px;
-      background: var(--bg-card); border: 1px solid var(--border-hi);
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 0.9rem; color: var(--green); flex-shrink: 0;
-      box-shadow: 0 0 12px rgba(0,255,65,0.08);
-    }
-    .step-content { padding-bottom: 3rem; }
-    .step-content h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.35rem; padding-top: 0.9rem; color: var(--white); letter-spacing: 0.02em; }
-    .step-content p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.7; max-width: 600px; }
-    .step-code {
-      margin-top: 0.75rem;
-      padding: 9px 14px;
-      background: #050505; border: 1px solid var(--border-hi);
-      border-radius: var(--radius-sm);
-      font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
-      color: var(--green); display: inline-block;
-    }
-
-    /* ── Providers ── */
-    .providers-section { padding: 80px 2rem; text-align: center; }
-    .providers-grid {
-      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
-      max-width: 700px; margin: 2.5rem auto 0;
-    }
-    .provider-card {
-      padding: 12px 22px;
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      font-weight: 600; font-size: 0.85rem;
-      transition: all .15s; letter-spacing: 0.02em;
-    }
-    .provider-card:hover { border-color: var(--border-hi); background: #0d0d0d; box-shadow: 0 0 12px rgba(0,255,65,0.06); }
-    .provider-card span { font-weight: 400; font-size: 0.72rem; color: var(--text-dim); display: block; margin-top: 3px; }
-
-    /* ── CTA ── */
-    .cta-section {
-      padding: 100px 2rem; text-align: center;
-      position: relative; overflow: hidden;
-    }
-    .cta-section::before {
-      content: '';
-      position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%);
-      width: 500px; height: 300px;
-      background: radial-gradient(circle, rgba(0,255,65,0.06) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .cta-section h2 { font-size: clamp(1.6rem, 3.5vw, 2.6rem); font-weight: 700; letter-spacing: -0.01em; margin-bottom: 1rem; color: var(--white); }
-    .cta-section p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2.5rem; }
-    .cta-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
-    .btn-primary {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 11px 28px; border-radius: var(--radius-sm);
-      background: var(--green); color: #000; font-weight: 700; font-size: 0.85rem;
-      text-decoration: none; transition: all .15s; border: 1px solid var(--green);
-      cursor: pointer; font-family: inherit; letter-spacing: 0.06em; text-transform: uppercase;
-    }
-    .btn-primary:hover { background: var(--white); border-color: var(--white); transform: translateY(-1px); box-shadow: 0 0 24px rgba(0,255,65,0.35); }
-    .btn-secondary {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 11px 28px; border-radius: var(--radius-sm);
-      background: transparent; color: var(--green);
-      border: 1px solid var(--border-hi); font-weight: 600; font-size: 0.85rem;
-      text-decoration: none; transition: all .15s; font-family: inherit; letter-spacing: 0.04em;
-    }
-    .btn-secondary:hover { background: var(--green-bg); transform: translateY(-1px); box-shadow: 0 0 14px rgba(0,255,65,0.15); }
-
-    /* ── Footer ── */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 2rem 2rem;
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 1rem;
-      max-width: 1100px; margin: 0 auto;
-    }
-    .footer-logo {
-      display: flex; align-items: center; gap: 10px;
-      font-weight: 700; font-size: 0.9rem; color: var(--green);
-      text-decoration: none; letter-spacing: 0.05em;
-    }
-    .footer-links { display: flex; gap: 1.5rem; }
-    .footer-links a { color: var(--text-dim); text-decoration: none; font-size: 0.78rem; transition: color .15s; letter-spacing: 0.03em; }
-    .footer-links a:hover { color: var(--green); }
-    .footer-copy { font-size: 0.75rem; color: var(--text-dim); }
-
-    /* ── macOS warning banner ── */
+    /* macOS warning */
     .macos-warning {
-      display: none; margin-top: 12px; max-width: 600px;
-      background: rgba(255,255,0,0.04); border: 1px solid rgba(255,255,0,0.25);
+      display: none; margin-top: 12px; max-width: 620px;
+      background: #fffbeb; border: 1px solid #d4a800;
       border-radius: var(--radius-sm); padding: 14px 16px; text-align: left;
     }
     .macos-warning.visible { display: block; }
     .macos-warning-title {
-      font-size: 0.78rem; font-weight: 700; color: var(--yellow);
-      margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
-      letter-spacing: 0.04em;
+      font-size: 0.78rem; font-weight: 700; color: #92400e;
+      margin-bottom: 8px; letter-spacing: 0.03em;
     }
-    .macos-warning p { font-size: 0.76rem; color: var(--text-muted); margin-bottom: 8px; line-height: 1.65; }
-    .macos-warning code {
-      display: block; padding: 8px 12px; margin: 4px 0;
-      background: #050505; border: 1px solid var(--border); border-radius: 2px;
-      font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; color: var(--green);
-      white-space: pre-wrap; word-break: break-all;
+    .macos-warning p { font-size: 0.76rem; color: var(--text-sec); margin-bottom: 8px; line-height: 1.65; }
+    .macos-warning pre {
+      padding: 10px 12px; background: var(--bg-alt);
+      border: 1px solid var(--border); border-radius: 2px;
+      font-family: var(--mono); font-size: 0.74rem; color: var(--text);
+      white-space: pre-wrap; word-break: break-all; margin: 6px 0;
     }
-    .macos-warning .or-divider {
-      text-align: center; font-size: 0.7rem; color: var(--text-dim); margin: 8px 0;
+    .or-divider { text-align: center; font-size: 0.7rem; color: var(--text-muted); margin: 8px 0; }
+
+    /* ── Dark strip (terminal demo) ── */
+    .dark-strip {
+      background: var(--bg-dark);
+      border-top: 1px solid #1e1e1e; border-bottom: 1px solid #1e1e1e;
+      padding: 60px 2rem;
+      display: flex; justify-content: center;
     }
+    .terminal {
+      width: 100%; max-width: 800px;
+      background: var(--bg-dark);
+      border: 1px solid #2a2a2a;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+    }
+    .term-bar {
+      display: flex; align-items: center; padding: 10px 16px; gap: 8px;
+      border-bottom: 1px solid #1e1e1e; background: #0f0f0f;
+    }
+    .term-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .term-dot.r { background: #333; }
+    .term-dot.y { background: #333; }
+    .term-dot.g { background: #555; }
+    .term-title { flex: 1; text-align: center; font-size: 0.72rem; color: #444; font-family: var(--mono); }
+    .term-body { padding: 24px; font-family: var(--mono); font-size: 0.82rem; line-height: 1.85; }
+    .term-line { display: flex; gap: 10px; }
+    .term-prompt { color: #555; user-select: none; }
+    .term-cmd { color: var(--on-dark); }
+    .term-out { color: #777; }
+    .term-dim { color: #444; }
+    .term-hi { color: #d4d4d4; }
+    .term-success { color: #aaa; }
+    .term-status {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 24px; border-top: 1px solid #1e1e1e; background: #0f0f0f;
+    }
+    .term-sq { color: #555; font-size: 0.8rem; }
+    .term-status-text { font-family: var(--mono); font-size: 0.72rem; color: #444; }
+    .term-input-row {
+      padding: 9px 24px; border-top: 1px solid #1e1e1e;
+      display: flex; align-items: center; gap: 10px; background: #080808;
+    }
+    .term-input-p { color: #333; font-family: var(--mono); font-size: 0.82rem; }
+    .term-cursor {
+      display: inline-block; width: 8px; height: 15px;
+      background: #666; margin-left: 2px;
+      animation: blink 1.2s step-end infinite;
+    }
+    @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+    /* ── Sections ── */
+    .section { padding: 88px 2rem; }
+    .section-inner { max-width: 1040px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.6rem;
+    }
+    .section-title {
+      font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 700;
+      letter-spacing: -0.02em; margin-bottom: 0.9rem; color: var(--text);
+    }
+    .section-sub {
+      color: var(--text-muted); font-size: 0.9rem; max-width: 480px; line-height: 1.8;
+    }
+    .section-header { margin-bottom: 3rem; }
 
     /* ── Divider ── */
-    .divider { height: 1px; background: var(--border); max-width: 1100px; margin: 0 auto; }
+    .divider { height: 1px; background: var(--border); }
+
+    /* ── Code block ── */
+    .code-block {
+      background: var(--bg-dark); border: 1px solid #222;
+      border-radius: var(--radius); padding: 16px 18px;
+      font-family: var(--mono); font-size: 0.82rem;
+      color: var(--on-dark); line-height: 1.85;
+      position: relative; overflow-x: auto;
+    }
+    .code-block .comment { color: #555; }
+    .code-block .cmd { color: #d4d4d4; }
+    .code-block-label {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;
+    }
+    .inline-code {
+      font-family: var(--mono); font-size: 0.85em;
+      background: var(--bg-alt); border: 1px solid var(--border);
+      border-radius: 2px; padding: 1px 6px; color: var(--text);
+    }
+
+    /* ── Steps ── */
+    .steps { display: flex; flex-direction: column; gap: 0; }
+    .step {
+      display: grid; grid-template-columns: 48px 1fr;
+      gap: 0 1.5rem; position: relative;
+    }
+    .step:not(:last-child)::before {
+      content: '';
+      position: absolute; left: 23px; top: 48px; bottom: -24px;
+      width: 1px; background: var(--border);
+    }
+    .step-num {
+      width: 48px; height: 48px; border-radius: var(--radius-sm);
+      background: var(--bg); border: 1px solid var(--border-hi);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.9rem; color: var(--text); flex-shrink: 0;
+    }
+    .step-content { padding-bottom: 3rem; }
+    .step-content h3 {
+      font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem;
+      padding-top: 0.75rem; color: var(--text); letter-spacing: 0.01em;
+    }
+    .step-content p { font-size: 0.85rem; color: var(--text-sec); line-height: 1.75; max-width: 560px; }
+    .step-content .code-block { margin-top: 0.875rem; }
+
+    /* ── Features grid ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1px; background: var(--border);
+      border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+    }
+    .feature-card {
+      padding: 1.75rem; background: var(--bg); transition: background .15s;
+    }
+    .feature-card:hover { background: var(--bg-card); }
+    .feature-icon {
+      width: 32px; height: 32px; border-radius: var(--radius-sm);
+      background: var(--bg-alt); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9rem; margin-bottom: 1rem;
+    }
+    .feature-card h3 { font-size: 0.875rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text); letter-spacing: 0.01em; }
+    .feature-card p { font-size: 0.82rem; color: var(--text-sec); line-height: 1.7; }
+
+    /* ── Doc grid (two-column) ── */
+    .doc-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+      background: var(--border); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .doc-col { background: var(--bg); padding: 2rem; }
+    .doc-col h3 {
+      font-size: 0.9rem; font-weight: 700; margin-bottom: 0.3rem; color: var(--text);
+    }
+    .doc-col > p { font-size: 0.82rem; color: var(--text-sec); margin-bottom: 1.5rem; line-height: 1.7; }
+
+    /* ── Commands table ── */
+    .cmd-table {
+      width: 100%; border-collapse: collapse;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; font-size: 0.82rem;
+    }
+    .cmd-table th {
+      text-align: left; padding: 10px 16px;
+      background: var(--bg-alt); border-bottom: 1px solid var(--border);
+      font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--text-muted); font-weight: 700;
+    }
+    .cmd-table td {
+      padding: 10px 16px; border-bottom: 1px solid var(--border);
+      vertical-align: top; line-height: 1.6;
+    }
+    .cmd-table tr:last-child td { border-bottom: none; }
+    .cmd-table tr:hover td { background: var(--bg-card); }
+    .cmd-name { font-weight: 600; color: var(--text); white-space: nowrap; }
+    .cmd-alias { color: var(--text-muted); font-size: 0.78rem; }
+    .cmd-desc { color: var(--text-sec); }
+
+    /* ── Models grid ── */
+    .models-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1px;
+      background: var(--border); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; margin-top: 2.5rem;
+    }
+    .model-card {
+      padding: 1.25rem 1.5rem; background: var(--bg);
+      transition: background .15s;
+    }
+    .model-card:hover { background: var(--bg-card); }
+    .model-name { font-weight: 600; font-size: 0.875rem; color: var(--text); margin-bottom: 3px; }
+    .model-tag { font-size: 0.72rem; color: var(--text-muted); }
+
+    /* ── CTA (dark) ── */
+    .cta-strip {
+      background: var(--bg-dark); padding: 88px 2rem; text-align: center;
+      border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a;
+    }
+    .cta-strip h2 {
+      font-size: clamp(1.5rem, 3.5vw, 2.5rem); font-weight: 700;
+      letter-spacing: -0.02em; margin-bottom: 1rem; color: #ffffff;
+    }
+    .cta-strip p { color: #666; font-size: 0.95rem; margin-bottom: 2.5rem; }
+    .cta-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 28px; border-radius: var(--radius-sm);
+      background: #ffffff; color: #000; font-weight: 700; font-size: 0.85rem;
+      text-decoration: none; transition: all .15s; border: 1px solid #ffffff;
+      cursor: pointer; font-family: var(--mono); letter-spacing: 0.04em;
+    }
+    .btn-primary:hover { background: #e8e8e8; border-color: #e8e8e8; }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 28px; border-radius: var(--radius-sm);
+      background: transparent; color: #888;
+      border: 1px solid #2a2a2a; font-weight: 600; font-size: 0.85rem;
+      text-decoration: none; transition: all .15s;
+      font-family: var(--mono); letter-spacing: 0.03em;
+    }
+    .btn-secondary:hover { border-color: #555; color: #ccc; }
+
+    /* ── Footer ── */
+    footer {
+      padding: 2rem 2rem; border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem; max-width: 1100px; margin: 0 auto;
+    }
+    .footer-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 0.9rem; color: var(--text);
+      text-decoration: none;
+    }
+    .footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .footer-links a { color: var(--text-muted); text-decoration: none; font-size: 0.78rem; transition: color .15s; }
+    .footer-links a:hover { color: var(--text); }
+    .footer-copy { font-size: 0.75rem; color: var(--text-dim); }
+
+    /* ── Info box ── */
+    .info-box {
+      padding: 14px 18px;
+      background: var(--bg-alt); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); font-size: 0.82rem;
+      color: var(--text-sec); line-height: 1.65;
+    }
+    .info-box strong { color: var(--text); }
+
+    /* ── Tag badges ── */
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 100px;
+      font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; background: var(--bg-alt);
+      border: 1px solid var(--border); color: var(--text-muted);
+    }
+    .badge-black { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+    /* ── Compat grid ── */
+    .compat-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1px; background: var(--border);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; margin-top: 2.5rem;
+    }
+    .compat-card {
+      padding: 1.75rem; background: var(--bg);
+    }
+    .compat-card h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.4rem; color: var(--text); }
+    .compat-card p { font-size: 0.82rem; color: var(--text-sec); line-height: 1.7; margin-bottom: 1rem; }
+    .compat-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ── Anchor offset for sticky nav ── */
+    [id] { scroll-margin-top: 72px; }
 
     /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .doc-grid { grid-template-columns: 1fr; }
+    }
     @media (max-width: 640px) {
       nav { padding: 0 1rem; }
       .nav-links a:not(.btn-nav) { display: none; }
-      .hero { padding: 90px 1rem 50px; }
-      .install-box { font-size: 0.78rem; }
-      .install-prefix { padding: 12px 10px; }
-      .install-cmd { padding: 12px 10px; font-size: 0.78rem; }
-      .features-grid { grid-template-columns: 1fr; }
+      .hero { padding: 72px 1rem 56px; }
+      .section { padding: 64px 1rem; }
+      .install-cmd { font-size: 0.78rem; }
       footer { flex-direction: column; align-items: flex-start; }
+      .cta-strip { padding: 64px 1rem; }
     }
   </style>
 </head>
@@ -450,49 +452,39 @@
 <!-- ── Nav ─────────────────────────────────────────────────────────────── -->
 <nav>
   <a href="/" class="nav-logo">
-    <img src="/logo.svg" alt="Manthra logo" width="26" height="26" style="display:block;border-radius:2px;">
+    <img src="/logo.svg" alt="Manthra" width="24" height="24">
     Manthra
   </a>
   <div class="nav-links">
     <a href="#features">Features</a>
-    <a href="#how-it-works">Docs</a>
-    <a href="https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra" class="btn-nav" target="_blank" rel="noopener">
-      GitLab ↗
-    </a>
+    <a href="#docs">Docs</a>
+    <a href="#commands">Commands</a>
+    <a href="https://github.com/sheharajayashanfb-oss/manthra" class="btn-nav" target="_blank" rel="noopener">GitHub ↗</a>
   </div>
 </nav>
 
 <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
 <section class="hero">
-  <div class="hero-badge">✦ Open source · Fully local · No API key</div>
-  <h1>AI coding assistant<br><span>powered by Ollama</span></h1>
+  <div class="hero-badge">Open source · Fully local · No API key</div>
+  <h1>AI coding assistant<br>for your terminal</h1>
   <p class="hero-sub">
-    Reads, edits, and creates files in any project. Runs fully local with any Ollama model — private, fast, no API key required.
+    Reads, edits, and runs code in any project. Powered by Ollama — works completely offline, no API key required.
   </p>
 
-  <div class="providers-row">
-    <span class="provider-chip active">qwen2.5-coder</span>
-    <span class="provider-chip">deepseek-r1</span>
-    <span class="provider-chip">llama3.2</span>
-    <span class="provider-chip">mistral</span>
-    <span class="provider-chip">gemma3</span>
-  </div>
-
-  <!-- Install command -->
   <div class="install-box">
     <span class="install-prefix">$</span>
     <span class="install-cmd" id="install-cmd">curl -fsSL https://manthra.informaticsint.au/install | bash</span>
     <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
   </div>
 
-  <!-- Platform tabs -->
   <div class="platform-tabs" id="platform-tabs">
     <button class="platform-tab active" onclick="selectPlatform('linux-x64',this)">Linux x64</button>
     <button class="platform-tab" onclick="selectPlatform('linux-arm64',this)">Linux arm64</button>
     <button class="platform-tab" onclick="selectPlatform('mac-x64',this)">macOS x64</button>
-    <button class="platform-tab" onclick="selectPlatform('mac-arm64',this)">macOS arm64 (M1/M2)</button>
+    <button class="platform-tab" onclick="selectPlatform('mac-arm64',this)">macOS arm64</button>
     <button class="platform-tab" onclick="selectPlatform('windows',this)">Windows</button>
   </div>
+
   <div id="linux-x64" class="platform-dl active">
     <a href="/releases/latest/manthra-linux-x64" download>↓ Download manthra-linux-x64</a>
     <p class="platform-note">chmod +x manthra-linux-x64 &amp;&amp; mv manthra-linux-x64 ~/.local/bin/manthra</p>
@@ -505,42 +497,39 @@
     <a href="/releases/latest/manthra-macos-x64" download>↓ Download manthra-macos-x64</a>
     <p class="platform-note">chmod +x manthra-macos-x64 &amp;&amp; mv manthra-macos-x64 ~/.local/bin/manthra</p>
     <div class="macos-warning visible">
-      <div class="macos-warning-title">⚠ macOS will block this binary — follow these steps</div>
-      <p>macOS blocks unsigned binaries. After downloading, run these commands in Terminal:</p>
-      <code>xattr -c ~/Downloads/manthra-macos-x64
-chmod +x ~/Downloads/manthra-macos-x64
+      <p class="macos-warning-title">⚠ macOS Gatekeeper will block this binary</p>
+      <p>After downloading, run these commands in Terminal to allow it:</p>
+      <pre>xattr -c ~/Downloads/manthra-macos-x64
 codesign --force --deep --sign - ~/Downloads/manthra-macos-x64
-mv ~/Downloads/manthra-macos-x64 ~/.local/bin/manthra</code>
-      <div class="or-divider">── or go to System Settings → Privacy &amp; Security → "Allow Anyway" ──</div>
-      <p style="margin-top:4px;">💡 <strong style="color:var(--text)">Easiest fix:</strong> use the curl installer above — it handles this automatically.</p>
+chmod +x ~/Downloads/manthra-macos-x64
+mv ~/Downloads/manthra-macos-x64 ~/.local/bin/manthra</pre>
+      <div class="or-divider">── or: System Settings → Privacy &amp; Security → Allow Anyway ──</div>
+      <p>Tip: the <strong>curl installer</strong> above handles this automatically.</p>
     </div>
   </div>
   <div id="mac-arm64" class="platform-dl">
     <a href="/releases/latest/manthra-macos-arm64" download>↓ Download manthra-macos-arm64</a>
-    <p class="platform-note">See steps below — macOS requires signing before running.</p>
+    <p class="platform-note">Run the signing steps below before first launch.</p>
     <div class="macos-warning visible">
-      <div class="macos-warning-title">⚠ macOS will block this binary — follow these steps</div>
-      <p>macOS blocks unsigned binaries. After downloading, run these commands in Terminal:</p>
-      <code>xattr -c ~/Downloads/manthra-macos-arm64
-chmod +x ~/Downloads/manthra-macos-arm64
+      <p class="macos-warning-title">⚠ macOS Gatekeeper will block this binary</p>
+      <p>After downloading, run these commands in Terminal to allow it:</p>
+      <pre>xattr -c ~/Downloads/manthra-macos-arm64
 codesign --force --deep --sign - ~/Downloads/manthra-macos-arm64
-mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
-      <div class="or-divider">── or go to System Settings → Privacy &amp; Security → "Allow Anyway" ──</div>
-      <p style="margin-top:4px;">💡 <strong style="color:var(--text)">Easiest fix:</strong> use the curl installer above — it handles this automatically.</p>
+chmod +x ~/Downloads/manthra-macos-arm64
+mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
+      <div class="or-divider">── or: System Settings → Privacy &amp; Security → Allow Anyway ──</div>
+      <p>Tip: the <strong>curl installer</strong> above handles this automatically.</p>
     </div>
   </div>
   <div id="windows" class="platform-dl">
     <a href="/releases/latest/manthra-win-x64.exe" download>↓ Download manthra-win-x64.exe</a>
-    <p class="platform-note">Place in a folder on your PATH, e.g. C:\Users\you\bin\manthra.exe</p>
-    <p class="platform-note" style="margin-top:10px;">Or install via <strong style="color:var(--text)">Git Bash</strong> (recommended):</p>
-    <p class="platform-note" style="color:var(--cyan);margin-top:4px;">curl -fsSL https://manthra.informaticsint.au/install | bash</p>
-    <p class="platform-note" style="margin-top:8px;">Or via <strong style="color:var(--text)">WSL2</strong> (Ubuntu/Debian terminal):</p>
-    <p class="platform-note" style="color:var(--cyan);margin-top:4px;">curl -fsSL https://manthra.informaticsint.au/install | bash</p>
+    <p class="platform-note">Place in any folder on your PATH, e.g. C:\Users\you\bin\manthra.exe</p>
+    <p class="platform-note" style="margin-top:8px;">Or install via Git Bash or WSL2: <code class="inline-code">curl -fsSL https://manthra.informaticsint.au/install | bash</code></p>
   </div>
 </section>
 
-<!-- ── Terminal mockup ───────────────────────────────────────────────────── -->
-<div class="terminal-section">
+<!-- ── Terminal demo ─────────────────────────────────────────────────────── -->
+<div class="dark-strip">
   <div class="terminal">
     <div class="term-bar">
       <span class="term-dot r"></span>
@@ -549,179 +538,395 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
       <span class="term-title">manthra — ~/my-project</span>
     </div>
     <div class="term-body">
-      <div class="term-out term-dim">  ✦  MANTHRA.md loaded</div>
+      <div class="term-dim">  ✦  MANTHRA.md loaded</div>
       <br>
       <div class="term-line"><span class="term-prompt">  </span><span class="term-cmd">refactor the auth module to use JWT instead of sessions</span></div>
       <br>
-      <div class="term-out term-thinking">  ⠸ Analyzing…</div>
+      <div class="term-dim">  ⠸ Analyzing…</div>
       <br>
-      <div class="term-out"><span class="term-tool">  ✓  read</span>  <span class="term-dim">src/auth/session.ts</span></div>
-      <div class="term-out term-dim">     import { SessionStore } from './store'</div>
-      <div class="term-out term-dim">     export async function createSession(userId: string) {…}</div>
-      <div class="term-out"><span class="term-tool">  ✓  read</span>  <span class="term-dim">src/auth/middleware.ts</span></div>
-      <div class="term-out"><span class="term-tool">  ✓  bash</span>  <span class="term-dim">npm list jsonwebtoken</span></div>
+      <div class="term-out">  ✓  read   <span class="term-dim">src/auth/session.ts</span></div>
+      <div class="term-out">  ✓  read   <span class="term-dim">src/auth/middleware.ts</span></div>
+      <div class="term-out">  ✓  bash   <span class="term-dim">npm list jsonwebtoken</span></div>
       <br>
-      <div class="term-out term-ai">  I'll refactor the auth module to use JWT. Here's the plan:</div>
+      <div class="term-hi">  I'll replace SessionStore with jsonwebtoken across the auth module.</div>
       <br>
-      <div class="term-out term-ai">  1. Replace <span style="color:var(--cyan)">SessionStore</span> with <span style="color:var(--cyan)">jsonwebtoken</span></div>
-      <div class="term-out term-ai">  2. Update <span style="color:var(--cyan)">createSession</span> → <span style="color:var(--cyan)">signToken</span></div>
-      <div class="term-out term-ai">  3. Update middleware to verify JWT on each request</div>
-      <br>
-      <div class="term-out"><span class="term-tool">  ✓  edit</span>  <span class="term-dim">src/auth/session.ts</span></div>
-      <div class="term-out"><span class="term-tool">  ✓  edit</span>  <span class="term-dim">src/auth/middleware.ts</span></div>
-      <div class="term-out"><span class="term-success">  ✓  Done. Auth module now uses JWT. Tests still pass.</span></div>
+      <div class="term-out">  ✓  edit   <span class="term-dim">src/auth/session.ts</span></div>
+      <div class="term-out">  ✓  edit   <span class="term-dim">src/auth/middleware.ts</span></div>
+      <div class="term-success">  ✓  Done. Auth refactored to JWT. All tests pass.</div>
     </div>
     <div class="term-status">
       <span class="term-sq">■</span>
-      <span class="term-status-text">Chat  ·  Ollama  ·  qwen2.5-coder:latest  ·  12s</span>
+      <span class="term-status-text">Chat  ·  Ollama  ·  qwen2.5-coder:latest  ·  11s</span>
     </div>
     <div class="term-input-row">
-      <span class="term-input-prompt">  </span>
+      <span class="term-input-p">  </span>
       <span class="term-cursor"></span>
     </div>
   </div>
 </div>
 
-<!-- ── Features ──────────────────────────────────────────────────────────── -->
-<section class="features" id="features">
-  <p class="section-label">Features</p>
-  <h2 class="section-title">Everything your AI needs<br>to work with your code</h2>
-  <p class="section-sub">No cloud sync, no IDE plugin. Just a fast CLI that does the work.</p>
+<!-- ── Documentation ─────────────────────────────────────────────────────── -->
+<section class="section" id="docs">
+  <div class="section-inner">
 
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon blue">🟣</div>
-      <h3>Ollama-native AI</h3>
-      <p>Runs with any model available in your local Ollama install — qwen2.5-coder, deepseek-r1, llama3, mistral, and more. No API key ever.</p>
+    <!-- Local Ollama Setup -->
+    <div class="section-header">
+      <p class="section-label">Documentation</p>
+      <h2 class="section-title">Setting up with Ollama</h2>
+      <p class="section-sub">Run Manthra completely offline on your own machine. Free, private, no rate limits.</p>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon cyan">🔧</div>
-      <h3>Full tool use</h3>
-      <p>Reads, writes, and edits files. Runs shell commands. Fetches URLs. Makes HTTP requests. The AI does real work, not just advice.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3>Install Ollama</h3>
+          <p>Download from <a href="https://ollama.ai" target="_blank" rel="noopener" style="color:var(--text);text-decoration:underline;text-underline-offset:3px;">ollama.ai</a> or install with one command on macOS and Linux.</p>
+          <div class="code-block">
+            <span class="comment"># macOS / Linux</span><br>
+            <span class="cmd">curl -fsSL https://ollama.ai/install.sh | sh</span><br>
+            <br>
+            <span class="comment"># Windows — download the installer from ollama.ai</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3>Pull a model</h3>
+          <p>Choose a model from the <a href="https://ollama.ai/library" target="_blank" rel="noopener" style="color:var(--text);text-decoration:underline;text-underline-offset:3px;">Ollama library</a>. For coding tasks, <code class="inline-code">qwen2.5-coder</code> and <code class="inline-code">deepseek-r1</code> are strong choices.</p>
+          <div class="code-block">
+            <span class="comment"># Recommended for coding (7B — good quality / speed balance)</span><br>
+            <span class="cmd">ollama pull qwen2.5-coder:7b</span><br>
+            <br>
+            <span class="comment"># Fast, lightweight option</span><br>
+            <span class="cmd">ollama pull llama3.2</span><br>
+            <br>
+            <span class="comment"># Deep reasoning tasks</span><br>
+            <span class="cmd">ollama pull deepseek-r1:7b</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3>Start the Ollama server</h3>
+          <p>Ollama listens on <code class="inline-code">http://127.0.0.1:11434</code> by default. On macOS it starts automatically after installation.</p>
+          <div class="code-block">
+            <span class="cmd">ollama serve</span><br>
+            <br>
+            <span class="comment"># Verify it's running</span><br>
+            <span class="cmd">curl http://127.0.0.1:11434/api/tags</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h3>Install Manthra</h3>
+          <p>The installer detects your OS and architecture, downloads the right binary, and adds it to your PATH.</p>
+          <div class="code-block">
+            <span class="cmd">curl -fsSL https://manthra.informaticsint.au/install | bash</span><br>
+            <br>
+            <span class="comment"># Verify install</span><br>
+            <span class="cmd">manthra --version</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <h3>Connect Manthra to Ollama</h3>
+          <p>Open the built-in web UI to add your Ollama instance, select a model, and save the configuration.</p>
+          <div class="code-block">
+            <span class="cmd">manthra web</span><br>
+            <br>
+            <span class="comment"># In the UI:</span><br>
+            <span class="comment"># → Add Provider → Ollama</span><br>
+            <span class="comment"># → Base URL: http://127.0.0.1:11434</span><br>
+            <span class="comment"># → List Models → select one → Save</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <h3>Start coding</h3>
+          <p>Navigate to any project directory and launch Manthra. It reads your files relative to where you started it.</p>
+          <div class="code-block">
+            <span class="cmd">cd ~/my-project && manthra</span>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon green">📄</div>
-      <h3>MANTHRA.md project context</h3>
-      <p>Drop a MANTHRA.md in your repo and Manthra loads it automatically for any AI provider. Generate one with <code style="color:var(--cyan)">/init</code>.</p>
+
+    <div class="info-box" style="margin-top:0.5rem;max-width:680px;">
+      <strong>Tip:</strong> Run <code class="inline-code">/init</code> inside Manthra to generate a <code class="inline-code">MANTHRA.md</code> file for your project. Manthra loads it automatically and uses it as project context — architecture, conventions, how to build, etc.
     </div>
-    <div class="feature-card">
-      <div class="feature-icon purple">🔒</div>
-      <h3>CWD-aware permissions</h3>
-      <p>File operations within your project are always allowed. Paths outside your working directory prompt for confirmation before proceeding.</p>
+
+    <!-- Divider inside section -->
+    <div style="height:1px;background:var(--border);margin:4rem 0;"></div>
+
+    <!-- Remote / Cloud Ollama Setup -->
+    <div class="section-header" id="cloud-setup">
+      <p class="section-label">Cloud setup</p>
+      <h2 class="section-title">Connect to a remote Ollama server</h2>
+      <p class="section-sub">Run Ollama on a cloud VM or dedicated machine and connect Manthra from any device — no local GPU required.</p>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon yellow">⚡</div>
-      <h3>Streaming responses</h3>
-      <p>Live streaming with a fixed terminal layout — status bar and input stay pinned at the bottom while responses scroll above.</p>
+
+    <div class="doc-grid" style="margin-bottom:2rem;">
+      <div class="doc-col">
+        <h3>Deploy Ollama on a cloud VM</h3>
+        <p>Any cloud provider works — AWS, GCP, Azure, DigitalOcean, Hetzner, etc. A GPU instance gives best performance; CPU-only works for smaller models.</p>
+        <div class="code-block-label">On the remote server</div>
+        <div class="code-block">
+          <span class="comment"># Install Ollama</span><br>
+          <span class="cmd">curl -fsSL https://ollama.ai/install.sh | sh</span><br>
+          <br>
+          <span class="comment"># Pull your model</span><br>
+          <span class="cmd">ollama pull qwen2.5-coder:7b</span><br>
+          <br>
+          <span class="comment"># Bind to all interfaces (needed for remote access)</span><br>
+          <span class="cmd">OLLAMA_HOST=0.0.0.0 ollama serve</span>
+        </div>
+      </div>
+      <div class="doc-col">
+        <h3>Make it a persistent service</h3>
+        <p>Set up a systemd service so Ollama starts automatically on reboot and stays running in the background.</p>
+        <div class="code-block-label">/etc/systemd/system/ollama.service</div>
+        <div class="code-block">
+          <span class="comment">[Unit]</span><br>
+          <span class="cmd">Description=Ollama Service</span><br>
+          <span class="cmd">After=network-online.target</span><br>
+          <br>
+          <span class="comment">[Service]</span><br>
+          <span class="cmd">Environment="OLLAMA_HOST=0.0.0.0"</span><br>
+          <span class="cmd">ExecStart=/usr/local/bin/ollama serve</span><br>
+          <span class="cmd">Restart=always</span><br>
+          <br>
+          <span class="comment">[Install]</span><br>
+          <span class="cmd">WantedBy=multi-user.target</span>
+        </div>
+        <div class="code-block" style="margin-top:8px;">
+          <span class="cmd">sudo systemctl enable --now ollama</span>
+        </div>
+      </div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon red">🧠</div>
-      <h3>Persistent memory</h3>
-      <p>Manthra remembers context across sessions. Configure providers and models through the built-in web UI with <code style="color:var(--cyan)">manthra web</code>.</p>
+
+    <div class="doc-grid" style="margin-bottom:2rem;">
+      <div class="doc-col">
+        <h3>Open the firewall port</h3>
+        <p>Allow inbound TCP on port <code class="inline-code">11434</code>. Then restrict it to only your IP if possible — never leave it open to the internet without authentication.</p>
+        <div class="code-block-label">ufw (Ubuntu)</div>
+        <div class="code-block">
+          <span class="comment"># Allow from your IP only (recommended)</span><br>
+          <span class="cmd">sudo ufw allow from YOUR_IP to any port 11434</span><br>
+          <br>
+          <span class="comment"># Or allow from anywhere (not recommended)</span><br>
+          <span class="cmd">sudo ufw allow 11434/tcp</span>
+        </div>
+      </div>
+      <div class="doc-col">
+        <h3>Connect Manthra to the remote URL</h3>
+        <p>Open the web UI and add the remote server's IP or hostname as the base URL. The port is <code class="inline-code">11434</code> by default.</p>
+        <div class="code-block">
+          <span class="cmd">manthra web</span><br>
+          <br>
+          <span class="comment"># In the UI:</span><br>
+          <span class="comment"># → Add Provider → Ollama</span><br>
+          <span class="comment"># → Base URL: http://YOUR_SERVER_IP:11434</span><br>
+          <span class="comment"># → Test Connection → List Models → Save</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="doc-grid">
+      <div class="doc-col">
+        <h3>Secure with a reverse proxy (recommended)</h3>
+        <p>Put Nginx or Caddy in front of Ollama to get HTTPS and basic authentication. This lets you safely connect over the public internet.</p>
+        <div class="code-block-label">Caddy (simplest — auto HTTPS)</div>
+        <div class="code-block">
+          <span class="comment"># /etc/caddy/Caddyfile</span><br>
+          <span class="cmd">ai.yourdomain.com {</span><br>
+          <span class="cmd">  basicauth {</span><br>
+          <span class="cmd">    user $2a$14$... <span class="comment"># caddy hash-password</span></span><br>
+          <span class="cmd">  }</span><br>
+          <span class="cmd">  reverse_proxy localhost:11434</span><br>
+          <span class="cmd">}</span>
+        </div>
+        <div class="code-block" style="margin-top:8px;">
+          <span class="comment"># Generate a bcrypt hash for your password</span><br>
+          <span class="cmd">caddy hash-password</span>
+        </div>
+      </div>
+      <div class="doc-col">
+        <h3>Environment variable alternative</h3>
+        <p>Set <code class="inline-code">OLLAMA_HOST</code> before running Manthra to override the base URL without opening the web UI.</p>
+        <div class="code-block">
+          <span class="comment"># Point to your remote server</span><br>
+          <span class="cmd">export OLLAMA_BASE_URL=https://ai.yourdomain.com</span><br>
+          <span class="cmd">manthra</span><br>
+          <br>
+          <span class="comment"># Or add to ~/.zshrc / ~/.bashrc</span><br>
+          <span class="cmd">echo 'export OLLAMA_BASE_URL=https://...' >> ~/.zshrc</span>
+        </div>
+        <br>
+        <div class="info-box">
+          <strong>GPU cloud options:</strong> RunPod, Vast.ai, Lambda Labs, and Modal all support running Ollama on rented GPU instances at low cost.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ── Features ──────────────────────────────────────────────────────────── -->
+<section class="section" id="features">
+  <div class="section-inner">
+    <div class="section-header">
+      <p class="section-label">Features</p>
+      <h2 class="section-title">Everything your AI needs<br>to work with your code</h2>
+      <p class="section-sub">No cloud sync, no IDE plugin. Just a fast terminal that does the work.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⬡</div>
+        <h3>Ollama-native</h3>
+        <p>Works with any model in your local Ollama install — qwen2.5-coder, deepseek-r1, llama3, mistral, gemma3 and more. No API key ever required.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚙</div>
+        <h3>Full tool use</h3>
+        <p>Reads, writes, and edits files. Runs shell commands. Fetches URLs. Makes HTTP requests. The AI does real work, not just advice.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◈</div>
+        <h3>MANTHRA.md context</h3>
+        <p>Drop a MANTHRA.md in your repo with architecture notes, conventions, and build instructions. Manthra loads it automatically. Generate one with <code class="inline-code">/init</code>.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⊞</div>
+        <h3>Permission system</h3>
+        <p>File operations inside your project directory are always allowed. Paths outside your working directory prompt for confirmation before proceeding.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">≋</div>
+        <h3>Live streaming</h3>
+        <p>Responses stream token by token with a pinned status bar and input line. Press ESC to cancel generation at any time.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◷</div>
+        <h3>Persistent memory</h3>
+        <p>Use <code class="inline-code">/remember</code> to save facts across sessions. Memory is automatically injected into the system prompt each time you start Manthra.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⬚</div>
+        <h3>Web config UI</h3>
+        <p>Run <code class="inline-code">manthra web</code> to open a browser-based panel for managing providers, models, and settings without editing config files by hand.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◫</div>
+        <h3>Image support</h3>
+        <p>Reference images in your prompts with <code class="inline-code">@path/to/image.png</code>. Manthra encodes them and sends them to vision-capable models.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⊙</div>
+        <h3>Extended thinking</h3>
+        <p>Toggle deep reasoning mode with <code class="inline-code">/think</code>. Supports off / low / medium / high budgets. Displayed in a collapsible thinking box.</p>
+      </div>
     </div>
   </div>
 </section>
 
 <div class="divider"></div>
 
-<!-- ── How it works ───────────────────────────────────────────────────────── -->
-<section class="how" id="how-it-works">
-  <p class="section-label">Get started</p>
-  <h2 class="section-title">Up and running in 60 seconds</h2>
-
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">1</div>
-      <div class="step-content">
-        <h3>Install with one command</h3>
-        <p>The installer detects your OS and architecture, downloads the right binary to <code style="color:var(--cyan)">~/.local/bin/manthra</code>, and adds it to your PATH.</p>
-        <div class="step-code">curl -fsSL https://manthra.informaticsint.au/install | bash</div>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <div class="step-content">
-        <h3>Configure Ollama</h3>
-        <p>Open the web UI to add your local Ollama instance, pick a model, and test the connection. No API key needed.</p>
-        <div class="step-code">manthra web</div>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <div class="step-content">
-        <h3>Run it in any project</h3>
-        <p>Navigate to your project directory and launch Manthra. It reads your files relative to where you launched it.</p>
-        <div class="step-code">cd ~/my-project &amp;&amp; manthra</div>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">4</div>
-      <div class="step-content">
-        <h3>Add project context (optional)</h3>
-        <p>Generate a MANTHRA.md file so the AI instantly understands your project conventions, structure, and how to build it.</p>
-        <div class="step-code">/init</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Ollama subsection ── -->
-  <div style="margin-top:4rem;padding-top:3rem;border-top:1px solid var(--border);">
-    <p class="section-label" style="text-align:left;">Running locally with Ollama</p>
-    <h3 style="font-size:1.4rem;font-weight:800;letter-spacing:-0.02em;margin-bottom:0.5rem;">Use Manthra completely offline — no API key needed</h3>
-    <p style="color:var(--text-muted);font-size:0.95rem;margin-bottom:2.5rem;max-width:580px;">
-      Ollama lets you run open-source models (Llama, Mistral, Gemma, DeepSeek, and more) entirely on your own machine. Free, private, no rate limits.
-    </p>
-
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:2rem;">
-
-      <div style="padding:1.5rem;background:var(--bg-card);">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:0.75rem;">Step 1 — Install Ollama</div>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Download from <a href="https://ollama.ai" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:none;">ollama.ai</a> or install via terminal:</p>
-        <div style="background:var(--bg-term);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--cyan);">
-          # macOS / Linux<br>
-          curl -fsSL https://ollama.ai/install.sh | sh
-        </div>
-        <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.75rem;">Windows: download the installer from <a href="https://ollama.ai" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:none;">ollama.ai</a></p>
-      </div>
-
-      <div style="padding:1.5rem;background:var(--bg-card);">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:0.75rem;">Step 2 — Pull a model</div>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Pull any model from the <a href="https://ollama.ai/library" target="_blank" rel="noopener" style="color:var(--cyan);text-decoration:none;">Ollama library</a>. Recommended for coding:</p>
-        <div style="background:var(--bg-term);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--cyan);line-height:1.9;">
-          ollama pull llama3.2<br>
-          <span style="color:var(--text-dim)"># or larger models:</span><br>
-          ollama pull qwen2.5-coder:7b<br>
-          ollama pull deepseek-r1:7b
-        </div>
-      </div>
-
-      <div style="padding:1.5rem;background:var(--bg-card);">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:0.75rem;">Step 3 — Start Ollama</div>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Start the Ollama server (it runs on <code style="color:var(--cyan);font-size:0.78rem;">127.0.0.1:11434</code>):</p>
-        <div style="background:var(--bg-term);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--cyan);line-height:1.9;">
-          ollama serve<br>
-          <span style="color:var(--text-dim)"># macOS: Ollama starts automatically</span><br>
-          <span style="color:var(--text-dim)"># after installation</span>
-        </div>
-      </div>
-
-      <div style="padding:1.5rem;background:var(--bg-card);">
-        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--blue);margin-bottom:0.75rem;">Step 4 — Connect in Manthra</div>
-        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:0.75rem;">Open the Manthra web UI, add an Ollama instance, and click <strong style="color:var(--text)">List Models</strong> to see your local models:</p>
-        <div style="background:var(--bg-term);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--cyan);line-height:1.9;">
-          manthra web<br>
-          <span style="color:var(--text-dim)"># → Add Instance</span><br>
-          <span style="color:var(--text-dim)"># Base URL: http://127.0.0.1:11434</span><br>
-          <span style="color:var(--text-dim)"># → List Models → select one → Save</span>
-        </div>
-      </div>
-
+<!-- ── Slash Commands ─────────────────────────────────────────────────────── -->
+<section class="section" id="commands">
+  <div class="section-inner">
+    <div class="section-header">
+      <p class="section-label">Reference</p>
+      <h2 class="section-title">Slash commands</h2>
+      <p class="section-sub">Type any command at the Manthra prompt. All commands start with <code class="inline-code">/</code>.</p>
     </div>
 
-    <div style="padding:14px 18px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);border-radius:var(--radius-sm);font-size:0.82rem;color:var(--text-muted);line-height:1.65;max-width:700px;">
-      <strong style="color:var(--text);">💡 Tip:</strong> Once Manthra is configured with Ollama, launch it from your project as normal —
-      <code style="color:var(--cyan);font-size:0.78rem;">manthra</code>. Everything works offline. Use
-      <code style="color:var(--cyan);font-size:0.78rem;">manthra web</code> anytime to switch models or add another Ollama instance.
+    <table class="cmd-table">
+      <thead>
+        <tr>
+          <th style="width:180px;">Command</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="cmd-name">/help</span></td>
+          <td class="cmd-desc">List all available slash commands with descriptions.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/model</span> <span class="cmd-alias">&lt;id&gt;</span></td>
+          <td class="cmd-desc">Switch the active model mid-session. Run without arguments to see available models.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/clear</span></td>
+          <td class="cmd-desc">Reset the conversation history. The AI starts fresh with no memory of the current session.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/remember</span> <span class="cmd-alias">&lt;text&gt;</span></td>
+          <td class="cmd-desc">Save a note to persistent memory. It will be included in every future session's system prompt.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/forget</span> <span class="cmd-alias">&lt;id&gt;</span></td>
+          <td class="cmd-desc">Remove an entry from persistent memory by its ID (shown by <code class="inline-code">/memory</code>).</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/memory</span></td>
+          <td class="cmd-desc">List all stored memory entries with their IDs and content.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/init</span></td>
+          <td class="cmd-desc">Generate a MANTHRA.md file in the current directory. The AI scans your project and writes architecture notes and build instructions.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/web</span></td>
+          <td class="cmd-desc">Open the web configuration UI in your browser (runs on port 4875 by default).</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/context</span> <span class="cmd-alias">/ctx</span></td>
+          <td class="cmd-desc">Show current context usage — message count, estimated token count, and percentage of the context window used.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/doctor</span></td>
+          <td class="cmd-desc">Run a diagnostic check on your provider and model configuration. Shows what's connected and what isn't.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/think</span> <span class="cmd-alias">[off|low|medium|high]</span></td>
+          <td class="cmd-desc">Toggle extended thinking mode. Set budget level or turn off. Thinking output is shown in a collapsible box.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/format</span> <span class="cmd-alias">[off|json]</span></td>
+          <td class="cmd-desc">Force the model to respond in JSON format. Useful for structured data extraction.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">/exit</span></td>
+          <td class="cmd-desc">End the session. Conversation history is saved automatically to <code class="inline-code">~/.manthra/conversations/</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-box" style="margin-top:1.5rem;max-width:680px;">
+      <strong>Keyboard shortcuts:</strong>
+      <code class="inline-code">Ctrl+E</code> opens your <code class="inline-code">$EDITOR</code> for composing multi-line messages ·
+      <code class="inline-code">Shift+Enter</code> / <code class="inline-code">Option+Enter</code> adds a new line without submitting ·
+      <code class="inline-code">Ctrl+V</code> pastes from clipboard ·
+      <code class="inline-code">ESC</code> cancels an in-progress generation ·
+      <code class="inline-code">Ctrl+D</code> exits
     </div>
   </div>
 </section>
@@ -729,127 +934,115 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</code>
 <div class="divider"></div>
 
 <!-- ── Models ──────────────────────────────────────────────────────────── -->
-<section class="providers-section">
-  <p class="section-label">Models</p>
-  <h2 class="section-title">Any model in your Ollama library</h2>
-  <p class="section-sub">Pull any open-source model and Manthra uses it instantly. No restarts, no config changes.</p>
+<section class="section">
+  <div class="section-inner">
+    <div class="section-header">
+      <p class="section-label">Models</p>
+      <h2 class="section-title">Any model in your Ollama library</h2>
+      <p class="section-sub">Pull any open-source model from ollama.ai/library and Manthra uses it instantly. No restarts, no config changes.</p>
+    </div>
 
-  <div class="providers-grid">
-    <div class="provider-card">
-      qwen2.5-coder
-      <span>Best for code generation</span>
-    </div>
-    <div class="provider-card">
-      deepseek-r1
-      <span>Strong reasoning</span>
-    </div>
-    <div class="provider-card">
-      llama3.2
-      <span>Fast general purpose</span>
-    </div>
-    <div class="provider-card">
-      mistral
-      <span>Lightweight &amp; fast</span>
-    </div>
-    <div class="provider-card">
-      gemma3
-      <span>Google open model</span>
-    </div>
-    <div class="provider-card">
-      + any Ollama model
-      <span>ollama.ai/library</span>
+    <div class="models-grid">
+      <div class="model-card">
+        <div class="model-name">qwen2.5-coder</div>
+        <div class="model-tag">Best for code generation</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">deepseek-r1</div>
+        <div class="model-tag">Strong reasoning</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">llama3.2</div>
+        <div class="model-tag">Fast, general purpose</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">mistral</div>
+        <div class="model-tag">Lightweight &amp; fast</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">gemma3</div>
+        <div class="model-tag">Google open model</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">phi4</div>
+        <div class="model-tag">Microsoft, strong on code</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">codellama</div>
+        <div class="model-tag">Meta code-focused</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">+ any Ollama model</div>
+        <div class="model-tag">ollama.ai/library</div>
+      </div>
     </div>
   </div>
 </section>
 
 <div class="divider"></div>
 
-<!-- ── Platform compatibility ───────────────────────────────────────────────── -->
-<section style="padding:80px 2rem; max-width:1100px; margin:0 auto;">
-  <p class="section-label">Compatibility</p>
-  <h2 class="section-title">Runs everywhere you code</h2>
-  <p class="section-sub">Single binary — no Node.js, no runtime required.</p>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:2.5rem;">
-
-    <div style="padding:1.75rem;background:var(--bg-card);">
-      <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">Linux</h3>
-      <p style="font-size:0.875rem;color:var(--text-muted);line-height:1.65;">x64 and arm64. Works on Ubuntu, Debian, Fedora, Arch, and any distro.</p>
-      <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
-        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">x64</span>
-        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">arm64</span>
-      </div>
+<!-- ── Compatibility ──────────────────────────────────────────────────────── -->
+<section class="section">
+  <div class="section-inner">
+    <div class="section-header">
+      <p class="section-label">Compatibility</p>
+      <h2 class="section-title">Runs everywhere you code</h2>
+      <p class="section-sub">Single binary — no Node.js, no runtime, no dependencies required.</p>
     </div>
 
-    <div style="padding:1.75rem;background:var(--bg-card);">
-      <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">macOS</h3>
-      <p style="font-size:0.875rem;color:var(--text-muted);line-height:1.65;">Intel and Apple Silicon (M1/M2/M3). Install via curl or download directly.</p>
-      <div style="margin-top:0.75rem;padding:10px 12px;background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.22);border-radius:6px;">
-        <p style="font-size:0.75rem;color:var(--yellow);font-weight:600;margin-bottom:5px;">⚠ Gatekeeper blocks unsigned binaries</p>
-        <p style="font-size:0.72rem;color:var(--text-muted);line-height:1.5;margin-bottom:5px;">After a manual download, open Terminal and run:</p>
-        <code style="font-size:0.71rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;display:block;background:rgba(0,0,0,0.3);padding:6px 8px;border-radius:4px;line-height:1.8;">xattr -c ~/Downloads/manthra-macos-arm64
-codesign --force --deep --sign - ~/Downloads/manthra-macos-arm64
-chmod +x ~/Downloads/manthra-macos-arm64</code>
-        <p style="font-size:0.71rem;color:var(--green);margin-top:5px;">✓ The curl installer does this automatically.</p>
+    <div class="compat-grid">
+      <div class="compat-card">
+        <h3>Linux</h3>
+        <p>x64 and arm64. Works on Ubuntu, Debian, Fedora, Arch, and any modern distro with glibc ≥ 2.17.</p>
+        <div class="compat-tags">
+          <span class="badge badge-black">x64</span>
+          <span class="badge badge-black">arm64</span>
+        </div>
       </div>
-      <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
-        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">x64 (Intel)</span>
-        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">arm64 (M1/M2/M3)</span>
+      <div class="compat-card">
+        <h3>macOS</h3>
+        <p>Intel and Apple Silicon (M1 / M2 / M3). macOS 12 Monterey or later. The curl installer handles Gatekeeper automatically.</p>
+        <div class="compat-tags">
+          <span class="badge badge-black">x64 (Intel)</span>
+          <span class="badge badge-black">arm64 (M-series)</span>
+        </div>
+      </div>
+      <div class="compat-card">
+        <h3>Windows</h3>
+        <p>Via Git Bash or WSL2 (recommended), or as a native .exe. Windows Terminal gives the best rendering experience.</p>
+        <div class="compat-tags">
+          <span class="badge badge-black">x64</span>
+          <span class="badge">Git Bash</span>
+          <span class="badge">WSL2</span>
+        </div>
       </div>
     </div>
-
-    <div style="padding:1.75rem;background:var(--bg-card);">
-      <h3 style="font-size:1rem;font-weight:600;margin-bottom:0.4rem;">Windows</h3>
-      <p style="font-size:0.875rem;color:var(--text-muted);line-height:1.65;margin-bottom:0.75rem;">Three ways to run Manthra on Windows:</p>
-
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <div style="padding:10px 12px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);border-radius:6px;">
-          <p style="font-size:0.78rem;font-weight:600;color:var(--blue);margin-bottom:3px;">Git Bash (recommended)</p>
-          <code style="font-size:0.72rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;">curl -fsSL https://manthra.informaticsint.au/install | bash</code>
-        </div>
-        <div style="padding:10px 12px;background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);border-radius:6px;">
-          <p style="font-size:0.78rem;font-weight:600;color:var(--blue);margin-bottom:3px;">WSL2 (Ubuntu/Debian)</p>
-          <code style="font-size:0.72rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;">curl -fsSL https://manthra.informaticsint.au/install | bash</code>
-        </div>
-        <div style="padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;">
-          <p style="font-size:0.78rem;font-weight:600;color:var(--text-muted);margin-bottom:3px;">Direct .exe download</p>
-          <a href="/releases/latest/manthra-win-x64.exe" download style="font-size:0.72rem;color:var(--cyan);font-family:'JetBrains Mono',monospace;text-decoration:none;">↓ manthra-win-x64.exe</a>
-          <p style="font-size:0.7rem;color:var(--text-dim);margin-top:3px;">Add the folder to your PATH in System Properties</p>
-        </div>
-      </div>
-      <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
-        <span style="padding:3px 10px;border-radius:100px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);font-size:0.72rem;color:var(--green);">x64</span>
-        <span style="padding:3px 10px;border-radius:100px;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.2);font-size:0.72rem;color:var(--yellow);">Windows Terminal recommended</span>
-      </div>
-    </div>
-
   </div>
 </section>
-
-<div class="divider"></div>
 
 <!-- ── CTA ────────────────────────────────────────────────────────────────── -->
-<section class="cta-section">
-  <h2>Ready to ship faster?</h2>
-  <p>Install Manthra in seconds. No Node.js required — just a single binary.</p>
+<div class="cta-strip">
+  <h2>Start coding with Manthra</h2>
+  <p>One command. No API key. Works completely offline.</p>
   <div class="cta-btns">
     <button class="btn-primary" onclick="scrollToInstall()">↓ Install now</button>
-    <a href="https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra" class="btn-secondary" target="_blank" rel="noopener">View source ↗</a>
+    <a href="https://github.com/sheharajayashanfb-oss/manthra" class="btn-secondary" target="_blank" rel="noopener">View on GitHub ↗</a>
   </div>
-</section>
+</div>
 
 <!-- ── Footer ──────────────────────────────────────────────────────────────── -->
 <footer>
   <a href="/" class="footer-logo">
-    <img src="/logo.svg" alt="Manthra logo" width="22" height="22" style="display:block;border-radius:2px;">
+    <img src="/logo.svg" alt="Manthra" width="20" height="20" style="display:block;border-radius:2px;">
     Manthra
   </a>
   <div class="footer-links">
+    <a href="#docs">Documentation</a>
+    <a href="#features">Features</a>
+    <a href="#commands">Commands</a>
     <a href="/releases/latest/manthra-linux-x64" download>Linux x64</a>
-    <a href="/releases/latest/manthra-linux-arm64" download>Linux arm64</a>
-    <a href="/releases/latest/manthra-macos-x64" download>macOS x64</a>
     <a href="/releases/latest/manthra-macos-arm64" download>macOS arm64</a>
-    <a href="/releases/latest/manthra-win-x64.exe" download>Windows x64</a>
+    <a href="/releases/latest/manthra-win-x64.exe" download>Windows</a>
   </div>
   <span class="footer-copy">© 2025 Informatics International · MIT License</span>
 </footer>
@@ -876,21 +1069,20 @@ chmod +x ~/Downloads/manthra-macos-arm64</code>
     document.querySelector('.hero').scrollIntoView({ behavior: 'smooth' });
   }
 
-  // Auto-detect platform and pre-select the matching tab
+  // Auto-detect platform
   (function() {
     const ua = navigator.userAgent.toLowerCase();
     const isMac = /macintosh|mac os x/.test(ua);
     const isWin = /windows/.test(ua);
-    const isArm = /arm|aarch64/.test(ua) || (isMac && navigator.platform === 'MacIntel' && window.devicePixelRatio > 1);
-    const ids   = ['linux-x64','linux-arm64','mac-x64','mac-arm64','windows'];
+    const isArm = /arm|aarch64/.test(ua) || (isMac && (navigator.userAgent.includes('M1') || navigator.userAgent.includes('M2') || navigator.userAgent.includes('M3')));
+    const ids = ['linux-x64','linux-arm64','mac-x64','mac-arm64','windows'];
     let idx = 0;
-    if (isWin)       idx = 4;
-    else if (isMac)  idx = isArm ? 3 : 2;
+    if (isWin) idx = 4;
+    else if (isMac) idx = isArm ? 3 : 2;
     if (idx > 0) {
-      const tabs = document.querySelectorAll('.platform-tab');
-      tabs.forEach(t => t.classList.remove('active'));
-      tabs[idx].classList.add('active');
+      document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
+      document.querySelectorAll('.platform-tab')[idx].classList.add('active');
       document.getElementById(ids[idx]).classList.add('active');
     }
   })();

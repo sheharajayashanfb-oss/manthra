@@ -21,13 +21,8 @@ export async function executeTool(
 
   // Format input args for display
   const argSummary = Object.entries(input)
-    .slice(0, 3)
-    .map(([k, v]) => {
-      const val = String(v);
-      const truncated = val.length > 60 ? val.slice(0, 57) + '…' : val;
-      return `${k}=${truncated}`;
-    })
-    .join(', ');
+    .map(([k, v]) => `${k}=${String(v)}`)
+    .join('  ');
 
   let result: ToolResult;
   try {
@@ -52,7 +47,7 @@ export async function executeTool(
       process.stdout.write(
         chalk.red('  ✗  ') +
         chalk.red(toolName) +
-        chalk.dim('  ' + errMsg.slice(0, 80)) +
+        chalk.dim('  ' + errMsg) +
         chalk.dim('  ── ' + elapsed) +
         '\n',
       );

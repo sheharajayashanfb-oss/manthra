@@ -173,6 +173,9 @@ export class REPL {
   private lineBuffer: string[] = [];
   private coalesceTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // Multi-line composition (Shift+Enter / Alt+Enter)
+  private multilineBuffer: string[] = [];
+
   // Think / format modes
   private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
   private formatMode: 'json' | Record<string, unknown> | undefined = undefined;
@@ -244,9 +247,10 @@ export class REPL {
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────
 
   private rows = process.stdout.rows ?? 24;
-  private readonly CHROME = 3;
+  private readonly CHROME = 4;
 
   private get scrollEnd(): number { return Math.max(this.rows - this.CHROME, 5); }
+  private get previewRow(): number { return this.rows - 3; }
   private get statusRow(): number { return this.rows - 2; }
   private get inputRow(): number { return this.rows - 1; }
   private get bottomRow(): number { return this.rows; }
@@ -294,6 +298,7 @@ export class REPL {
       tokInfo + ctxPct + chalk.dim('   Ctrl+E: editor  ·  Manthra');
 
     process.stdout.write('\x1B7');
+    process.stdout.write(`\x1B[${this.previewRow};1H\x1B[2K`);
     process.stdout.write(`\x1B[${s};1H\x1B[2K${statusLine}`);
     process.stdout.write(`\x1B[${inp};1H\x1B[2K`);
     process.stdout.write(`\x1B[${b};1H\x1B[2K${bottomBar}`);
@@ -579,6 +584,7 @@ export class REPL {
     // Restore terminal to normal state before handing off to editor
     process.stdin.setRawMode(false);
     process.stdout.write('\x1B[?2004l');
+    process.stdout.write('\x1B[>4;0m');
     process.stdout.write('\x1B[r');
     process.stdout.write('\x1B[2J\x1B[H');
 
@@ -588,6 +594,7 @@ export class REPL {
     process.stdin.setRawMode(true);
     process.stdin.resume();
     process.stdout.write('\x1B[?2004h');
+    process.stdout.write('\x1B[>4;2m');
     this.initLayout();
 
     const content = readFileSync(tmpFile, 'utf8').trim();
@@ -598,6 +605,29 @@ export class REPL {
     } else {
       this.openBox();
     }
+  }
+
+  private showMultilinePreview(): void {
+    if (!process.stdout.isTTY) return;
+    process.stdout.write('\x1B7');
+    if (this.multilineBuffer.length > 0) {
+      const preview = this.multilineBuffer.join(chalk.dim(' ↵ '));
+      const maxLen = termCols() - 6;
+      const plain = this.multilineBuffer.join(' ↵ ');
+      const truncated = plain.length > maxLen
+        ? chalk.dim('…') + preview.slice(-(maxLen - 1))
+        : preview;
+      process.stdout.write(
+        `\x1B[${this.previewRow};1H\x1B[2K` +
+        chalk.dim('  ┊ ') + chalk.white(truncated),
+      );
+      this.rl!.setPrompt(chalk.dim('  ┊  '));
+    } else {
+      process.stdout.write(`\x1B[${this.previewRow};1H\x1B[2K`);
+      this.rl!.setPrompt('  ');
+    }
+    process.stdout.write('\x1B8');
+    this.rl!.prompt(true);
   }
 
   private pasteFromClipboard(): void {
@@ -676,6 +706,7 @@ export class REPL {
       process.stdin.setRawMode(true);
       process.stdin.resume();
       process.stdout.write('\x1B[?2004h'); // enable bracketed paste
+      process.stdout.write('\x1B[>4;2m');  // modifyOtherKeys mode 2 (makes Shift+Enter distinct)
 
       const proxy = new PassThrough();
       rlInput = proxy;
@@ -695,6 +726,23 @@ export class REPL {
         // Ctrl+V (0x16): explicit clipboard paste for terminals without bracketed paste
         if (chunk.length === 1 && chunk[0] === 0x16 && !this.isProcessing) {
           this.pasteFromClipboard();
+          return;
+        }
+
+        // Shift+Enter: add a new line to the multi-line buffer without submitting
+        // \x1B[27;2;13~ = modifyOtherKeys mode 2 (xterm/iTerm2)
+        // \x1B[13;2u   = CSI u / Kitty protocol
+        // \x1B\r       = Alt+Enter / Option+Enter (reliable macOS fallback)
+        const isNewlineKey =
+          s === '\x1B[27;2;13~' ||
+          s === '\x1B[13;2u' ||
+          (chunk.length === 2 && chunk[0] === 0x1b && chunk[1] === 0x0d);
+        if (isNewlineKey && !this.isProcessing) {
+          const currentLine = (this.rl as unknown as { line: string }).line ?? '';
+          this.multilineBuffer.push(currentLine);
+          // Clear the current readline input
+          this.rl!.write('', { ctrl: true, name: 'u' });
+          this.showMultilinePreview();
           return;
         }
 
@@ -736,6 +784,7 @@ export class REPL {
       disablePaste = () => {
         process.stdin.off('data', onData);
         process.stdout.write('\x1B[?2004l'); // disable bracketed paste
+        process.stdout.write('\x1B[>4;0m');  // restore modifyOtherKeys default
       };
     }
 
@@ -766,6 +815,15 @@ export class REPL {
     this.openBox();
 
     this.rl.on('line', (raw) => {
+      // If in multi-line mode, combine buffered lines with current line
+      if (this.multilineBuffer.length > 0) {
+        const combined = [...this.multilineBuffer, raw].join('\n');
+        this.multilineBuffer = [];
+        this.showMultilinePreview(); // clears the preview row and resets prompt
+        void this.processLineInput(combined.trim());
+        return;
+      }
+
       if (this.coalesceTimer) clearTimeout(this.coalesceTimer);
       this.lineBuffer.push(raw);
       this.coalesceTimer = setTimeout(() => {

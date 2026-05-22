@@ -826,7 +826,7 @@ export class REPL {
     if (!process.stdout.isTTY) return;
     const visible = this.getVisibleSlashCommands();
     const total = visible.length;
-    const maxItems = Math.min(total, Math.max(1, this.scrollEnd - 6));
+    const maxItems = Math.min(total, Math.max(1, this.scrollEnd - 1));
 
     this.slashIndex = Math.max(0, Math.min(this.slashIndex, total - 1));
 
@@ -975,7 +975,7 @@ export class REPL {
     if (!process.stdout.isTTY) return;
     const visible = this.getVisibleSlashArgOptions();
     const total = visible.length;
-    const maxItems = Math.min(total, Math.max(1, this.scrollEnd - 6));
+    const maxItems = Math.min(total, Math.max(1, this.scrollEnd - 1));
 
     this.slashArgIndex = Math.max(0, Math.min(this.slashArgIndex, total - 1));
 

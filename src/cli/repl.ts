@@ -1,7 +1,7 @@
 import * as readline from 'readline';
 import { PassThrough } from 'stream';
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
-import { resolve } from 'path';
+import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from 'fs';
+import { resolve, join } from 'path';
 import { spawnSync, execSync } from 'child_process';
 import chalk from 'chalk';
 import type { Provider, Message, ContentBlock, StreamEvent, ImageContent } from '../providers/types.js';
@@ -175,6 +175,13 @@ export class REPL {
 
   // Multi-line composition (Shift+Enter / Alt+Enter)
   private multilineBuffer: string[] = [];
+
+  // @ file mention autocomplete
+  private mentionMode = false;
+  private mentionQuery = '';
+  private mentionFiles: string[] = [];
+  private mentionIndex = 0;
+  private readonly MENTION_VISIBLE = 10;
 
   // Think / format modes
   private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
@@ -657,6 +664,113 @@ export class REPL {
     } catch { /* clipboard not available */ }
   }
 
+  // ── @ mention file picker ─────────────────────────────────────────────────
+
+  private walkFiles(dir: string, prefix: string, depth: number): string[] {
+    if (depth > 3) return [];
+    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__',
+      'vendor', 'coverage', 'out', '.cache', 'target', '.turbo', '.vercel']);
+    let results: string[] = [];
+    try {
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const e of entries) {
+        if (e.name.startsWith('.') || SKIP.has(e.name)) continue;
+        const rel = prefix ? `${prefix}/${e.name}` : e.name;
+        if (e.isFile()) {
+          results.push(rel);
+          if (results.length >= 800) return results;
+        } else if (e.isDirectory()) {
+          results = results.concat(this.walkFiles(join(dir, e.name), rel, depth + 1));
+          if (results.length >= 800) return results;
+        }
+      }
+    } catch { /* skip unreadable dirs */ }
+    return results;
+  }
+
+  private loadMentionFiles(): void {
+    this.mentionFiles = this.walkFiles(process.cwd(), '', 0);
+  }
+
+  private getVisibleMentionFiles(): string[] {
+    if (!this.mentionQuery) return this.mentionFiles;
+    const q = this.mentionQuery.toLowerCase();
+    return this.mentionFiles.filter(f => f.toLowerCase().includes(q));
+  }
+
+  private renderMentionDropdown(): void {
+    if (!process.stdout.isTTY) return;
+    const visible = this.getVisibleMentionFiles();
+    const total = visible.length;
+    const maxItems = Math.min(this.MENTION_VISIBLE, Math.max(1, this.scrollEnd - 6));
+    const items = visible.slice(0, maxItems);
+    this.mentionIndex = Math.min(this.mentionIndex, Math.max(0, items.length - 1));
+
+    const dropRows = Math.max(items.length, 1) + 2; // header + items + hint row
+    const headerRow = this.scrollEnd - dropRows + 1;
+
+    process.stdout.write('\x1B7');
+
+    for (let i = 0; i < dropRows; i++) {
+      process.stdout.write(`\x1B[${Math.max(1, headerRow + i)};1H\x1B[2K`);
+    }
+
+    const qDisplay = this.mentionQuery ? chalk.white(`@${this.mentionQuery}`) : chalk.dim('@');
+    process.stdout.write(
+      `\x1B[${headerRow};1H` +
+      chalk.dim('  ') + qDisplay +
+      chalk.dim(`  ${total} file${total !== 1 ? 's' : ''}  ·  ↑↓ navigate  Tab/Enter select  Esc cancel`),
+    );
+
+    if (items.length === 0) {
+      process.stdout.write(`\x1B[${headerRow + 1};1H${chalk.dim('  no matches')}`);
+    } else {
+      for (let i = 0; i < items.length; i++) {
+        const row = headerRow + 1 + i;
+        process.stdout.write(
+          `\x1B[${row};1H` +
+          (i === this.mentionIndex
+            ? chalk.white('  ▶ ') + chalk.bold.white(items[i])
+            : chalk.dim('    ' + items[i])),
+        );
+      }
+    }
+
+    process.stdout.write('\x1B8');
+    this.rl?.prompt(true);
+  }
+
+  private clearMentionDropdown(): void {
+    if (!process.stdout.isTTY) return;
+    const clearRows = this.MENTION_VISIBLE + 3;
+    const startRow = this.scrollEnd - clearRows + 1;
+    process.stdout.write('\x1B7');
+    for (let i = 0; i < clearRows; i++) {
+      process.stdout.write(`\x1B[${Math.max(1, startRow + i)};1H\x1B[2K`);
+    }
+    process.stdout.write('\x1B8');
+  }
+
+  private exitMentionMode(selectFile?: string): void {
+    this.clearMentionDropdown();
+    this.mentionMode = false;
+    this.mentionQuery = '';
+    this.mentionIndex = 0;
+    this.mentionFiles = [];
+
+    if (selectFile && this.rl) {
+      const line = (this.rl as unknown as { line: string }).line ?? '';
+      const atIdx = line.lastIndexOf('@');
+      if (atIdx !== -1) {
+        const prefix = line.slice(0, atIdx);
+        this.rl.write('', { ctrl: true, name: 'u' });
+        this.rl.write(prefix + '@' + selectFile);
+      }
+    } else {
+      this.rl?.prompt(true);
+    }
+  }
+
   // ── Input processing ─────────────────────────────────────────────────────
 
   private async processLineInput(input: string): Promise<void> {
@@ -772,6 +886,64 @@ export class REPL {
             }
           }
           return; // don't forward paste bytes to readline
+        }
+
+        // ── @ file mention autocomplete ─────────────────────────────────────
+        const wasInMentionMode = this.mentionMode;
+
+        if (s === '@' && !wasInMentionMode && !this.isProcessing) {
+          this.mentionMode = true;
+          this.mentionQuery = '';
+          this.mentionIndex = 0;
+          this.loadMentionFiles();
+          this.renderMentionDropdown();
+          // fall through: let readline echo '@'
+        }
+
+        if (wasInMentionMode) {
+          const visible = this.getVisibleMentionFiles();
+          const maxItems = Math.min(this.MENTION_VISIBLE, Math.max(1, this.scrollEnd - 6));
+          const items = visible.slice(0, maxItems);
+          const selected = items.length > 0 ? items[this.mentionIndex] : undefined;
+
+          if (s === '\x1B[A') {
+            this.mentionIndex = Math.max(0, this.mentionIndex - 1);
+            this.renderMentionDropdown();
+            return;
+          }
+          if (s === '\x1B[B') {
+            this.mentionIndex = Math.min(Math.max(0, items.length - 1), this.mentionIndex + 1);
+            this.renderMentionDropdown();
+            return;
+          }
+          if (s === '\t') {
+            this.exitMentionMode(selected);
+            return;
+          }
+          if (s === '\r') {
+            this.exitMentionMode(selected);
+            return;
+          }
+          if (chunk.length === 1 && chunk[0] === 0x1b) {
+            this.exitMentionMode();
+            return;
+          }
+          if (chunk[0] === 0x7f || chunk[0] === 0x08) {
+            if (this.mentionQuery.length > 0) {
+              this.mentionQuery = this.mentionQuery.slice(0, -1);
+              this.mentionIndex = 0;
+              this.renderMentionDropdown();
+            } else {
+              this.mentionMode = false;
+              this.clearMentionDropdown();
+            }
+            // fall through: let readline handle visual deletion
+          } else if (s.length === 1 && s.charCodeAt(0) >= 32) {
+            this.mentionQuery += s;
+            this.mentionIndex = 0;
+            this.renderMentionDropdown();
+            // fall through: let readline echo the char
+          }
         }
 
         proxy.write(chunk);

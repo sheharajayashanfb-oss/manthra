@@ -3,6 +3,7 @@ import { getTool } from './registry.js';
 import type { ToolResult } from './types.js';
 import { classifyToolCall, isSessionAllowed, grantSession } from '../permissions/index.js';
 import type { PermissionDecision } from '../permissions/index.js';
+import { isProjectAllowed, grantProject } from '../permissions/project.js';
 
 // Set by REPL to handle interactive permission prompts
 type PermissionFn = (category: string, label: string, detail: string) => Promise<PermissionDecision>;
@@ -30,15 +31,14 @@ export async function executeTool(
   // ── Permission check ───────────────────────────────────────────────────────
   if (_permissionFn && !opts?.silent) {
     const check = classifyToolCall(toolName, input);
-    if (check && !isSessionAllowed(check.category)) {
+    if (check && !isSessionAllowed(check.category) && !isProjectAllowed(check.category)) {
       const decision = await _permissionFn(check.category, check.label, check.detail);
       if (decision === 'deny') {
         process.stdout.write(chalk.red('  ✗  ') + chalk.red(toolName) + chalk.dim('  permission denied\n'));
         return { success: false, output: '', error: 'Permission denied by user' };
       }
-      if (decision === 'always') {
-        grantSession(check.category);
-      }
+      if (decision === 'always')  grantSession(check.category);
+      if (decision === 'project') grantProject(check.category);
     }
   }
 

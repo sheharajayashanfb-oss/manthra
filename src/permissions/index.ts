@@ -1,4 +1,4 @@
-export type PermissionDecision = 'allow' | 'always' | 'deny';
+export type PermissionDecision = 'allow' | 'always' | 'project' | 'deny';
 
 export interface PermissionCheck {
   category: string;

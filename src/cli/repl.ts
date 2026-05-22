@@ -1075,9 +1075,10 @@ export class REPL {
     const OPTS = [
       '  Allow once',
       '  Always allow (this session)',
+      '  Allow for this project',
       '  Deny',
     ];
-    const dropRows = OPTS.length + 3; // header + blank + options
+    const dropRows = OPTS.length + 2; // header + detail + options
     const headerRow = Math.max(1, this.scrollEnd - dropRows + 1);
 
     process.stdout.write('\x1B7');
@@ -1198,12 +1199,12 @@ export class REPL {
             return;
           }
           if (s === '\x1B[B') {
-            this.permissionIndex = Math.min(2, this.permissionIndex + 1);
+            this.permissionIndex = Math.min(3, this.permissionIndex + 1);
             this.renderPermissionPrompt();
             return;
           }
           if (s === '\r') {
-            const decisions: PermissionDecision[] = ['allow', 'always', 'deny'];
+            const decisions: PermissionDecision[] = ['allow', 'always', 'project', 'deny'];
             this.resolvePermission(decisions[this.permissionIndex]);
             return;
           }

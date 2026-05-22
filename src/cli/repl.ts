@@ -188,7 +188,6 @@ export class REPL {
   private slashMode = false;
   private slashQuery = '';
   private slashIndex = 0;
-  private slashScrollOffset = 0;
 
   // / slash arg sub-dropdown (second level)
   private slashArgMode = false;
@@ -196,7 +195,6 @@ export class REPL {
   private slashArgOptions: Array<{ value: string; description?: string }> = [];
   private slashArgQuery = '';
   private slashArgIndex = 0;
-  private slashArgScrollOffset = 0;
 
   // Think / format modes
   private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
@@ -828,16 +826,11 @@ export class REPL {
     if (!process.stdout.isTTY) return;
     const visible = this.getVisibleSlashCommands();
     const total = visible.length;
-    const maxItems = Math.min(this.MENTION_VISIBLE, Math.max(1, this.scrollEnd - 6));
+    const maxItems = Math.min(total, Math.max(1, this.scrollEnd - 6));
 
     this.slashIndex = Math.max(0, Math.min(this.slashIndex, total - 1));
-    if (this.slashIndex < this.slashScrollOffset) {
-      this.slashScrollOffset = this.slashIndex;
-    } else if (this.slashIndex >= this.slashScrollOffset + maxItems) {
-      this.slashScrollOffset = this.slashIndex - maxItems + 1;
-    }
 
-    const win = visible.slice(this.slashScrollOffset, this.slashScrollOffset + maxItems);
+    const win = visible.slice(0, maxItems);
     const dropRows = Math.max(win.length, 1) + 1;
     const headerRow = this.scrollEnd - dropRows + 1;
 
@@ -847,9 +840,7 @@ export class REPL {
     }
 
     const qDisplay = this.slashQuery ? chalk.white(`/${this.slashQuery}`) : chalk.dim('/');
-    const posInfo = total > maxItems
-      ? chalk.dim(`  ${this.slashIndex + 1}/${total}`)
-      : chalk.dim(`  ${total} command${total !== 1 ? 's' : ''}`);
+    const posInfo = chalk.dim(`  ${total} command${total !== 1 ? 's' : ''}`);
     process.stdout.write(
       `\x1B[${headerRow};1H` +
       chalk.dim('  ') + qDisplay + posInfo +
@@ -862,7 +853,7 @@ export class REPL {
       for (let i = 0; i < win.length; i++) {
         const row = headerRow + 1 + i;
         const cmd = win[i];
-        const isSelected = this.slashScrollOffset + i === this.slashIndex;
+        const isSelected = i === this.slashIndex;
         const sig = '/' + cmd.name + (cmd.usage ? ' ' + cmd.usage : '');
         process.stdout.write(
           `\x1B[${row};1H` +
@@ -879,8 +870,8 @@ export class REPL {
 
   private clearSlashDropdown(): void {
     if (!process.stdout.isTTY) return;
-    const clearRows = this.MENTION_VISIBLE + 3;
-    const startRow = this.scrollEnd - clearRows + 1;
+    const clearRows = this.scrollEnd;
+    const startRow = 1;
     process.stdout.write('\x1B7');
     for (let i = 0; i < clearRows; i++) {
       process.stdout.write(`\x1B[${Math.max(1, startRow + i)};1H\x1B[2K`);
@@ -893,7 +884,6 @@ export class REPL {
     this.slashMode = false;
     this.slashQuery = '';
     this.slashIndex = 0;
-    this.slashScrollOffset = 0;
 
     if (selectCmd !== undefined && this.rl) {
       if (execute) {
@@ -967,7 +957,6 @@ export class REPL {
     this.slashArgOptions = opts;
     this.slashArgQuery = '';
     this.slashArgIndex = 0;
-    this.slashArgScrollOffset = 0;
 
     // Write command name into readline so user sees it
     this.rl?.write('', { ctrl: true, name: 'u' });
@@ -986,16 +975,11 @@ export class REPL {
     if (!process.stdout.isTTY) return;
     const visible = this.getVisibleSlashArgOptions();
     const total = visible.length;
-    const maxItems = Math.min(this.MENTION_VISIBLE, Math.max(1, this.scrollEnd - 6));
+    const maxItems = Math.min(total, Math.max(1, this.scrollEnd - 6));
 
     this.slashArgIndex = Math.max(0, Math.min(this.slashArgIndex, total - 1));
-    if (this.slashArgIndex < this.slashArgScrollOffset) {
-      this.slashArgScrollOffset = this.slashArgIndex;
-    } else if (this.slashArgIndex >= this.slashArgScrollOffset + maxItems) {
-      this.slashArgScrollOffset = this.slashArgIndex - maxItems + 1;
-    }
 
-    const win = visible.slice(this.slashArgScrollOffset, this.slashArgScrollOffset + maxItems);
+    const win = visible.slice(0, maxItems);
     const dropRows = Math.max(win.length, 1) + 1;
     const headerRow = this.scrollEnd - dropRows + 1;
 
@@ -1006,9 +990,7 @@ export class REPL {
 
     const qDisplay = chalk.white(`/${this.slashArgCmd}`) + chalk.dim(' ') +
       (this.slashArgQuery ? chalk.white(this.slashArgQuery) : chalk.dim('<option>'));
-    const posInfo = total > maxItems
-      ? chalk.dim(`  ${this.slashArgIndex + 1}/${total}`)
-      : chalk.dim(`  ${total} option${total !== 1 ? 's' : ''}`);
+    const posInfo = chalk.dim(`  ${total} option${total !== 1 ? 's' : ''}`);
     process.stdout.write(
       `\x1B[${headerRow};1H` +
       chalk.dim('  ') + qDisplay + posInfo +
@@ -1021,7 +1003,7 @@ export class REPL {
       for (let i = 0; i < win.length; i++) {
         const row = headerRow + 1 + i;
         const opt = win[i];
-        const isSelected = this.slashArgScrollOffset + i === this.slashArgIndex;
+        const isSelected = i === this.slashArgIndex;
         process.stdout.write(
           `\x1B[${row};1H` +
           (isSelected
@@ -1037,8 +1019,8 @@ export class REPL {
 
   private clearSlashArgDropdown(): void {
     if (!process.stdout.isTTY) return;
-    const clearRows = this.MENTION_VISIBLE + 3;
-    const startRow = this.scrollEnd - clearRows + 1;
+    const clearRows = this.scrollEnd;
+    const startRow = 1;
     process.stdout.write('\x1B7');
     for (let i = 0; i < clearRows; i++) {
       process.stdout.write(`\x1B[${Math.max(1, startRow + i)};1H\x1B[2K`);
@@ -1054,7 +1036,6 @@ export class REPL {
     this.slashArgOptions = [];
     this.slashArgQuery = '';
     this.slashArgIndex = 0;
-    this.slashArgScrollOffset = 0;
 
     if (selectValue !== undefined && this.rl) {
       this.rl.write('', { ctrl: true, name: 'u' });
@@ -1216,7 +1197,6 @@ export class REPL {
             if (this.slashArgQuery.length > 0) {
               this.slashArgQuery = this.slashArgQuery.slice(0, -1);
               this.slashArgIndex = 0;
-              this.slashArgScrollOffset = 0;
               this.renderSlashArgDropdown();
             } else {
               this.exitSlashArgMode();
@@ -1226,7 +1206,6 @@ export class REPL {
           if (s.length === 1 && s.charCodeAt(0) >= 32) {
             this.slashArgQuery += s;
             this.slashArgIndex = 0;
-            this.slashArgScrollOffset = 0;
             this.renderSlashArgDropdown();
           }
           return;
@@ -1241,7 +1220,6 @@ export class REPL {
             this.slashMode = true;
             this.slashQuery = '';
             this.slashIndex = 0;
-            this.slashScrollOffset = 0;
             this.renderSlashDropdown();
             // fall through: let readline echo '/'
           }
@@ -1281,18 +1259,15 @@ export class REPL {
             if (this.slashQuery.length > 0) {
               this.slashQuery = this.slashQuery.slice(0, -1);
               this.slashIndex = 0;
-              this.slashScrollOffset = 0;
               this.renderSlashDropdown();
             } else {
               this.slashMode = false;
-              this.slashScrollOffset = 0;
               this.clearSlashDropdown();
             }
             // fall through: let readline handle visual deletion
           } else if (s.length === 1 && s.charCodeAt(0) >= 32) {
             this.slashQuery += s;
             this.slashIndex = 0;
-            this.slashScrollOffset = 0;
             this.renderSlashDropdown();
             // fall through: let readline echo the char
           }

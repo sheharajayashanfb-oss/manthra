@@ -10,7 +10,7 @@ import { getConfig } from '../config/loader.js';
 import { loadProviders, getProvider, getDefaultProvider } from '../providers/registry.js';
 import { DEFAULT_SYSTEM_PROMPT } from '../config/defaults.js';
 import { formatMemoryForContext } from '../memory/store.js';
-import { getCommand } from '../slash-commands/registry.js';
+import { getCommand, getAllCommands } from '../slash-commands/registry.js';
 import type { CommandContext } from '../slash-commands/types.js';
 import { formatMarkdown } from '../ui/renderer.js';
 import { loadManthraMd } from '../config/manthra-md.js';
@@ -183,6 +183,12 @@ export class REPL {
   private mentionIndex = 0;
   private mentionScrollOffset = 0;
   private readonly MENTION_VISIBLE = 15;
+
+  // / slash command autocomplete
+  private slashMode = false;
+  private slashQuery = '';
+  private slashIndex = 0;
+  private slashScrollOffset = 0;
 
   // Think / format modes
   private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
@@ -790,6 +796,110 @@ export class REPL {
     }
   }
 
+  // ── / slash command picker ────────────────────────────────────────────────
+
+  private getSlashCommandList(): Array<{ name: string; description: string; usage?: string }> {
+    const repl = [
+      { name: 'think', description: 'Toggle extended thinking mode', usage: '[off|low|medium|high]' },
+      { name: 'format', description: 'Force output format', usage: '[off|json]' },
+    ];
+    return [
+      ...getAllCommands().map(c => ({ name: c.name, description: c.description, usage: c.usage })),
+      ...repl,
+    ].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private getVisibleSlashCommands(): Array<{ name: string; description: string; usage?: string }> {
+    const all = this.getSlashCommandList();
+    if (!this.slashQuery) return all;
+    const q = this.slashQuery.toLowerCase();
+    return all.filter(c => c.name.toLowerCase().startsWith(q));
+  }
+
+  private renderSlashDropdown(): void {
+    if (!process.stdout.isTTY) return;
+    const visible = this.getVisibleSlashCommands();
+    const total = visible.length;
+    const maxItems = Math.min(this.MENTION_VISIBLE, Math.max(1, this.scrollEnd - 6));
+
+    this.slashIndex = Math.max(0, Math.min(this.slashIndex, total - 1));
+    if (this.slashIndex < this.slashScrollOffset) {
+      this.slashScrollOffset = this.slashIndex;
+    } else if (this.slashIndex >= this.slashScrollOffset + maxItems) {
+      this.slashScrollOffset = this.slashIndex - maxItems + 1;
+    }
+
+    const win = visible.slice(this.slashScrollOffset, this.slashScrollOffset + maxItems);
+    const dropRows = Math.max(win.length, 1) + 1;
+    const headerRow = this.scrollEnd - dropRows + 1;
+
+    process.stdout.write('\x1B7');
+    for (let i = 0; i < dropRows; i++) {
+      process.stdout.write(`\x1B[${Math.max(1, headerRow + i)};1H\x1B[2K`);
+    }
+
+    const qDisplay = this.slashQuery ? chalk.white(`/${this.slashQuery}`) : chalk.dim('/');
+    const posInfo = total > maxItems
+      ? chalk.dim(`  ${this.slashIndex + 1}/${total}`)
+      : chalk.dim(`  ${total} command${total !== 1 ? 's' : ''}`);
+    process.stdout.write(
+      `\x1B[${headerRow};1H` +
+      chalk.dim('  ') + qDisplay + posInfo +
+      chalk.dim('  ↑↓ navigate  Tab insert  Enter run  Esc cancel'),
+    );
+
+    if (win.length === 0) {
+      process.stdout.write(`\x1B[${headerRow + 1};1H${chalk.dim('  no matches')}`);
+    } else {
+      for (let i = 0; i < win.length; i++) {
+        const row = headerRow + 1 + i;
+        const cmd = win[i];
+        const isSelected = this.slashScrollOffset + i === this.slashIndex;
+        const sig = '/' + cmd.name + (cmd.usage ? ' ' + cmd.usage : '');
+        process.stdout.write(
+          `\x1B[${row};1H` +
+          (isSelected
+            ? chalk.white('  ▶ ') + chalk.bold.white(sig) + chalk.dim('  ' + cmd.description)
+            : chalk.dim('    ' + sig + '  ' + cmd.description)),
+        );
+      }
+    }
+
+    process.stdout.write('\x1B8');
+    this.rl?.prompt(true);
+  }
+
+  private clearSlashDropdown(): void {
+    if (!process.stdout.isTTY) return;
+    const clearRows = this.MENTION_VISIBLE + 3;
+    const startRow = this.scrollEnd - clearRows + 1;
+    process.stdout.write('\x1B7');
+    for (let i = 0; i < clearRows; i++) {
+      process.stdout.write(`\x1B[${Math.max(1, startRow + i)};1H\x1B[2K`);
+    }
+    process.stdout.write('\x1B8');
+  }
+
+  private exitSlashMode(selectCmd?: string, execute = false): void {
+    this.clearSlashDropdown();
+    this.slashMode = false;
+    this.slashQuery = '';
+    this.slashIndex = 0;
+    this.slashScrollOffset = 0;
+
+    if (selectCmd !== undefined && this.rl) {
+      if (execute) {
+        void this.processLineInput('/' + selectCmd);
+      } else {
+        const cmdInfo = this.getSlashCommandList().find(c => c.name === selectCmd);
+        this.rl.write('', { ctrl: true, name: 'u' });
+        this.rl.write('/' + selectCmd + (cmdInfo?.usage ? ' ' : ''));
+      }
+    } else {
+      this.rl?.prompt(true);
+    }
+  }
+
   // ── Input processing ─────────────────────────────────────────────────────
 
   private async processLineInput(input: string): Promise<void> {
@@ -905,6 +1015,72 @@ export class REPL {
             }
           }
           return; // don't forward paste bytes to readline
+        }
+
+        // ── / slash command autocomplete ────────────────────────────────────
+        const wasInSlashMode = this.slashMode;
+
+        if (s === '/' && !wasInSlashMode && !this.mentionMode && !this.isProcessing) {
+          const currentLine = (this.rl as unknown as { line: string }).line ?? '';
+          if (currentLine === '') {
+            this.slashMode = true;
+            this.slashQuery = '';
+            this.slashIndex = 0;
+            this.slashScrollOffset = 0;
+            this.renderSlashDropdown();
+            // fall through: let readline echo '/'
+          }
+        }
+
+        if (wasInSlashMode) {
+          const visible = this.getVisibleSlashCommands();
+          const selected = visible[this.slashIndex]?.name;
+
+          if (s === '\x1B[A') {
+            this.slashIndex = Math.max(0, this.slashIndex - 1);
+            this.renderSlashDropdown();
+            return;
+          }
+          if (s === '\x1B[B') {
+            this.slashIndex = Math.min(Math.max(0, visible.length - 1), this.slashIndex + 1);
+            this.renderSlashDropdown();
+            return;
+          }
+          if (s === '\t') {
+            this.exitSlashMode(selected, false);
+            return;
+          }
+          if (s === '\r') {
+            if (selected) {
+              this.exitSlashMode(selected, true);
+            } else {
+              this.exitSlashMode();
+            }
+            return;
+          }
+          if (chunk.length === 1 && chunk[0] === 0x1b) {
+            this.exitSlashMode();
+            return;
+          }
+          if (chunk[0] === 0x7f || chunk[0] === 0x08) {
+            if (this.slashQuery.length > 0) {
+              this.slashQuery = this.slashQuery.slice(0, -1);
+              this.slashIndex = 0;
+              this.slashScrollOffset = 0;
+              this.renderSlashDropdown();
+            } else {
+              this.slashMode = false;
+              this.slashScrollOffset = 0;
+              this.clearSlashDropdown();
+            }
+            // fall through: let readline handle visual deletion
+          } else if (s.length === 1 && s.charCodeAt(0) >= 32) {
+            this.slashQuery += s;
+            this.slashIndex = 0;
+            this.slashScrollOffset = 0;
+            this.renderSlashDropdown();
+            // fall through: let readline echo the char
+          }
         }
 
         // ── @ file mention autocomplete ─────────────────────────────────────

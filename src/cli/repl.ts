@@ -181,7 +181,8 @@ export class REPL {
   private mentionQuery = '';
   private mentionFiles: Array<{ name: string; path: string }> = [];
   private mentionIndex = 0;
-  private readonly MENTION_VISIBLE = 10;
+  private mentionScrollOffset = 0;
+  private readonly MENTION_VISIBLE = 15;
 
   // Think / format modes
   private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
@@ -707,38 +708,48 @@ export class REPL {
     const visible = this.getVisibleMentionFiles();
     const total = visible.length;
     const maxItems = Math.min(this.MENTION_VISIBLE, Math.max(1, this.scrollEnd - 6));
-    const items = visible.slice(0, maxItems);
-    this.mentionIndex = Math.min(this.mentionIndex, Math.max(0, items.length - 1));
 
-    const dropRows = Math.max(items.length, 1) + 2; // header + items + hint row
+    // Clamp cursor to valid range
+    this.mentionIndex = Math.max(0, Math.min(this.mentionIndex, total - 1));
+    // Scroll window to keep cursor visible
+    if (this.mentionIndex < this.mentionScrollOffset) {
+      this.mentionScrollOffset = this.mentionIndex;
+    } else if (this.mentionIndex >= this.mentionScrollOffset + maxItems) {
+      this.mentionScrollOffset = this.mentionIndex - maxItems + 1;
+    }
+
+    const window = visible.slice(this.mentionScrollOffset, this.mentionScrollOffset + maxItems);
+    const dropRows = Math.max(window.length, 1) + 1; // header + items
     const headerRow = this.scrollEnd - dropRows + 1;
 
     process.stdout.write('\x1B7');
-
     for (let i = 0; i < dropRows; i++) {
       process.stdout.write(`\x1B[${Math.max(1, headerRow + i)};1H\x1B[2K`);
     }
 
     const qDisplay = this.mentionQuery ? chalk.white(`@${this.mentionQuery}`) : chalk.dim('@');
+    const posInfo = total > maxItems
+      ? chalk.dim(`  ${this.mentionIndex + 1}/${total}`)
+      : chalk.dim(`  ${total} file${total !== 1 ? 's' : ''}`);
     process.stdout.write(
       `\x1B[${headerRow};1H` +
-      chalk.dim('  ') + qDisplay +
-      chalk.dim(`  ${total} file${total !== 1 ? 's' : ''}  ·  ↑↓ navigate  Tab/Enter select  Esc cancel`),
+      chalk.dim('  ') + qDisplay + posInfo +
+      chalk.dim('  ↑↓ navigate  Tab/Enter select  Esc cancel'),
     );
 
-    if (items.length === 0) {
+    if (window.length === 0) {
       process.stdout.write(`\x1B[${headerRow + 1};1H${chalk.dim('  no matches')}`);
     } else {
-      for (let i = 0; i < items.length; i++) {
+      for (let i = 0; i < window.length; i++) {
         const row = headerRow + 1 + i;
-        const dir = items[i].path.includes('/')
-          ? items[i].path.slice(0, items[i].path.lastIndexOf('/'))
-          : '';
+        const item = window[i];
+        const dir = item.path.includes('/') ? item.path.slice(0, item.path.lastIndexOf('/')) : '';
+        const isSelected = this.mentionScrollOffset + i === this.mentionIndex;
         process.stdout.write(
           `\x1B[${row};1H` +
-          (i === this.mentionIndex
-            ? chalk.white('  ▶ ') + chalk.bold.white(items[i].name) + (dir ? chalk.dim('  ' + dir) : '')
-            : chalk.dim('    ' + items[i].name) + (dir ? chalk.dim('  ' + dir) : '')),
+          (isSelected
+            ? chalk.white('  ▶ ') + chalk.bold.white(item.name) + (dir ? chalk.dim('  ' + dir) : '')
+            : chalk.dim('    ' + item.name) + (dir ? chalk.dim('  ' + dir) : '')),
         );
       }
     }
@@ -763,6 +774,7 @@ export class REPL {
     this.mentionMode = false;
     this.mentionQuery = '';
     this.mentionIndex = 0;
+    this.mentionScrollOffset = 0;
     this.mentionFiles = [];
 
     if (selectFile && this.rl) {
@@ -909,9 +921,7 @@ export class REPL {
 
         if (wasInMentionMode) {
           const visible = this.getVisibleMentionFiles();
-          const maxItems = Math.min(this.MENTION_VISIBLE, Math.max(1, this.scrollEnd - 6));
-          const items = visible.slice(0, maxItems);
-          const selected = items.length > 0 ? items[this.mentionIndex]?.path : undefined;
+          const selected = visible[this.mentionIndex]?.path;
 
           if (s === '\x1B[A') {
             this.mentionIndex = Math.max(0, this.mentionIndex - 1);
@@ -919,7 +929,7 @@ export class REPL {
             return;
           }
           if (s === '\x1B[B') {
-            this.mentionIndex = Math.min(Math.max(0, items.length - 1), this.mentionIndex + 1);
+            this.mentionIndex = Math.min(Math.max(0, visible.length - 1), this.mentionIndex + 1);
             this.renderMentionDropdown();
             return;
           }
@@ -939,15 +949,18 @@ export class REPL {
             if (this.mentionQuery.length > 0) {
               this.mentionQuery = this.mentionQuery.slice(0, -1);
               this.mentionIndex = 0;
+              this.mentionScrollOffset = 0;
               this.renderMentionDropdown();
             } else {
               this.mentionMode = false;
+              this.mentionScrollOffset = 0;
               this.clearMentionDropdown();
             }
             // fall through: let readline handle visual deletion
           } else if (s.length === 1 && s.charCodeAt(0) >= 32) {
             this.mentionQuery += s;
             this.mentionIndex = 0;
+            this.mentionScrollOffset = 0;
             this.renderMentionDropdown();
             // fall through: let readline echo the char
           }

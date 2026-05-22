@@ -179,7 +179,7 @@ export class REPL {
   // @ file mention autocomplete
   private mentionMode = false;
   private mentionQuery = '';
-  private mentionFiles: string[] = [];
+  private mentionFiles: Array<{ name: string; path: string }> = [];
   private mentionIndex = 0;
   private readonly MENTION_VISIBLE = 10;
 
@@ -666,8 +666,7 @@ export class REPL {
 
   // ── @ mention file picker ─────────────────────────────────────────────────
 
-  private walkFiles(dir: string, prefix: string, depth: number): string[] {
-    if (depth > 3) return [];
+  private walkFiles(dir: string, prefix: string): string[] {
     const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__',
       'vendor', 'coverage', 'out', '.cache', 'target', '.turbo', '.vercel']);
     let results: string[] = [];
@@ -678,10 +677,10 @@ export class REPL {
         const rel = prefix ? `${prefix}/${e.name}` : e.name;
         if (e.isFile()) {
           results.push(rel);
-          if (results.length >= 800) return results;
+          if (results.length >= 5000) return results;
         } else if (e.isDirectory()) {
-          results = results.concat(this.walkFiles(join(dir, e.name), rel, depth + 1));
-          if (results.length >= 800) return results;
+          results = results.concat(this.walkFiles(join(dir, e.name), rel));
+          if (results.length >= 5000) return results;
         }
       }
     } catch { /* skip unreadable dirs */ }
@@ -689,13 +688,18 @@ export class REPL {
   }
 
   private loadMentionFiles(): void {
-    this.mentionFiles = this.walkFiles(process.cwd(), '', 0);
+    this.mentionFiles = this.walkFiles(process.cwd(), '').map(p => ({
+      name: p.includes('/') ? p.slice(p.lastIndexOf('/') + 1) : p,
+      path: p,
+    }));
   }
 
-  private getVisibleMentionFiles(): string[] {
+  private getVisibleMentionFiles(): Array<{ name: string; path: string }> {
     if (!this.mentionQuery) return this.mentionFiles;
     const q = this.mentionQuery.toLowerCase();
-    return this.mentionFiles.filter(f => f.toLowerCase().includes(q));
+    return this.mentionFiles.filter(f =>
+      q.includes('/') ? f.path.toLowerCase().includes(q) : f.name.toLowerCase().includes(q),
+    );
   }
 
   private renderMentionDropdown(): void {
@@ -727,11 +731,14 @@ export class REPL {
     } else {
       for (let i = 0; i < items.length; i++) {
         const row = headerRow + 1 + i;
+        const dir = items[i].path.includes('/')
+          ? items[i].path.slice(0, items[i].path.lastIndexOf('/'))
+          : '';
         process.stdout.write(
           `\x1B[${row};1H` +
           (i === this.mentionIndex
-            ? chalk.white('  ▶ ') + chalk.bold.white(items[i])
-            : chalk.dim('    ' + items[i])),
+            ? chalk.white('  ▶ ') + chalk.bold.white(items[i].name) + (dir ? chalk.dim('  ' + dir) : '')
+            : chalk.dim('    ' + items[i].name) + (dir ? chalk.dim('  ' + dir) : '')),
         );
       }
     }
@@ -904,7 +911,7 @@ export class REPL {
           const visible = this.getVisibleMentionFiles();
           const maxItems = Math.min(this.MENTION_VISIBLE, Math.max(1, this.scrollEnd - 6));
           const items = visible.slice(0, maxItems);
-          const selected = items.length > 0 ? items[this.mentionIndex] : undefined;
+          const selected = items.length > 0 ? items[this.mentionIndex]?.path : undefined;
 
           if (s === '\x1B[A') {
             this.mentionIndex = Math.max(0, this.mentionIndex - 1);

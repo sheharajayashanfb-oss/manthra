@@ -1166,6 +1166,19 @@ export class REPL {
           return; // don't forward paste bytes to readline
         }
 
+        // Intercept Enter on a bare /command that has a known option set
+        if (s === '\r' && !this.slashMode && !this.slashArgMode && !this.mentionMode && !this.isProcessing) {
+          const currentLine = (this.rl as unknown as { line: string }).line ?? '';
+          const match = currentLine.match(/^\/([a-z]+)$/);
+          if (match) {
+            const opts = this.getCommandOptions(match[1]);
+            if (opts !== null) {
+              void this.enterSlashArgMode(match[1]);
+              return;
+            }
+          }
+        }
+
         // ── / slash arg sub-dropdown ────────────────────────────────────────
         if (this.slashArgMode) {
           const visible = this.getVisibleSlashArgOptions();

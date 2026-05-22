@@ -15,8 +15,9 @@ import type { CommandContext } from '../slash-commands/types.js';
 import { formatMarkdown } from '../ui/renderer.js';
 import { loadManthraMd } from '../config/manthra-md.js';
 import { getToolDefinitions } from '../tools/registry.js';
-import { executeTool } from '../tools/executor.js';
+import { executeTool, setPermissionHandler } from '../tools/executor.js';
 import { platformSystemPrompt } from '../tools/platform.js';
+import type { PermissionDecision } from '../permissions/index.js';
 
 // ── Thinking animation ────────────────────────────────────────────────────────
 
@@ -195,6 +196,13 @@ export class REPL {
   private slashArgOptions: Array<{ value: string; description?: string }> = [];
   private slashArgQuery = '';
   private slashArgIndex = 0;
+
+  // Permission prompt
+  private permissionVisible = false;
+  private permissionIndex = 0;  // 0=allow 1=always 2=deny
+  private permissionLabel = '';
+  private permissionDetail = '';
+  private permissionResolve: ((d: PermissionDecision) => void) | null = null;
 
   // Think / format modes
   private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
@@ -1049,6 +1057,79 @@ export class REPL {
     }
   }
 
+  // ── Permission prompt ────────────────────────────────────────────────────
+
+  async showPermissionPrompt(_category: string, label: string, detail: string): Promise<PermissionDecision> {
+    return new Promise(resolve => {
+      this.permissionVisible = true;
+      this.permissionIndex = 0;
+      this.permissionLabel = label;
+      this.permissionDetail = detail;
+      this.permissionResolve = resolve;
+      this.renderPermissionPrompt();
+    });
+  }
+
+  private renderPermissionPrompt(): void {
+    if (!process.stdout.isTTY) return;
+    const OPTS = [
+      '  Allow once',
+      '  Always allow (this session)',
+      '  Deny',
+    ];
+    const dropRows = OPTS.length + 3; // header + blank + options
+    const headerRow = Math.max(1, this.scrollEnd - dropRows + 1);
+
+    process.stdout.write('\x1B7');
+    for (let i = 0; i < dropRows; i++) {
+      process.stdout.write(`\x1B[${headerRow + i};1H\x1B[2K`);
+    }
+
+    const detail = this.permissionDetail.length > 80
+      ? this.permissionDetail.slice(0, 77) + '…'
+      : this.permissionDetail;
+
+    process.stdout.write(
+      `\x1B[${headerRow};1H` +
+      chalk.bgYellow.black(' ⚠ ') + ' ' +
+      chalk.bold(this.permissionLabel) +
+      chalk.dim('  ↑↓ navigate  Enter confirm  Esc deny'),
+    );
+    process.stdout.write(
+      `\x1B[${headerRow + 1};1H` +
+      chalk.dim('    ' + detail),
+    );
+
+    OPTS.forEach((opt, i) => {
+      const row = headerRow + 2 + i;
+      const selected = i === this.permissionIndex;
+      const icon = selected ? chalk.yellow('  ▶ ') : '    ';
+      const text = selected ? chalk.bold.white(opt.trim()) : chalk.dim(opt.trim());
+      process.stdout.write(`\x1B[${row};1H${icon}${text}`);
+    });
+
+    process.stdout.write('\x1B8');
+  }
+
+  private clearPermissionPrompt(): void {
+    if (!process.stdout.isTTY) return;
+    const clearRows = 8;
+    const startRow = Math.max(1, this.scrollEnd - clearRows + 1);
+    process.stdout.write('\x1B7');
+    for (let i = 0; i < clearRows; i++) {
+      process.stdout.write(`\x1B[${startRow + i};1H\x1B[2K`);
+    }
+    process.stdout.write('\x1B8');
+  }
+
+  private resolvePermission(decision: PermissionDecision): void {
+    this.clearPermissionPrompt();
+    this.permissionVisible = false;
+    const resolve = this.permissionResolve;
+    this.permissionResolve = null;
+    resolve?.(decision);
+  }
+
   // ── Input processing ─────────────────────────────────────────────────────
 
   private async processLineInput(input: string): Promise<void> {
@@ -1108,6 +1189,30 @@ export class REPL {
 
       const onData = (chunk: Buffer) => {
         const s = chunk.toString('utf8');
+
+        // ── Permission prompt (highest priority — intercepts all keys) ───────
+        if (this.permissionVisible) {
+          if (s === '\x1B[A') {
+            this.permissionIndex = Math.max(0, this.permissionIndex - 1);
+            this.renderPermissionPrompt();
+            return;
+          }
+          if (s === '\x1B[B') {
+            this.permissionIndex = Math.min(2, this.permissionIndex + 1);
+            this.renderPermissionPrompt();
+            return;
+          }
+          if (s === '\r') {
+            const decisions: PermissionDecision[] = ['allow', 'always', 'deny'];
+            this.resolvePermission(decisions[this.permissionIndex]);
+            return;
+          }
+          if (chunk.length === 1 && chunk[0] === 0x1b) {
+            this.resolvePermission('deny');
+            return;
+          }
+          return; // swallow all other keys while prompt is visible
+        }
 
         // Ctrl+E (0x05): open external editor for multi-line composition
         if (chunk.length === 1 && chunk[0] === 0x05 && !this.isProcessing) {
@@ -1367,6 +1472,11 @@ export class REPL {
     });
 
     this.initLayout();
+
+    // Register permission handler so executor can prompt interactively
+    setPermissionHandler((category, label, detail) =>
+      this.showPermissionPrompt(category, label, detail),
+    );
 
     const { sources: mdSources } = loadManthraMd();
     if (mdSources.length > 0) {

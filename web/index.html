@@ -57,7 +57,7 @@
       font-weight: 700; font-size: 0.95rem; color: var(--text);
       text-decoration: none; letter-spacing: 0.03em;
     }
-    .nav-logo img { display: block; border-radius: 2px; }
+    .nav-logo svg { display: block; }
     .nav-links { display: flex; align-items: center; gap: 0.25rem; }
     .nav-links a {
       color: var(--text-muted); text-decoration: none; font-size: 0.8rem;
@@ -453,7 +453,11 @@
 <!-- ── Nav ─────────────────────────────────────────────────────────────── -->
 <nav>
   <a href="/" class="nav-logo">
-    <img src="/logo.svg" alt="Manthra" width="24" height="24">
+    <svg viewBox="0 0 32 32" height="22" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <polyline points="2,7 9,16 2,25" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="11,25 11,7 17,16 23,7 23,25" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter"/>
+      <line x1="25" y1="25" x2="30" y2="25" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/>
+    </svg>
     Manthra
   </a>
   <div class="nav-links">
@@ -1034,7 +1038,11 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
 <!-- ── Footer ──────────────────────────────────────────────────────────────── -->
 <footer>
   <a href="/" class="footer-logo">
-    <img src="/logo.svg" alt="Manthra" width="20" height="20" style="display:block;border-radius:2px;">
+    <svg viewBox="0 0 32 32" height="20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:block">
+      <polyline points="2,7 9,16 2,25" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="11,25 11,7 17,16 23,7 23,25" stroke="currentColor" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="miter"/>
+      <line x1="25" y1="25" x2="30" y2="25" stroke="currentColor" stroke-width="2.2" stroke-linecap="square"/>
+    </svg>
     Manthra
   </a>
   <div class="footer-links">

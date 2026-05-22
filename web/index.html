@@ -970,6 +970,28 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
       <div class="step">
         <div class="step-num">6</div>
         <div class="step-content">
+          <h3>Headless vs headed mode</h3>
+          <p>By default Playwright MCP runs <strong>headless</strong> — the browser is invisible. Pass <code class="inline-code">--headed</code> to make it visible, which is useful for debugging or watching automations run live.</p>
+          <div class="code-block-label">Headless (default — no visible browser)</div>
+          <div class="code-block">
+            <span class="comment">Args:  -y</span><br>
+            <span class="comment">       @playwright/mcp@latest</span>
+          </div>
+          <div class="code-block-label" style="margin-top:0.875rem;">Headed (visible browser window)</div>
+          <div class="code-block">
+            <span class="comment">Args:  -y</span><br>
+            <span class="comment">       @playwright/mcp@latest</span><br>
+            <span class="comment">       --headed</span>
+          </div>
+          <div class="info-box" style="margin-top:0.875rem;">
+            To switch modes, open <code class="inline-code">manthra web</code> → MCP Servers → edit the server → update the Args field → Save, then restart Manthra.
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">7</div>
+        <div class="step-content">
           <h3>Use browser tools in chat</h3>
           <p>Ask Manthra to use the browser naturally. It will automatically invoke Playwright tools as needed.</p>
           <div class="code-block">

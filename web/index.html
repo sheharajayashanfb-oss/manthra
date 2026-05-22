@@ -490,6 +490,7 @@
   <div class="nav-links">
     <a href="#features">Features</a>
     <a href="#docs">Docs</a>
+    <a href="#mcp">MCP</a>
     <a href="#commands">Commands</a>
   </div>
 </nav>
@@ -818,6 +819,224 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
 
 <div class="divider"></div>
 
+<!-- ── MCP Servers ───────────────────────────────────────────────────────── -->
+<section class="section" id="mcp">
+  <div class="section-inner">
+
+    <div class="section-header">
+      <p class="section-label">MCP</p>
+      <h2 class="section-title">MCP server support</h2>
+      <p class="section-sub">Connect any Model Context Protocol server to give Manthra new tools — browser automation, database access, GitHub/GitLab integration, and more.</p>
+    </div>
+
+    <!-- What is MCP -->
+    <div class="doc-grid" style="margin-bottom:2rem;">
+      <div class="doc-col">
+        <h3>What is MCP?</h3>
+        <p>MCP (Model Context Protocol) is an open standard for connecting AI assistants to external tools and data sources. Any MCP-compatible server can be registered with Manthra — the AI will see its tools and call them automatically when needed.</p>
+        <div class="info-box" style="margin-top:1rem;">
+          <strong>Tools are prefixed</strong> with <code class="inline-code">mcp__&lt;server-name&gt;__&lt;tool-name&gt;</code> to avoid conflicts — e.g. <code class="inline-code">mcp__playwright__browser_navigate</code>.
+        </div>
+      </div>
+      <div class="doc-col">
+        <h3>Add via web UI</h3>
+        <p>Open the web config panel, navigate to <strong>MCP Servers</strong>, and click <strong>Add MCP Server</strong>. Fill in the name, transport (<code class="inline-code">stdio</code> for local processes, <code class="inline-code">http</code> for remote servers), and command or URL. Manthra connects automatically on next start.</p>
+        <div class="code-block" style="margin-top:0.875rem;">
+          <span class="cmd">manthra web</span><br>
+          <br>
+          <span class="comment"># → MCP Servers → Add MCP Server</span><br>
+          <span class="comment"># → Transport: stdio</span><br>
+          <span class="comment"># → Command: npx  Args: -y @playwright/mcp@latest</span><br>
+          <span class="comment"># → Save</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Config JSON format -->
+    <div class="section-header" style="margin-bottom:1.5rem;">
+      <h3 style="font-size:1rem;font-weight:700;color:var(--text);letter-spacing:-0.01em;">Config file format</h3>
+      <p class="section-sub" style="max-width:600px;">MCP servers are stored in <code class="inline-code">~/.manthra/config.json</code> under the <code class="inline-code">mcpServers</code> key. You can edit it directly or use the web UI.</p>
+    </div>
+
+    <div class="doc-grid" style="margin-bottom:2.5rem;">
+      <div class="doc-col">
+        <div class="code-block-label">stdio server (local process)</div>
+        <div class="code-block">
+          <span class="comment">// ~/.manthra/config.json</span><br>
+          <span class="cmd">{</span><br>
+          <span class="cmd">&nbsp;&nbsp;"mcpServers": [</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;{</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"id": "playwright",</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"name": "Playwright",</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"enabled": true,</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"transport": "stdio",</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"command": "npx",</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"args": ["-y", "@playwright/mcp@latest"],</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"env": {}</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;}</span><br>
+          <span class="cmd">&nbsp;&nbsp;]</span><br>
+          <span class="cmd">}</span>
+        </div>
+      </div>
+      <div class="doc-col">
+        <div class="code-block-label">http server (remote / SSE)</div>
+        <div class="code-block">
+          <span class="comment">// ~/.manthra/config.json</span><br>
+          <span class="cmd">{</span><br>
+          <span class="cmd">&nbsp;&nbsp;"mcpServers": [</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;{</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"id": "my-server",</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"name": "My Server",</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"enabled": true,</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"transport": "http",</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"url": "http://localhost:3000/sse"</span><br>
+          <span class="cmd">&nbsp;&nbsp;&nbsp;&nbsp;}</span><br>
+          <span class="cmd">&nbsp;&nbsp;]</span><br>
+          <span class="cmd">}</span>
+        </div>
+        <div class="info-box" style="margin-top:0.875rem;">
+          <strong>Fields:</strong> <code class="inline-code">id</code> (unique string) · <code class="inline-code">name</code> (display name) · <code class="inline-code">enabled</code> (bool) · <code class="inline-code">transport</code> stdio | http · <code class="inline-code">command</code> + <code class="inline-code">args</code> + <code class="inline-code">env</code> for stdio · <code class="inline-code">url</code> for http
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div style="height:1px;background:var(--border);margin:3rem 0;"></div>
+
+    <!-- Playwright MCP tutorial -->
+    <div class="section-header" id="mcp-playwright">
+      <p class="section-label">Tutorial</p>
+      <h2 class="section-title">Playwright MCP setup</h2>
+      <p class="section-sub">Give Manthra a real browser — navigate pages, click elements, fill forms, take screenshots, and scrape content.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3>Open the web config UI</h3>
+          <p>Launch the built-in configuration panel from any Manthra session or directly from your shell.</p>
+          <div class="code-block">
+            <span class="cmd">manthra web</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3>Navigate to MCP Servers</h3>
+          <p>Click the <strong>MCP Servers</strong> tab in the top navigation of the web UI, then click <strong>Add MCP Server</strong>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3>Fill in the server details</h3>
+          <p>Set transport to <strong>stdio</strong>. The <code class="inline-code">npx</code> command downloads and runs the Playwright MCP server on first use — no separate install needed.</p>
+          <div class="code-block">
+            <span class="comment">Name:      Playwright</span><br>
+            <span class="comment">Transport: stdio</span><br>
+            <span class="comment">Command:   npx</span><br>
+            <span class="comment">Args:      -y</span><br>
+            <span class="comment">           @playwright/mcp@latest</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <h3>Test the connection</h3>
+          <p>Click <strong>Test</strong> in the web UI. On first run, <code class="inline-code">npx</code> will download <code class="inline-code">@playwright/mcp</code> and Playwright's browser binaries. Subsequent starts are instant from cache. A successful test shows a list of available tools.</p>
+          <div class="info-box" style="margin-top:0.875rem;">
+            <strong>First run only:</strong> Playwright downloads Chromium (~180 MB) on initial connection. If you prefer to pre-install: <code class="inline-code">npm install -g @playwright/mcp && npx playwright install chromium</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <h3>Save and restart Manthra</h3>
+          <p>Click <strong>Save</strong>. Restart Manthra — you'll see the connection status at startup:</p>
+          <div class="code-block">
+            <span class="term-success" style="color:#16a34a;">  ✓  MCP Playwright  18 tools loaded</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <h3>Use browser tools in chat</h3>
+          <p>Ask Manthra to use the browser naturally. It will automatically invoke Playwright tools as needed.</p>
+          <div class="code-block">
+            <span class="comment"># Example prompts:</span><br>
+            <span class="cmd">go to https://example.com and take a screenshot</span><br>
+            <span class="cmd">fill in the login form at http://localhost:3000</span><br>
+            <span class="cmd">scrape the product list from that page and save it to products.json</span><br>
+            <span class="cmd">click the Submit button and check the response</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div style="height:1px;background:var(--border);margin:3rem 0;"></div>
+
+    <!-- Popular MCP servers -->
+    <div class="section-header" style="margin-bottom:1.5rem;">
+      <h3 style="font-size:1rem;font-weight:700;color:var(--text);letter-spacing:-0.01em;">Other popular MCP servers</h3>
+    </div>
+
+    <table class="cmd-table">
+      <thead>
+        <tr>
+          <th style="width:220px;">Server</th>
+          <th style="width:220px;">Package</th>
+          <th>What it adds</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="cmd-name">Playwright</span></td>
+          <td><code class="inline-code">@playwright/mcp@latest</code></td>
+          <td class="cmd-desc">Browser automation — navigate, click, type, screenshot, scrape.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">Context7</span></td>
+          <td><code class="inline-code">@upstash/context7-mcp</code></td>
+          <td class="cmd-desc">Live library documentation lookup — always up-to-date docs for any npm package.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">Sequential Thinking</span></td>
+          <td><code class="inline-code">@modelcontextprotocol/server-sequential-thinking</code></td>
+          <td class="cmd-desc">Step-by-step reasoning scaffold for complex multi-part problems.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">GitHub</span></td>
+          <td><code class="inline-code">@modelcontextprotocol/server-github</code></td>
+          <td class="cmd-desc">Search repos, read files, create issues and PRs via GitHub API. Requires <code class="inline-code">GITHUB_PERSONAL_ACCESS_TOKEN</code>.</td>
+        </tr>
+        <tr>
+          <td><span class="cmd-name">GitLab</span></td>
+          <td><code class="inline-code">@zereight/mcp-gitlab</code></td>
+          <td class="cmd-desc">GitLab repos, merge requests, and issues. Requires <code class="inline-code">GITLAB_PERSONAL_ACCESS_TOKEN</code> + <code class="inline-code">GITLAB_API_URL</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-box" style="margin-top:1.5rem;max-width:680px;">
+      <strong>All stdio servers follow the same pattern:</strong> set transport to <code class="inline-code">stdio</code>, command to <code class="inline-code">npx</code>, args to <code class="inline-code">-y &lt;package-name&gt;</code>, and any required API keys in the env fields.
+    </div>
+
+  </div>
+</section>
+
+<div class="divider"></div>
+
 <!-- ── Features ──────────────────────────────────────────────────────────── -->
 <section class="section" id="features">
   <div class="section-inner">
@@ -1077,6 +1296,7 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
   <div class="footer-links">
     <a href="#docs">Documentation</a>
     <a href="#features">Features</a>
+    <a href="#mcp">MCP</a>
     <a href="#commands">Commands</a>
     <a href="/releases/latest/manthra-linux-x64" download>Linux x64</a>
     <a href="/releases/latest/manthra-macos-arm64" download>macOS arm64</a>

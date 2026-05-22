@@ -14,7 +14,7 @@ import { getCommand, getAllCommands } from '../slash-commands/registry.js';
 import type { CommandContext } from '../slash-commands/types.js';
 import { formatMarkdown } from '../ui/renderer.js';
 import { loadManthraMd } from '../config/manthra-md.js';
-import { getToolDefinitions, registerDynamicTool } from '../tools/registry.js';
+import { getToolDefinitions, registerDynamicTool, getAllTools } from '../tools/registry.js';
 import { executeTool, setPermissionHandler } from '../tools/executor.js';
 import { mcpManager } from '../mcp/manager.js';
 import { platformSystemPrompt } from '../tools/platform.js';
@@ -289,7 +289,13 @@ export class REPL {
       ? `# Project instructions (MANTHRA.md)\n\nThe following instructions come from the project's MANTHRA.md file. They are authoritative and override any conflicting defaults below. You MUST follow them exactly.\n\n${manthraMdContent}`
       : null;
 
-    return [projectInstructions, base, cwd, platform, memory].filter(Boolean).join('\n\n');
+    // Inject MCP tool names into system prompt so the model knows they exist
+    const mcpTools = getAllTools().filter((t) => t.name.startsWith('mcp__'));
+    const mcpSection = mcpTools.length > 0
+      ? `# MCP Tools Available\n\nYou have access to the following MCP (Model Context Protocol) tools. Use them when the user asks for browser automation, web scraping, or any task these tools can handle:\n\n${mcpTools.map((t) => `- \`${t.name}\`: ${t.description}`).join('\n')}`
+      : null;
+
+    return [projectInstructions, base, cwd, platform, memory, mcpSection].filter(Boolean).join('\n\n');
   }
 
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────

@@ -65,6 +65,8 @@ interface Tool {
 - Aggregates all tools from: `fs`, `search`, `shell`, `git`, `web`, `agent`, `build`, `infra`, `db`, `safety`, `embed`
 - `getToolDefinitions()` exports JSON schema for provider
 - `getOllamaToolDefinitions()` wraps schema in Ollama format
+- `registerDynamicTool(tool)` / `clearDynamicTools()`: runtime registration for MCP tools
+- `getTool(name)` / `getAllTools()`: checks both static and dynamic tool maps
 
 **Tool Execution** (`src/tools/executor.ts`):
 - Called by REPL when provider emits a tool_call event
@@ -100,6 +102,21 @@ interface Tool {
   webPort: number                      // default 4875
   theme: 'dark' | 'light'             // UI theme
   permissions: Record<string, Permission>  // per-tool permission overrides
+  mcpServers: McpServerConfig[]        // MCP server configurations
+}
+```
+
+**McpServerConfig** (`src/config/types.ts`):
+```typescript
+{
+  id: string                           // unique identifier
+  name: string                         // display name
+  enabled: boolean                     // default true
+  transport: 'stdio' | 'http'         // default 'stdio'
+  command?: string                     // stdio: executable (e.g. 'npx')
+  args: string[]                       // stdio: arguments
+  env: Record<string, string>          // stdio: extra env vars
+  url?: string                         // http: SSE endpoint URL
 }
 ```
 
@@ -201,6 +218,8 @@ All autocomplete uses VT100 absolute cursor positioning within the scrollable re
   - `POST /api/providers/test-inline`, `POST /api/providers/list-models-inline` (test unsaved configs)
   - `GET /api/config`, `PATCH /api/config`
   - `GET /api/tools` → returns `{name, description}[]` from tool registry
+  - `GET /api/mcp`, `POST /api/mcp`, `PUT /api/mcp/:id`, `DELETE /api/mcp/:id`
+  - `POST /api/mcp/test-inline`, `POST /api/mcp/:id/test` (connect, listTools, disconnect)
   - `GET *` → serves inlined HTML/CSS/JS
 - Auto-opens browser on startup
 - Masks API keys in responses (show last 4 chars only)
@@ -215,9 +234,34 @@ All autocomplete uses VT100 absolute cursor positioning within the scrollable re
 - Same CSS variables: `--bg`, `--bg-alt`, `--border`, `--text`, `--text-muted`, etc.
 - Black primary buttons (no purple/accent colors)
 
+### MCP (Model Context Protocol)
+
+**Client** (`src/mcp/client.ts`):
+- Wraps `@modelcontextprotocol/sdk` — `Client`, `StdioClientTransport`, `SSEClientTransport`
+- `connect()`: spawns stdio process or opens SSE connection
+- `listTools()`: returns tools mapped to Manthra's `Tool` interface with prefixed names
+- `callTool(name, args)`: invokes tool and maps MCP content blocks → `ToolResult`
+
+**Manager** (`src/mcp/manager.ts`):
+- `mcpManager` singleton manages all server lifecycles
+- `initAll()`: connects all enabled servers from config, returns per-server `{name, ok, toolCount, error}`
+- `connectServer(config)` / `disconnectServer(id)` / `disconnectAll()`
+- `getMcpTools()`: returns all registered MCP tools
+- Tool naming: `mcp__<sanitized-server-name>__<tool-name>` (lowercase, alphanumeric + underscores)
+- `isMcpTool(name)`: checks for `mcp__` prefix
+
+**REPL integration** (`src/cli/repl.ts`):
+- `init()` calls `mcpManager.initAll()` then `registerDynamicTool()` for each MCP tool
+- Startup prints ✓/✗ status per server with tool count
+- `getSystemPrompt()` injects `# MCP Tools Available` section listing all `mcp__` tools so the model knows they exist
+
+**Known issue**: `@modelcontextprotocol/server-gitlab` returns non-compliant `inputSchema` (missing `type: "object"`) which MCP SDK 1.x rejects. Use `@zereight/mcp-gitlab` instead.
+
 ### Marketing Website
 
 **Location**: `web/` directory — `index.html`, `logo.svg`, `googlecf00e5fa06afc0e6.html`
+
+**Sections**: Hero (install), Terminal demo, Docs (Ollama local + cloud), MCP Servers (config format + Playwright tutorial + popular servers table), Features, Slash Commands, Models, Compatibility, CTA
 
 **Logo & Branding**:
 - `web/logo.svg`: circular `>M_` icon (black circle, white strokes) — used as favicon

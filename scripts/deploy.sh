@@ -8,6 +8,9 @@ REMOTE_DIR="/var/www/manthra"
 
 echo "Deploying to ${VM_HOST}:${REMOTE_DIR}..."
 
+# Upload web assets (marketing site)
+rsync -avz web/ "${VM_HOST}:${REMOTE_DIR}/"
+
 # Upload install scripts
 rsync -avz install.sh  "${VM_HOST}:${REMOTE_DIR}/install"
 rsync -avz install.ps1 "${VM_HOST}:${REMOTE_DIR}/install.ps1"

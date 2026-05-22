@@ -190,6 +190,14 @@ export class REPL {
   private slashIndex = 0;
   private slashScrollOffset = 0;
 
+  // / slash arg sub-dropdown (second level)
+  private slashArgMode = false;
+  private slashArgCmd = '';
+  private slashArgOptions: Array<{ value: string; description?: string }> = [];
+  private slashArgQuery = '';
+  private slashArgIndex = 0;
+  private slashArgScrollOffset = 0;
+
   // Think / format modes
   private thinkMode: boolean | 'low' | 'medium' | 'high' | undefined = undefined;
   private formatMode: 'json' | Record<string, unknown> | undefined = undefined;
@@ -889,11 +897,169 @@ export class REPL {
 
     if (selectCmd !== undefined && this.rl) {
       if (execute) {
-        void this.processLineInput('/' + selectCmd);
+        // For commands with no known args, run immediately
+        const opts = this.getCommandOptions(selectCmd);
+        if (opts && opts.length > 0) {
+          // Enter on a command with options → open arg picker instead
+          void this.enterSlashArgMode(selectCmd);
+        } else {
+          void this.processLineInput('/' + selectCmd);
+        }
       } else {
-        const cmdInfo = this.getSlashCommandList().find(c => c.name === selectCmd);
-        this.rl.write('', { ctrl: true, name: 'u' });
-        this.rl.write('/' + selectCmd + (cmdInfo?.usage ? ' ' : ''));
+        // Tab: open arg picker if command has options, else insert text
+        const opts = this.getCommandOptions(selectCmd);
+        if (opts && opts.length > 0) {
+          void this.enterSlashArgMode(selectCmd);
+        } else {
+          const cmdInfo = this.getSlashCommandList().find(c => c.name === selectCmd);
+          this.rl.write('', { ctrl: true, name: 'u' });
+          this.rl.write('/' + selectCmd + (cmdInfo?.usage ? ' ' : ''));
+        }
+      }
+    } else {
+      this.rl?.prompt(true);
+    }
+  }
+
+  private getCommandOptions(cmdName: string): Array<{ value: string; description?: string }> | null {
+    switch (cmdName) {
+      case 'think':
+        return [
+          { value: 'off', description: 'Disable extended thinking' },
+          { value: 'low', description: 'Low thinking budget' },
+          { value: 'medium', description: 'Medium thinking budget' },
+          { value: 'high', description: 'High thinking budget' },
+        ];
+      case 'format':
+        return [
+          { value: 'off', description: 'Default markdown output' },
+          { value: 'json', description: 'Force JSON output format' },
+        ];
+      default:
+        return null;
+    }
+  }
+
+  private async enterSlashArgMode(cmdName: string): Promise<void> {
+    let opts = this.getCommandOptions(cmdName);
+
+    // Dynamic: fetch models for /model command
+    if (cmdName === 'model' && this.provider) {
+      try {
+        const models = await this.provider.listModels();
+        opts = models.map(m => ({ value: m.id, description: m.name !== m.id ? m.name : undefined }));
+      } catch {
+        opts = null;
+      }
+    }
+
+    if (!opts || opts.length === 0) {
+      // No options — just insert the command name with a space
+      this.rl?.write('', { ctrl: true, name: 'u' });
+      this.rl?.write('/' + cmdName + ' ');
+      return;
+    }
+
+    this.slashArgMode = true;
+    this.slashArgCmd = cmdName;
+    this.slashArgOptions = opts;
+    this.slashArgQuery = '';
+    this.slashArgIndex = 0;
+    this.slashArgScrollOffset = 0;
+
+    // Write command name into readline so user sees it
+    this.rl?.write('', { ctrl: true, name: 'u' });
+    this.rl?.write('/' + cmdName + ' ');
+
+    this.renderSlashArgDropdown();
+  }
+
+  private getVisibleSlashArgOptions(): Array<{ value: string; description?: string }> {
+    if (!this.slashArgQuery) return this.slashArgOptions;
+    const q = this.slashArgQuery.toLowerCase();
+    return this.slashArgOptions.filter(o => o.value.toLowerCase().startsWith(q));
+  }
+
+  private renderSlashArgDropdown(): void {
+    if (!process.stdout.isTTY) return;
+    const visible = this.getVisibleSlashArgOptions();
+    const total = visible.length;
+    const maxItems = Math.min(this.MENTION_VISIBLE, Math.max(1, this.scrollEnd - 6));
+
+    this.slashArgIndex = Math.max(0, Math.min(this.slashArgIndex, total - 1));
+    if (this.slashArgIndex < this.slashArgScrollOffset) {
+      this.slashArgScrollOffset = this.slashArgIndex;
+    } else if (this.slashArgIndex >= this.slashArgScrollOffset + maxItems) {
+      this.slashArgScrollOffset = this.slashArgIndex - maxItems + 1;
+    }
+
+    const win = visible.slice(this.slashArgScrollOffset, this.slashArgScrollOffset + maxItems);
+    const dropRows = Math.max(win.length, 1) + 1;
+    const headerRow = this.scrollEnd - dropRows + 1;
+
+    process.stdout.write('\x1B7');
+    for (let i = 0; i < dropRows; i++) {
+      process.stdout.write(`\x1B[${Math.max(1, headerRow + i)};1H\x1B[2K`);
+    }
+
+    const qDisplay = chalk.white(`/${this.slashArgCmd}`) + chalk.dim(' ') +
+      (this.slashArgQuery ? chalk.white(this.slashArgQuery) : chalk.dim('<option>'));
+    const posInfo = total > maxItems
+      ? chalk.dim(`  ${this.slashArgIndex + 1}/${total}`)
+      : chalk.dim(`  ${total} option${total !== 1 ? 's' : ''}`);
+    process.stdout.write(
+      `\x1B[${headerRow};1H` +
+      chalk.dim('  ') + qDisplay + posInfo +
+      chalk.dim('  ↑↓ navigate  Tab/Enter select  Esc back'),
+    );
+
+    if (win.length === 0) {
+      process.stdout.write(`\x1B[${headerRow + 1};1H${chalk.dim('  no matches')}`);
+    } else {
+      for (let i = 0; i < win.length; i++) {
+        const row = headerRow + 1 + i;
+        const opt = win[i];
+        const isSelected = this.slashArgScrollOffset + i === this.slashArgIndex;
+        process.stdout.write(
+          `\x1B[${row};1H` +
+          (isSelected
+            ? chalk.white('  ▶ ') + chalk.bold.white(opt.value) + (opt.description ? chalk.dim('  ' + opt.description) : '')
+            : chalk.dim('    ' + opt.value + (opt.description ? '  ' + opt.description : ''))),
+        );
+      }
+    }
+
+    process.stdout.write('\x1B8');
+    this.rl?.prompt(true);
+  }
+
+  private clearSlashArgDropdown(): void {
+    if (!process.stdout.isTTY) return;
+    const clearRows = this.MENTION_VISIBLE + 3;
+    const startRow = this.scrollEnd - clearRows + 1;
+    process.stdout.write('\x1B7');
+    for (let i = 0; i < clearRows; i++) {
+      process.stdout.write(`\x1B[${Math.max(1, startRow + i)};1H\x1B[2K`);
+    }
+    process.stdout.write('\x1B8');
+  }
+
+  private exitSlashArgMode(selectValue?: string, execute = false): void {
+    this.clearSlashArgDropdown();
+    const cmd = this.slashArgCmd;
+    this.slashArgMode = false;
+    this.slashArgCmd = '';
+    this.slashArgOptions = [];
+    this.slashArgQuery = '';
+    this.slashArgIndex = 0;
+    this.slashArgScrollOffset = 0;
+
+    if (selectValue !== undefined && this.rl) {
+      this.rl.write('', { ctrl: true, name: 'u' });
+      if (execute) {
+        void this.processLineInput('/' + cmd + ' ' + selectValue);
+      } else {
+        this.rl.write('/' + cmd + ' ' + selectValue);
       }
     } else {
       this.rl?.prompt(true);
@@ -1017,10 +1183,57 @@ export class REPL {
           return; // don't forward paste bytes to readline
         }
 
+        // ── / slash arg sub-dropdown ────────────────────────────────────────
+        if (this.slashArgMode) {
+          const visible = this.getVisibleSlashArgOptions();
+          const selected = visible[this.slashArgIndex]?.value;
+
+          if (s === '\x1B[A') {
+            this.slashArgIndex = Math.max(0, this.slashArgIndex - 1);
+            this.renderSlashArgDropdown();
+            return;
+          }
+          if (s === '\x1B[B') {
+            this.slashArgIndex = Math.min(Math.max(0, visible.length - 1), this.slashArgIndex + 1);
+            this.renderSlashArgDropdown();
+            return;
+          }
+          if (s === '\t') {
+            this.exitSlashArgMode(selected, false);
+            return;
+          }
+          if (s === '\r') {
+            this.exitSlashArgMode(selected, true);
+            return;
+          }
+          if (chunk.length === 1 && chunk[0] === 0x1b) {
+            this.exitSlashArgMode();
+            return;
+          }
+          if (chunk[0] === 0x7f || chunk[0] === 0x08) {
+            if (this.slashArgQuery.length > 0) {
+              this.slashArgQuery = this.slashArgQuery.slice(0, -1);
+              this.slashArgIndex = 0;
+              this.slashArgScrollOffset = 0;
+              this.renderSlashArgDropdown();
+            } else {
+              this.exitSlashArgMode();
+            }
+            return;
+          }
+          if (s.length === 1 && s.charCodeAt(0) >= 32) {
+            this.slashArgQuery += s;
+            this.slashArgIndex = 0;
+            this.slashArgScrollOffset = 0;
+            this.renderSlashArgDropdown();
+          }
+          return;
+        }
+
         // ── / slash command autocomplete ────────────────────────────────────
         const wasInSlashMode = this.slashMode;
 
-        if (s === '/' && !wasInSlashMode && !this.mentionMode && !this.isProcessing) {
+        if (s === '/' && !wasInSlashMode && !this.mentionMode && !this.slashArgMode && !this.isProcessing) {
           const currentLine = (this.rl as unknown as { line: string }).line ?? '';
           if (currentLine === '') {
             this.slashMode = true;

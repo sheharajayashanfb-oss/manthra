@@ -22,14 +22,20 @@ class McpManager {
   private tools = new Map<string, Tool>();
   private serverNames = new Map<string, string>(); // id → name
 
-  async initAll(): Promise<void> {
+  async initAll(): Promise<Array<{ name: string; ok: boolean; toolCount: number; error?: string }>> {
     const config = getConfig();
     const servers: McpServerConfig[] = config.mcpServers ?? [];
+    const results: Array<{ name: string; ok: boolean; toolCount: number; error?: string }> = [];
 
     for (const server of servers) {
       if (!server.enabled) continue;
-      await this.connectServer(server);
+      const before = this.tools.size;
+      const result = await this.connectServer(server);
+      const after = this.tools.size;
+      results.push({ name: server.name, ok: result.ok, toolCount: after - before, error: result.error });
     }
+
+    return results;
   }
 
   async connectServer(server: McpServerConfig): Promise<{ ok: boolean; error?: string }> {

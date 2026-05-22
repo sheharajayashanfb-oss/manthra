@@ -247,9 +247,22 @@ export class REPL {
     }
 
     // Initialize MCP servers and register their tools
-    await mcpManager.initAll().catch(() => {});
+    const mcpResults = await mcpManager.initAll().catch(() => []);
     for (const tool of mcpManager.getMcpTools()) {
       registerDynamicTool(tool);
+    }
+    for (const r of mcpResults) {
+      if (r.ok) {
+        process.stdout.write(
+          chalk.green('  ✓  ') + chalk.cyan('MCP ' + r.name) +
+          chalk.dim(`  ${r.toolCount} tool${r.toolCount !== 1 ? 's' : ''} loaded`) + '\n',
+        );
+      } else {
+        process.stdout.write(
+          chalk.red('  ✗  ') + chalk.red('MCP ' + r.name) +
+          chalk.dim('  ' + (r.error ?? 'failed to connect')) + '\n',
+        );
+      }
     }
   }
 

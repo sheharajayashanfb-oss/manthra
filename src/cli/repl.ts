@@ -899,7 +899,7 @@ export class REPL {
       if (execute) {
         // For commands with no known args, run immediately
         const opts = this.getCommandOptions(selectCmd);
-        if (opts && opts.length > 0) {
+        if (opts !== null) {
           // Enter on a command with options → open arg picker instead
           void this.enterSlashArgMode(selectCmd);
         } else {
@@ -908,7 +908,7 @@ export class REPL {
       } else {
         // Tab: open arg picker if command has options, else insert text
         const opts = this.getCommandOptions(selectCmd);
-        if (opts && opts.length > 0) {
+        if (opts !== null) {
           void this.enterSlashArgMode(selectCmd);
         } else {
           const cmdInfo = this.getSlashCommandList().find(c => c.name === selectCmd);
@@ -935,6 +935,8 @@ export class REPL {
           { value: 'off', description: 'Default markdown output' },
           { value: 'json', description: 'Force JSON output format' },
         ];
+      case 'model':
+        return []; // populated dynamically in enterSlashArgMode
       default:
         return null;
     }

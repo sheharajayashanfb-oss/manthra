@@ -7,6 +7,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   temperature: 0,
   webPort: 4875,
   theme: 'dark',
+  mcpServers: [],
 };
 
 export const DEFAULT_SYSTEM_PROMPT = `You are Manthra, an AI coding assistant. Help the user with coding questions, architecture decisions, debugging, and general software development topics.

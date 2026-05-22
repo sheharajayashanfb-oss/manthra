@@ -3,8 +3,9 @@ import cors from 'cors';
 import chalk from 'chalk';
 import { getConfig, updateConfig } from '../config/loader.js';
 import { createProvider } from '../providers/registry.js';
-import { ProviderConfigSchema } from '../config/types.js';
+import { ProviderConfigSchema, McpServerConfigSchema } from '../config/types.js';
 import { getAllTools } from '../tools/registry.js';
+import { McpClient } from '../mcp/client.js';
 import { INLINE_HTML } from './assets.generated.js';
 
 export async function startServer(port?: number): Promise<void> {
@@ -164,6 +165,97 @@ export async function startServer(port?: number): Promise<void> {
   app.get('/api/tools', (_req, res) => {
     const tools = getAllTools().map(t => ({ name: t.name, description: t.description }));
     res.json(tools);
+  });
+
+  // ── MCP Servers ──────────────────────────────────────────────────────────────
+
+  // GET /api/mcp
+  app.get('/api/mcp', (_req, res) => {
+    const cfg = getConfig();
+    res.json(cfg.mcpServers ?? []);
+  });
+
+  // POST /api/mcp — add new MCP server
+  app.post('/api/mcp', (req, res) => {
+    try {
+      const parsed = McpServerConfigSchema.parse({
+        id: `mcp-${Date.now()}`,
+        ...req.body,
+      });
+      const cfg = getConfig();
+      if ((cfg.mcpServers ?? []).some((s) => s.name === parsed.name)) {
+        res.status(400).json({ error: 'An MCP server with this name already exists' });
+        return;
+      }
+      updateConfig({ mcpServers: [...(cfg.mcpServers ?? []), parsed] });
+      res.json(parsed);
+    } catch (err: unknown) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // PUT /api/mcp/:id — update MCP server
+  app.put('/api/mcp/:id', (req, res) => {
+    const { id } = req.params;
+    const cfg = getConfig();
+    const servers = cfg.mcpServers ?? [];
+    const idx = servers.findIndex((s) => s.id === id);
+    if (idx === -1) { res.status(404).json({ error: 'MCP server not found' }); return; }
+    try {
+      const parsed = McpServerConfigSchema.parse({ ...servers[idx], ...req.body, id });
+      const updated = [...servers];
+      updated[idx] = parsed;
+      updateConfig({ mcpServers: updated });
+      res.json(parsed);
+    } catch (err: unknown) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // DELETE /api/mcp/:id
+  app.delete('/api/mcp/:id', (req, res) => {
+    const { id } = req.params;
+    const cfg = getConfig();
+    const servers = (cfg.mcpServers ?? []).filter((s) => s.id !== id);
+    if (servers.length === (cfg.mcpServers ?? []).length) {
+      res.status(404).json({ error: 'Not found' }); return;
+    }
+    updateConfig({ mcpServers: servers });
+    res.json({ ok: true });
+  });
+
+  // POST /api/mcp/test-inline — test an unsaved MCP server config
+  app.post('/api/mcp/test-inline', async (req, res) => {
+    try {
+      const parsed = McpServerConfigSchema.parse({
+        id: `mcp-test-${Date.now()}`,
+        ...req.body,
+      });
+      const client = new McpClient(parsed);
+      await client.connect();
+      const tools = await client.listTools();
+      await client.disconnect();
+      res.json({ ok: true, message: `Connected — ${tools.length} tool(s) available`, toolCount: tools.length });
+    } catch (err: unknown) {
+      res.json({ ok: false, message: String(err) });
+    }
+  });
+
+  // POST /api/mcp/:id/test — test a saved MCP server config
+  app.post('/api/mcp/:id/test', async (req, res) => {
+    const { id } = req.params;
+    const cfg = getConfig();
+    const server = (cfg.mcpServers ?? []).find((s) => s.id === id);
+    if (!server) { res.status(404).json({ error: 'MCP server not found' }); return; }
+    try {
+      const client = new McpClient(server);
+      await client.connect();
+      const tools = await client.listTools();
+      await client.disconnect();
+      res.json({ ok: true, message: `Connected — ${tools.length} tool(s) available`, toolCount: tools.length });
+    } catch (err: unknown) {
+      res.json({ ok: false, message: String(err) });
+    }
   });
 
   // Serve the self-contained web UI (CSS+JS inlined at build time)

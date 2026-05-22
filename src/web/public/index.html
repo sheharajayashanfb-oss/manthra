@@ -27,6 +27,7 @@
       </div>
       <nav>
         <button class="nav-btn active" data-view="providers">Ollama Instances</button>
+        <button class="nav-btn" data-view="mcp">MCP Servers</button>
         <button class="nav-btn" data-view="settings">Settings</button>
         <button class="nav-btn" data-view="tools">Tools</button>
       </nav>
@@ -82,6 +83,26 @@
             <label>Temperature <span class="hint">0 = deterministic, 1 = creative</span></label>
             <input type="range" id="setting-temperature" min="0" max="1" step="0.05" value="0">
             <span id="setting-temperature-val">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MCP Servers View -->
+      <div id="view-mcp" class="view">
+        <div class="view-header">
+          <div>
+            <h1>MCP Servers</h1>
+            <p class="subtitle">Model Context Protocol servers extend Manthra with additional tools</p>
+          </div>
+          <button class="btn btn-primary" id="btn-add-mcp">+ Add Server</button>
+        </div>
+
+        <div id="mcp-grid" class="providers-grid">
+          <div class="empty-state" id="mcp-empty" style="display:none">
+            <div class="empty-icon">🔌</div>
+            <h3>No MCP servers configured</h3>
+            <p>Add an MCP server to extend Manthra with additional tools</p>
+            <button class="btn btn-primary" onclick="showAddMcp()">+ Add Server</button>
           </div>
         </div>
       </div>
@@ -153,6 +174,73 @@
           <button class="btn btn-secondary" id="btn-test" onclick="testProvider()">Test Connection</button>
           <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
           <button class="btn btn-primary" onclick="saveProvider()">Save Instance</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit MCP Server Modal -->
+  <div id="mcp-modal-overlay" class="modal-overlay" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="mcp-modal-title">Add MCP Server</h2>
+        <button class="modal-close" onclick="closeMcpModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="mcp-form" onsubmit="return false">
+          <input type="hidden" id="mcp-form-id">
+
+          <div class="form-group">
+            <label>Display Name <span class="required">*</span></label>
+            <input type="text" id="mcp-form-name" placeholder="e.g. filesystem" required>
+          </div>
+
+          <div class="form-group">
+            <label>Transport</label>
+            <select id="mcp-form-transport" onchange="onMcpTransportChange()">
+              <option value="stdio">stdio (subprocess)</option>
+              <option value="http">http (SSE endpoint)</option>
+            </select>
+          </div>
+
+          <div id="mcp-stdio-fields">
+            <div class="form-group">
+              <label>Command <span class="required">*</span></label>
+              <input type="text" id="mcp-form-command" placeholder="e.g. npx or node">
+              <p class="field-hint">The executable to launch the MCP server</p>
+            </div>
+            <div class="form-group">
+              <label>Arguments <span class="hint">one per line</span></label>
+              <textarea id="mcp-form-args" rows="3" placeholder="-y&#10;@modelcontextprotocol/server-filesystem&#10;/path/to/dir" style="font-family:inherit;resize:vertical"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Environment Variables <span class="hint">KEY=VALUE, one per line</span></label>
+              <textarea id="mcp-form-env" rows="2" placeholder="API_KEY=abc123" style="font-family:inherit;resize:vertical"></textarea>
+            </div>
+          </div>
+
+          <div id="mcp-http-fields" style="display:none">
+            <div class="form-group">
+              <label>Server URL <span class="required">*</span></label>
+              <input type="url" id="mcp-form-url" placeholder="http://localhost:3000/sse">
+              <p class="field-hint">SSE endpoint of the MCP HTTP server</p>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="mcp-form-enabled" checked>
+              <span>Enabled</span>
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <div id="mcp-test-result" class="test-result" style="display:none"></div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="btn-test-mcp" onclick="testMcpServer()">Test Connection</button>
+          <button class="btn btn-ghost" onclick="closeMcpModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveMcpServer()">Save Server</button>
         </div>
       </div>
     </div>

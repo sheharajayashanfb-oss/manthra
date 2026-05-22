@@ -5,6 +5,20 @@ export const ProviderTypeSchema = z.enum([
 ]);
 export type ProviderType = z.infer<typeof ProviderTypeSchema>;
 
+export const McpServerConfigSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  enabled: z.boolean().default(true),
+  transport: z.enum(['stdio', 'http']).default('stdio'),
+  // stdio transport fields
+  command: z.string().optional(),
+  args: z.array(z.string()).default([]),
+  env: z.record(z.string()).default({}),
+  // http transport field
+  url: z.string().optional(),
+});
+export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
+
 export const ProviderConfigSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -31,5 +45,6 @@ export const AppConfigSchema = z.object({
   temperature: z.number().default(0),
   webPort: z.number().default(4875),
   theme: z.enum(['dark', 'light']).default('dark'),
+  mcpServers: z.array(McpServerConfigSchema).default([]),
 });
 export type AppConfig = z.infer<typeof AppConfigSchema>;

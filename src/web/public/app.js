@@ -1,6 +1,8 @@
 // State
 let providers = [];
 let config = {};
+let mcpServers = [];
+let editingMcpId = null;
 let editingId = null;
 
 const OLLAMA_META = { icon: '🟣', label: 'Ollama' };
@@ -40,6 +42,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
     if (btn.dataset.view === 'tools') loadTools();
     if (btn.dataset.view === 'settings') loadSettings();
+    if (btn.dataset.view === 'mcp') loadMcpServers();
   });
 });
 
@@ -393,9 +396,210 @@ async function loadTools() {
   }
 }
 
+// ── MCP Servers ───────────────────────────────────────────────────────────────
+
+async function loadMcpServers() {
+  try {
+    mcpServers = await api('GET', '/mcp');
+    renderMcpServers();
+  } catch (e) {
+    toast('Failed to load MCP servers: ' + e.message, 'error');
+  }
+}
+
+function renderMcpServers() {
+  const grid = document.getElementById('mcp-grid');
+  grid.querySelectorAll('.provider-card').forEach(c => c.remove());
+
+  if (mcpServers.length === 0) {
+    document.getElementById('mcp-empty').style.display = 'block';
+    return;
+  }
+  document.getElementById('mcp-empty').style.display = 'none';
+
+  for (const s of mcpServers) {
+    const card = document.createElement('div');
+    card.className = 'provider-card' + (s.enabled ? '' : ' disabled-card');
+
+    const badge = s.enabled
+      ? '<span class="badge badge-current">● Enabled</span>'
+      : '<span class="badge badge-disabled">● Disabled</span>';
+
+    const detail = s.transport === 'stdio'
+      ? `<div class="provider-detail"><span class="provider-detail-label">Command</span><span class="provider-detail-value">${esc(s.command || '')} ${esc((s.args || []).join(' '))}</span></div>`
+      : `<div class="provider-detail"><span class="provider-detail-label">URL</span><span class="provider-detail-value">${esc(s.url || '')}</span></div>`;
+
+    card.innerHTML = `
+      <div class="provider-card-header">
+        <div class="provider-info">
+          <div class="provider-icon">🔌</div>
+          <div>
+            <div class="provider-name">${esc(s.name)}</div>
+            <div class="provider-type">${s.transport === 'stdio' ? 'stdio' : 'http'}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">${badge}</div>
+      </div>
+      <div class="provider-card-body">${detail}</div>
+      <div class="provider-card-footer">
+        <button class="btn btn-secondary btn-sm" onclick="testMcpCard('${s.id}', this)">Test</button>
+        <button class="btn btn-secondary btn-sm" onclick="editMcpServer('${s.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteMcpServer('${s.id}')">Delete</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+async function testMcpCard(id, btn) {
+  const original = btn.textContent;
+  btn.textContent = 'Testing…';
+  btn.disabled = true;
+  try {
+    const result = await api('POST', `/mcp/${id}/test`);
+    toast(result.message, result.ok ? 'success' : 'error');
+    btn.textContent = result.ok ? '✓ OK' : '✗ Failed';
+    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2500);
+  } catch (e) {
+    toast('Test failed: ' + e.message, 'error');
+    btn.textContent = original;
+    btn.disabled = false;
+  }
+}
+
+async function deleteMcpServer(id) {
+  const s = mcpServers.find(s => s.id === id);
+  if (!s || !confirm(`Delete MCP server "${s.name}"?`)) return;
+  try {
+    await api('DELETE', `/mcp/${id}`);
+    mcpServers = mcpServers.filter(s => s.id !== id);
+    renderMcpServers();
+    toast('MCP server deleted', 'success');
+  } catch (e) {
+    toast('Delete failed: ' + e.message, 'error');
+  }
+}
+
+function showAddMcp() {
+  editingMcpId = null;
+  document.getElementById('mcp-modal-title').textContent = 'Add MCP Server';
+  document.getElementById('mcp-form').reset();
+  document.getElementById('mcp-form-id').value = '';
+  document.getElementById('mcp-form-transport').value = 'stdio';
+  document.getElementById('mcp-form-enabled').checked = true;
+  document.getElementById('mcp-test-result').style.display = 'none';
+  onMcpTransportChange();
+  document.getElementById('mcp-modal-overlay').style.display = 'flex';
+}
+
+function editMcpServer(id) {
+  const s = mcpServers.find(s => s.id === id);
+  if (!s) return;
+  editingMcpId = id;
+  document.getElementById('mcp-modal-title').textContent = 'Edit MCP Server';
+  document.getElementById('mcp-form-id').value = id;
+  document.getElementById('mcp-form-name').value = s.name;
+  document.getElementById('mcp-form-transport').value = s.transport || 'stdio';
+  document.getElementById('mcp-form-command').value = s.command || '';
+  document.getElementById('mcp-form-args').value = (s.args || []).join('\n');
+  document.getElementById('mcp-form-env').value = Object.entries(s.env || {}).map(([k, v]) => `${k}=${v}`).join('\n');
+  document.getElementById('mcp-form-url').value = s.url || '';
+  document.getElementById('mcp-form-enabled').checked = s.enabled !== false;
+  document.getElementById('mcp-test-result').style.display = 'none';
+  onMcpTransportChange();
+  document.getElementById('mcp-modal-overlay').style.display = 'flex';
+}
+
+function closeMcpModal() {
+  document.getElementById('mcp-modal-overlay').style.display = 'none';
+  editingMcpId = null;
+}
+
+document.getElementById('mcp-modal-overlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeMcpModal();
+});
+
+function onMcpTransportChange() {
+  const t = document.getElementById('mcp-form-transport').value;
+  document.getElementById('mcp-stdio-fields').style.display = t === 'stdio' ? '' : 'none';
+  document.getElementById('mcp-http-fields').style.display = t === 'http' ? '' : 'none';
+}
+
+function getMcpFormBody() {
+  const transport = document.getElementById('mcp-form-transport').value;
+  const args = document.getElementById('mcp-form-args').value
+    .split('\n').map(l => l.trim()).filter(Boolean);
+  const envLines = document.getElementById('mcp-form-env').value
+    .split('\n').map(l => l.trim()).filter(Boolean);
+  const env = Object.fromEntries(envLines.map(l => {
+    const i = l.indexOf('=');
+    return i >= 0 ? [l.slice(0, i), l.slice(i + 1)] : [l, ''];
+  }));
+  return {
+    name: document.getElementById('mcp-form-name').value.trim(),
+    transport,
+    command: document.getElementById('mcp-form-command').value.trim() || undefined,
+    args,
+    env,
+    url: document.getElementById('mcp-form-url').value.trim() || undefined,
+    enabled: document.getElementById('mcp-form-enabled').checked,
+  };
+}
+
+async function saveMcpServer() {
+  const body = getMcpFormBody();
+  if (!body.name) { toast('Please enter a display name', 'error'); return; }
+  if (body.transport === 'stdio' && !body.command) { toast('Please enter a command', 'error'); return; }
+  if (body.transport === 'http' && !body.url) { toast('Please enter a URL', 'error'); return; }
+
+  try {
+    if (editingMcpId) {
+      const updated = await api('PUT', `/mcp/${editingMcpId}`, body);
+      mcpServers = mcpServers.map(s => s.id === editingMcpId ? updated : s);
+      toast('MCP server updated', 'success');
+    } else {
+      const created = await api('POST', '/mcp', body);
+      mcpServers.push(created);
+      toast('MCP server added', 'success');
+    }
+    renderMcpServers();
+    closeMcpModal();
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'error');
+  }
+}
+
+async function testMcpServer() {
+  const resultEl = document.getElementById('mcp-test-result');
+  const btn = document.getElementById('btn-test-mcp');
+  btn.textContent = 'Testing…';
+  btn.disabled = true;
+  resultEl.style.display = 'none';
+
+  try {
+    let result;
+    if (editingMcpId) {
+      result = await api('POST', `/mcp/${editingMcpId}/test`);
+    } else {
+      result = await api('POST', '/mcp/test-inline', getMcpFormBody());
+    }
+    resultEl.textContent = (result.ok ? '✓ ' : '✗ ') + result.message;
+    resultEl.className = `test-result ${result.ok ? 'success' : 'error'}`;
+    resultEl.style.display = 'block';
+  } catch (e) {
+    resultEl.textContent = '✗ ' + e.message;
+    resultEl.className = 'test-result error';
+    resultEl.style.display = 'block';
+  }
+
+  btn.textContent = 'Test Connection';
+  btn.disabled = false;
+}
+
 // ── Wiring ────────────────────────────────────────────────────────────────────
 
 document.getElementById('btn-add-provider').addEventListener('click', showAddForm);
+document.getElementById('btn-add-mcp').addEventListener('click', showAddMcp);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

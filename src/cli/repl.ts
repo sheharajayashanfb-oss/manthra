@@ -14,8 +14,9 @@ import { getCommand, getAllCommands } from '../slash-commands/registry.js';
 import type { CommandContext } from '../slash-commands/types.js';
 import { formatMarkdown } from '../ui/renderer.js';
 import { loadManthraMd } from '../config/manthra-md.js';
-import { getToolDefinitions } from '../tools/registry.js';
+import { getToolDefinitions, registerDynamicTool } from '../tools/registry.js';
 import { executeTool, setPermissionHandler } from '../tools/executor.js';
+import { mcpManager } from '../mcp/manager.js';
 import { platformSystemPrompt } from '../tools/platform.js';
 import type { PermissionDecision } from '../permissions/index.js';
 
@@ -243,6 +244,12 @@ export class REPL {
         const models = await this.provider.listModels();
         this.contextWindow = models.find((m) => m.id === this.model)?.contextWindow;
       } catch { /* ignore */ }
+    }
+
+    // Initialize MCP servers and register their tools
+    await mcpManager.initAll().catch(() => {});
+    for (const tool of mcpManager.getMcpTools()) {
+      registerDynamicTool(tool);
     }
   }
 

@@ -27,13 +27,22 @@ const allTools: Tool[] = [
 ];
 
 const toolMap = new Map<string, Tool>(allTools.map((t) => [t.name, t]));
+const dynamicTools = new Map<string, Tool>();
+
+export function registerDynamicTool(tool: Tool): void {
+  dynamicTools.set(tool.name, tool);
+}
+
+export function clearDynamicTools(): void {
+  dynamicTools.clear();
+}
 
 export function getTool(name: string): Tool | undefined {
-  return toolMap.get(name);
+  return toolMap.get(name) ?? dynamicTools.get(name);
 }
 
 export function getAllTools(): Tool[] {
-  return allTools;
+  return [...allTools, ...Array.from(dynamicTools.values())];
 }
 
 /** Flat ToolDefinition[] compatible with ChatOptions.tools */

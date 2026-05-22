@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import { getConfig, updateConfig } from '../config/loader.js';
 import { createProvider } from '../providers/registry.js';
 import { ProviderConfigSchema } from '../config/types.js';
+import { getAllTools } from '../tools/registry.js';
 import { INLINE_HTML } from './assets.generated.js';
 
 export async function startServer(port?: number): Promise<void> {
@@ -157,6 +158,12 @@ export async function startServer(port?: number): Promise<void> {
     } catch (err: unknown) {
       res.status(400).json({ error: String(err) });
     }
+  });
+
+  // GET /api/tools
+  app.get('/api/tools', (_req, res) => {
+    const tools = getAllTools().map(t => ({ name: t.name, description: t.description }));
+    res.json(tools);
   });
 
   // Serve the self-contained web UI (CSS+JS inlined at build time)

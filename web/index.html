@@ -86,7 +86,9 @@
       padding: 96px 2rem 72px;
       display: flex; flex-direction: column; align-items: center;
       text-align: center; border-bottom: 1px solid var(--border);
+      position: relative; overflow: hidden;
     }
+    .hero > * { position: relative; z-index: 1; }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 4px 14px; border-radius: 100px;
@@ -493,7 +495,7 @@
 </nav>
 
 <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
-<section class="hero">
+<section class="hero" id="hero-vanta">
   <div class="hero-badge">Open source · Fully local · No API key</div>
   <h1>AI coding assistant<br>for your terminal</h1>
   <p class="hero-sub">
@@ -1149,6 +1151,31 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
     document.querySelectorAll('.platform-tab')[idx].classList.add('active');
     document.getElementById(ids[idx]).classList.add('active');
   })();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.birds.min.js"></script>
+<script>
+  VANTA.BIRDS({
+    el: '#hero-vanta',
+    mouseControls: true,
+    touchControls: true,
+    gyroControls: false,
+    scale: 1.0,
+    scaleMobile: 1.0,
+    backgroundColor: 0xffffff,
+    color1: 0x111111,
+    color2: 0x555555,
+    colorMode: 'lerp',
+    birdSize: 1.2,
+    wingSpan: 28,
+    separation: 50,
+    alignment: 65,
+    cohesion: 65,
+    quantity: 3,
+    backgroundAlpha: 1.0,
+    speedLimit: 4,
+  });
 </script>
 </body>
 </html>

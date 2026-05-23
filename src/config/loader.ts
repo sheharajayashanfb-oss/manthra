@@ -25,10 +25,11 @@ export function loadConfig(): AppConfig {
   }
   try {
     const raw = JSON.parse(readFileSync(CONFIG_FILE, 'utf-8')) as Record<string, unknown>;
-    // Strip providers with unknown types (forward-compat with old multi-provider configs)
+    // Strip providers with unknown types (forward-compat)
+    const knownTypes = new Set(['ollama', 'openai', 'zen', 'groq', 'openrouter', 'cerebras']);
     if (Array.isArray(raw['providers'])) {
       raw['providers'] = (raw['providers'] as Array<Record<string, unknown>>).filter(
-        (p) => p['type'] === 'ollama',
+        (p) => knownTypes.has(p['type'] as string),
       );
     }
     // Clear activeProvider if it pointed to a removed provider

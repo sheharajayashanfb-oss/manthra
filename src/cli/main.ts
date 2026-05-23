@@ -24,11 +24,11 @@ function getVersion(): string {
 function printProviderStatus(providers: Array<{ name: string; id: string; type: string; baseURL?: string; enabled: boolean }>): void {
   const active = providers.filter((p) => p.enabled);
   if (active.length === 0) {
-    console.log(chalk.yellow('  No Ollama instances configured. Run `manthra web` to add one.\n'));
+    console.log(chalk.yellow('  No providers configured. Run `manthra web` to add one.\n'));
     return;
   }
   console.log(
-    chalk.dim('  Ollama: ') +
+    chalk.dim('  Providers: ') +
     active.map((p) => chalk.green(`${p.name}${p.baseURL ? ` (${p.baseURL})` : ''}`)).join(chalk.dim(' · ')),
   );
   console.log(chalk.dim('  Run `manthra web` to configure · /exit to quit\n'));

@@ -5,7 +5,23 @@ let mcpServers = [];
 let editingMcpId = null;
 let editingId = null;
 
-const OLLAMA_META = { icon: '🟣', label: 'Ollama' };
+const PROVIDER_META = {
+  ollama:     { icon: '🟣', label: 'Ollama' },
+  openai:     { icon: '🟢', label: 'OpenAI-compatible' },
+  zen:        { icon: '⚡', label: 'Zen (opencode.ai)' },
+  groq:       { icon: '🔵', label: 'Groq' },
+  openrouter: { icon: '🟠', label: 'OpenRouter' },
+  cerebras:   { icon: '🔴', label: 'Cerebras' },
+};
+
+const PROVIDER_DEFAULTS = {
+  ollama:     { baseURL: 'http://localhost:11434', apiKeyPlaceholder: 'Leave blank for local Ollama', apiKeyHint: 'optional — for authenticated/cloud Ollama', baseURLHint: 'Local default: http://localhost:11434 · Cloud: use your remote Ollama URL' },
+  openai:     { baseURL: 'https://api.openai.com/v1', apiKeyPlaceholder: 'sk-...', apiKeyHint: 'required', baseURLHint: 'Default: https://api.openai.com/v1 · Change for compatible APIs' },
+  zen:        { baseURL: 'https://opencode.ai/zen/v1', apiKeyPlaceholder: 'Your Zen API key', apiKeyHint: 'required — get from opencode.ai/zen', baseURLHint: 'Default: https://opencode.ai/zen/v1' },
+  groq:       { baseURL: 'https://api.groq.com/openai/v1', apiKeyPlaceholder: 'gsk_...', apiKeyHint: 'required — get from console.groq.com', baseURLHint: 'Default: https://api.groq.com/openai/v1' },
+  openrouter: { baseURL: 'https://openrouter.ai/api/v1', apiKeyPlaceholder: 'sk-or-...', apiKeyHint: 'required — get from openrouter.ai/keys', baseURLHint: 'Default: https://openrouter.ai/api/v1' },
+  cerebras:   { baseURL: 'https://api.cerebras.ai/v1', apiKeyPlaceholder: 'csk-...', apiKeyHint: 'required — get from cloud.cerebras.ai', baseURLHint: 'Default: https://api.cerebras.ai/v1' },
+};
 
 // ── API helpers ───────────────────────────────────────────────────────────────
 
@@ -73,9 +89,10 @@ function renderProviders() {
 
   for (const p of providers) {
     const isActive = p.id === config.activeProvider;
+    const meta = PROVIDER_META[p.type] || PROVIDER_META.openai;
 
     const card = document.createElement('div');
-    card.className = `provider-card type-ollama${isActive ? ' active-card' : ''}`;
+    card.className = `provider-card type-${p.type || 'ollama'}${isActive ? ' active-card' : ''}`;
 
     const badges = [];
     if (isActive) {
@@ -87,10 +104,10 @@ function renderProviders() {
     card.innerHTML = `
       <div class="provider-card-header">
         <div class="provider-info">
-          <div class="provider-icon">${OLLAMA_META.icon}</div>
+          <div class="provider-icon">${meta.icon}</div>
           <div>
             <div class="provider-name">${esc(p.name)}</div>
-            <div class="provider-type">Ollama</div>
+            <div class="provider-type">${meta.label}</div>
           </div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
@@ -159,16 +176,27 @@ async function deleteProvider(id) {
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
+function onProviderTypeChange() {
+  const type = document.getElementById('form-type').value;
+  const defs = PROVIDER_DEFAULTS[type] || PROVIDER_DEFAULTS.openai;
+  const meta = PROVIDER_META[type] || PROVIDER_META.openai;
+  document.getElementById('modal-title').textContent = (editingId ? 'Edit ' : 'Add ') + meta.label;
+  document.getElementById('form-baseurl').placeholder = defs.baseURL;
+  document.getElementById('form-baseurl').value = defs.baseURL;
+  document.getElementById('form-baseurl-hint').textContent = defs.baseURLHint;
+  document.getElementById('form-apikey').placeholder = defs.apiKeyPlaceholder;
+  document.getElementById('form-apikey-label').textContent = defs.apiKeyHint;
+}
+
 function showAddForm() {
   editingId = null;
-  document.getElementById('modal-title').textContent = 'Add Ollama Instance';
   document.getElementById('provider-form').reset();
   document.getElementById('form-provider-id').value = '';
   document.getElementById('form-type').value = 'ollama';
-  document.getElementById('form-baseurl').value = 'http://localhost:11434';
   document.getElementById('form-enabled').checked = true;
   document.getElementById('test-result').style.display = 'none';
   document.getElementById('models-dropdown').style.display = 'none';
+  onProviderTypeChange();
   showModal();
 }
 
@@ -176,12 +204,17 @@ function editProvider(id) {
   const p = providers.find(p => p.id === id);
   if (!p) return;
   editingId = id;
-  document.getElementById('modal-title').textContent = 'Edit Ollama Instance';
+  const meta = PROVIDER_META[p.type] || PROVIDER_META.openai;
+  document.getElementById('modal-title').textContent = 'Edit ' + meta.label;
   document.getElementById('form-provider-id').value = id;
-  document.getElementById('form-type').value = 'ollama';
+  document.getElementById('form-type').value = p.type || 'ollama';
   document.getElementById('form-name').value = p.name;
-  document.getElementById('form-baseurl').value = p.baseURL || 'http://localhost:11434';
+  const defs = PROVIDER_DEFAULTS[p.type] || PROVIDER_DEFAULTS.openai;
+  document.getElementById('form-baseurl').value = p.baseURL || defs.baseURL;
+  document.getElementById('form-baseurl-hint').textContent = defs.baseURLHint;
   document.getElementById('form-apikey').value = p.apiKey || '';
+  document.getElementById('form-apikey').placeholder = defs.apiKeyPlaceholder;
+  document.getElementById('form-apikey-label').textContent = defs.apiKeyHint;
   document.getElementById('form-defaultmodel').value = p.defaultModel || '';
   document.getElementById('form-enabled').checked = p.enabled !== false;
   document.getElementById('test-result').style.display = 'none';
@@ -210,7 +243,8 @@ function getFormBody() {
   const apiKey = document.getElementById('form-apikey').value.trim();
   const defaultModel = document.getElementById('form-defaultmodel').value.trim();
   const enabled = document.getElementById('form-enabled').checked;
-  return { type: 'ollama', name, baseURL, apiKey, defaultModel, enabled };
+  const type = document.getElementById('form-type').value;
+  return { type, name, baseURL, apiKey, defaultModel, enabled };
 }
 
 function toggleApiKey() {
@@ -268,7 +302,8 @@ async function testProvider() {
       if (apiKey && !apiKey.startsWith('***')) body.apiKey = apiKey;
       result = await api('POST', '/providers/test-inline', body);
     }
-    const failHint = !result.ok ? ' — is Ollama running? Try: ollama serve' : '';
+    const type = document.getElementById('form-type').value;
+    const failHint = !result.ok ? (type === 'ollama' ? ' — is Ollama running? Try: ollama serve' : ' — check your API key and base URL') : '';
     resultEl.textContent = (result.ok ? '✓ ' : '✗ ') + result.message + failHint;
     resultEl.className = `test-result ${result.ok ? 'success' : 'error'}`;
     resultEl.style.display = 'block';
@@ -311,15 +346,16 @@ async function listModels() {
     if (html) {
       dropdown.innerHTML = html;
     } else {
-      dropdown.innerHTML = `<div style="padding:12px;color:var(--warning);font-size:12px;line-height:1.6">
-          No models found. Make sure Ollama is running:<br>
-          <code style="color:var(--cyan)">ollama serve</code><br><br>
-          Then pull a model, e.g.:<br>
-          <code style="color:var(--cyan)">ollama pull qwen2.5-coder</code>
-         </div>`;
+      const type = document.getElementById('form-type').value;
+      const noModelsMsg = type === 'ollama'
+        ? `No models found. Make sure Ollama is running:<br><code style="color:var(--cyan)">ollama serve</code><br><br>Then pull a model, e.g.:<br><code style="color:var(--cyan)">ollama pull qwen2.5-coder</code>`
+        : `No models returned. Check that your API key and base URL are correct.`;
+      dropdown.innerHTML = `<div style="padding:12px;color:var(--warning);font-size:12px;line-height:1.6">${noModelsMsg}</div>`;
     }
   } catch (e) {
-    dropdown.innerHTML = `<div style="padding:10px;color:var(--error);font-size:12px;line-height:1.6">${esc(e.message)}<br><br>Make sure Ollama is running (<code style="color:var(--cyan)">ollama serve</code>) and the base URL is correct.</div>`;
+    const t = document.getElementById('form-type').value;
+    const errHint = t === 'ollama' ? '<br><br>Make sure Ollama is running (<code style="color:var(--cyan)">ollama serve</code>) and the base URL is correct.' : '<br><br>Check your API key and base URL.';
+    dropdown.innerHTML = `<div style="padding:10px;color:var(--error);font-size:12px;line-height:1.6">${esc(e.message)}${errHint}</div>`;
   }
 }
 

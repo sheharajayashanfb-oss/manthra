@@ -130,7 +130,18 @@
       <div class="modal-body">
         <form id="provider-form" onsubmit="return false">
           <input type="hidden" id="form-provider-id">
-          <input type="hidden" id="form-type" value="ollama">
+
+          <div class="form-group">
+            <label>Provider Type <span class="required">*</span></label>
+            <select id="form-type" onchange="onProviderTypeChange()">
+              <option value="ollama">Ollama (local)</option>
+              <option value="openai">OpenAI-compatible</option>
+              <option value="zen">Zen (opencode.ai)</option>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="cerebras">Cerebras</option>
+            </select>
+          </div>
 
           <div class="form-group">
             <label>Display Name <span class="required">*</span></label>
@@ -139,12 +150,12 @@
 
           <div class="form-group">
             <label>Base URL</label>
-            <input type="url" id="form-baseurl" placeholder="http://localhost:11434">
-            <p class="field-hint">Local default: http://localhost:11434 · Cloud: use your remote Ollama URL</p>
+            <input type="text" id="form-baseurl" placeholder="http://localhost:11434">
+            <p class="field-hint" id="form-baseurl-hint">Local default: http://localhost:11434 · Cloud: use your remote Ollama URL</p>
           </div>
 
           <div class="form-group">
-            <label>API Key <span class="hint">optional — for cloud / authenticated instances</span></label>
+            <label>API Key <span id="form-apikey-label" class="hint">optional — for cloud / authenticated instances</span></label>
             <div class="input-with-toggle">
               <input type="password" id="form-apikey" placeholder="Leave blank for local Ollama" autocomplete="off">
               <button type="button" class="toggle-visibility" onclick="toggleApiKey()">Show</button>

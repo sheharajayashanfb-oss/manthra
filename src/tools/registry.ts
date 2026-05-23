@@ -45,9 +45,9 @@ export function getAllTools(): Tool[] {
   return [...allTools, ...Array.from(dynamicTools.values())];
 }
 
-/** Flat ToolDefinition[] compatible with ChatOptions.tools */
+/** Flat ToolDefinition[] compatible with ChatOptions.tools (includes dynamic/MCP tools) */
 export function getToolDefinitions(): ToolDefinition[] {
-  return allTools.map((t) => ({
+  return getAllTools().map((t) => ({
     name: t.name,
     description: t.description,
     parameters: t.parameters,

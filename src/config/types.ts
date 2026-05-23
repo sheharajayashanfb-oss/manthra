@@ -51,5 +51,6 @@ export const AppConfigSchema = z.object({
   webPort: z.number().default(4875),
   theme: z.enum(['dark', 'light']).default('dark'),
   mcpServers: z.array(McpServerConfigSchema).default([]),
+  multiAgent: z.boolean().default(false),
 });
 export type AppConfig = z.infer<typeof AppConfigSchema>;

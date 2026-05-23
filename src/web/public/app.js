@@ -373,6 +373,7 @@ async function loadSettings() {
     document.getElementById('setting-max-tokens').value = config.maxTokens || 8192;
     document.getElementById('setting-temperature').value = config.temperature || 0;
     document.getElementById('setting-temperature-val').textContent = (config.temperature || 0).toFixed(2);
+    document.getElementById('setting-multi-agent').checked = config.multiAgent || false;
     updateSettingsProviderSelect();
   } catch (e) {
     toast('Failed to load settings', 'error');
@@ -398,6 +399,7 @@ document.getElementById('btn-save-settings').addEventListener('click', async () 
       activeModel: document.getElementById('setting-active-model').value,
       maxTokens: parseInt(document.getElementById('setting-max-tokens').value, 10),
       temperature: parseFloat(document.getElementById('setting-temperature').value),
+      multiAgent: document.getElementById('setting-multi-agent').checked,
     });
     config = await api('GET', '/config');
     renderProviders();

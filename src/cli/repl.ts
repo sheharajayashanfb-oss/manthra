@@ -17,6 +17,7 @@ import { loadManthraMd } from '../config/manthra-md.js';
 import { getToolDefinitions, registerDynamicTool, getAllTools } from '../tools/registry.js';
 import { executeTool, setPermissionHandler } from '../tools/executor.js';
 import { mcpManager } from '../mcp/manager.js';
+import { createSubAgentTool } from '../tools/sub_agent.js';
 import { platformSystemPrompt } from '../tools/platform.js';
 import type { PermissionDecision } from '../permissions/index.js';
 
@@ -264,6 +265,12 @@ export class REPL {
         );
       }
     }
+
+    // Register sub-agent tool if multi-agent is enabled
+    if (config.multiAgent && this.provider) {
+      registerDynamicTool(createSubAgentTool(this.provider, this.model));
+      process.stdout.write(chalk.green('  ✓  ') + chalk.cyan('Multi-agent') + chalk.dim('  agent_spawn tool ready') + '\n');
+    }
   }
 
   private buildContext(): CommandContext {
@@ -295,7 +302,13 @@ export class REPL {
       ? `# MCP Tools Available\n\nYou have access to the following MCP (Model Context Protocol) tools. Use them when the user asks for browser automation, web scraping, or any task these tools can handle:\n\n${mcpTools.map((t) => `- \`${t.name}\`: ${t.description}`).join('\n')}`
       : null;
 
-    return [projectInstructions, base, cwd, platform, memory, mcpSection].filter(Boolean).join('\n\n');
+    // Inject multi-agent guidance when enabled
+    const config2 = getConfig();
+    const agentSection = config2.multiAgent
+      ? `# Multi-Agent Mode\n\nYou have access to the \`agent_spawn\` tool to delegate self-contained subtasks to a sub-agent. Use it when a task can be broken into independent parts that each require multiple tool calls. Each sub-agent has full tool access and runs to completion before returning its result.`
+      : null;
+
+    return [projectInstructions, base, cwd, platform, memory, mcpSection, agentSection].filter(Boolean).join('\n\n');
   }
 
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────

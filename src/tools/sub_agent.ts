@@ -25,10 +25,12 @@ export function createSubAgentTool(provider: Provider, model: string): Tool {
     },
     async execute(input): Promise<ToolResult> {
       const task = String(input['task']);
+      const taskPreview = task.length > 64 ? task.slice(0, 61) + '…' : task;
 
-      process.stdout.write(
-        chalk.dim(`\n  ◆  sub-agent: ${task.slice(0, 72)}${task.length > 72 ? '…' : ''}\n`),
-      );
+      process.stdout.write('\n');
+      process.stdout.write(chalk.bold.cyan('  ◆  Manthra is using a sub-agent\n'));
+      process.stdout.write(chalk.dim(`     Task: ${taskPreview}\n`));
+      process.stdout.write(chalk.dim('  ' + '─'.repeat(60)) + '\n');
 
       const toolDefs = getAllTools().map((t) => ({
         name: t.name,
@@ -95,7 +97,7 @@ export function createSubAgentTool(provider: Provider, model: string): Tool {
 
         const toolResultBlocks: ContentBlock[] = [];
         for (const tc of toolCalls) {
-          process.stdout.write(chalk.dim(`  ◈  [sub-agent] ${tc.name}\n`));
+          process.stdout.write(chalk.cyan(`  ◈  `) + chalk.dim(`[sub-agent] `) + chalk.cyan(tc.name) + '\n');
           const result = await executeTool(tc.name, tc.input, { silent: true });
           const content = result.success
             ? result.output
@@ -113,10 +115,11 @@ export function createSubAgentTool(provider: Provider, model: string): Tool {
         }
       }
 
+      process.stdout.write(chalk.dim('  ' + '─'.repeat(60)) + '\n');
       if (iterCount >= MAX_ITER) {
-        process.stdout.write(chalk.yellow('  ◆  sub-agent: reached max iterations\n'));
+        process.stdout.write(chalk.yellow('  ◆  Sub-agent reached max iterations\n\n'));
       } else {
-        process.stdout.write(chalk.dim('  ◆  sub-agent: done\n'));
+        process.stdout.write(chalk.bold.cyan('  ◆  Sub-agent done\n\n'));
       }
 
       return {

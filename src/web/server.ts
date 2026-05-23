@@ -148,6 +148,7 @@ export async function startServer(port?: number): Promise<void> {
       temperature: cfg.temperature,
       theme: cfg.theme,
       webPort: cfg.webPort,
+      multiAgent: cfg.multiAgent,
     });
   });
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Manthra — AI coding assistant for your terminal</title>
-  <meta name="description" content="Manthra is an open-source AI coding assistant CLI. Reads, edits, and runs code with any Ollama model — fully local, no API key required.">
+  <meta name="description" content="Manthra is an open-source AI coding assistant CLI. Reads, edits, and runs code with any model — Ollama locally or cloud providers like Groq, OpenRouter, and Zen.">
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -497,10 +497,10 @@
 
 <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
 <section class="hero" id="hero-vanta">
-  <div class="hero-badge">Open source · Fully local · No API key</div>
+  <div class="hero-badge">Open source · Local &amp; cloud · MCP support</div>
   <h1>AI coding assistant<br>for your terminal</h1>
   <p class="hero-sub">
-    Reads, edits, and runs code in any project. Powered by Ollama — works completely offline, no API key required.
+    Reads, edits, and runs code in any project. Use Ollama locally or connect to Groq, OpenRouter, Zen, and more.
   </p>
 
   <div class="install-box">
@@ -1071,8 +1071,8 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
     <div class="features-grid">
       <div class="feature-card">
         <div class="feature-icon">⬡</div>
-        <h3>Ollama-native</h3>
-        <p>Works with any model in your local Ollama install — qwen2.5-coder, deepseek-r1, llama3, mistral, gemma3 and more. No API key ever required.</p>
+        <h3>Multi-provider</h3>
+        <p>Use Ollama locally for fully offline operation, or connect to cloud providers — Groq, OpenRouter, Zen, Cerebras, or any OpenAI-compatible API.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon">⚙</div>
@@ -1210,8 +1210,8 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
   <div class="section-inner">
     <div class="section-header">
       <p class="section-label">Models</p>
-      <h2 class="section-title">Any model in your Ollama library</h2>
-      <p class="section-sub">Pull any open-source model from ollama.ai/library and Manthra uses it instantly. No restarts, no config changes.</p>
+      <h2 class="section-title">Any model, any provider</h2>
+      <p class="section-sub">Use local Ollama models or connect to cloud providers. Switch models mid-session with <code class="inline-code">/model</code> — no restarts needed.</p>
     </div>
 
     <div class="models-grid">
@@ -1246,6 +1246,14 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
       <div class="model-card">
         <div class="model-name">+ any Ollama model</div>
         <div class="model-tag">ollama.ai/library</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">Groq / Cerebras</div>
+        <div class="model-tag">Fast cloud inference</div>
+      </div>
+      <div class="model-card">
+        <div class="model-name">OpenRouter / Zen</div>
+        <div class="model-tag">100+ models via API</div>
       </div>
     </div>
   </div>
@@ -1295,7 +1303,7 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
 <!-- ── CTA ────────────────────────────────────────────────────────────────── -->
 <div class="cta-strip">
   <h2>Start coding with Manthra</h2>
-  <p>One command. No API key. Works completely offline.</p>
+  <p>One command. Local or cloud. Your choice.</p>
   <div class="cta-btns">
     <button class="btn-primary" onclick="scrollToInstall()">↓ Install now</button>
   </div>

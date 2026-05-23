@@ -26,7 +26,7 @@
         </div>
       </div>
       <nav>
-        <button class="nav-btn active" data-view="providers">Ollama Instances</button>
+        <button class="nav-btn active" data-view="providers">Providers</button>
         <button class="nav-btn" data-view="mcp">MCP Servers</button>
         <button class="nav-btn" data-view="settings">Settings</button>
         <button class="nav-btn" data-view="tools">Tools</button>
@@ -34,14 +34,14 @@
     </header>
 
     <main>
-      <!-- Ollama Instances View -->
+      <!-- Providers View -->
       <div id="view-providers" class="view active">
         <div class="view-header">
           <div>
-            <h1>Ollama Instances</h1>
+            <h1>Providers</h1>
             <p class="subtitle">Configure local Ollama connections</p>
           </div>
-          <button class="btn btn-primary" id="btn-add-provider">+ Add Instance</button>
+          <button class="btn btn-primary" id="btn-add-provider">+ Add Provider</button>
         </div>
 
         <div id="providers-grid" class="providers-grid">
@@ -49,7 +49,7 @@
             <div class="empty-icon">🟣</div>
             <h3>No Ollama instances configured</h3>
             <p>Add an Ollama instance to start using Manthra</p>
-            <button class="btn btn-primary" onclick="showAddForm()">+ Add Instance</button>
+            <button class="btn btn-primary" onclick="showAddForm()">+ Add Provider</button>
           </div>
         </div>
       </div>
@@ -66,7 +66,7 @@
 
         <div class="settings-form card">
           <div class="form-group">
-            <label>Active Ollama Instance</label>
+            <label>Active Provider</label>
             <select id="setting-active-provider">
               <option value="">— None —</option>
             </select>
@@ -120,11 +120,11 @@
     </main>
   </div>
 
-  <!-- Add/Edit Ollama Instance Modal -->
+  <!-- Add/Edit Provider Modal -->
   <div id="modal-overlay" class="modal-overlay" style="display:none">
     <div class="modal">
       <div class="modal-header">
-        <h2 id="modal-title">Add Ollama Instance</h2>
+        <h2 id="modal-title">Add Provider</h2>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
       <div class="modal-body">
@@ -134,7 +134,7 @@
           <div class="form-group">
             <label>Provider Type <span class="required">*</span></label>
             <select id="form-type" onchange="onProviderTypeChange()">
-              <option value="ollama">Ollama (local)</option>
+              <option value="ollama">Ollama</option>
               <option value="openai">OpenAI-compatible</option>
               <option value="zen">Zen (opencode.ai)</option>
               <option value="groq">Groq</option>
@@ -184,7 +184,7 @@
         <div class="modal-actions">
           <button class="btn btn-secondary" id="btn-test" onclick="testProvider()">Test Connection</button>
           <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-          <button class="btn btn-primary" onclick="saveProvider()">Save Instance</button>
+          <button class="btn btn-primary" onclick="saveProvider()">Save Provider</button>
         </div>
       </div>
     </div>

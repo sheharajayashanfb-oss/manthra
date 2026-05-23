@@ -162,13 +162,13 @@ async function setActive(id) {
 
 async function deleteProvider(id) {
   const p = providers.find(p => p.id === id);
-  if (!p || !confirm(`Delete instance "${p.name}"?`)) return;
+  if (!p || !confirm(`Delete provider "${p.name}"?`)) return;
   try {
     await api('DELETE', `/providers/${id}`);
     providers = providers.filter(p => p.id !== id);
     if (config.activeProvider === id) config.activeProvider = '';
     renderProviders();
-    toast('Instance deleted', 'success');
+    toast('Provider deleted', 'success');
   } catch (e) {
     toast('Delete failed: ' + e.message, 'error');
   }
@@ -268,12 +268,12 @@ async function saveProvider() {
     if (editingId) {
       const updated = await api('PUT', `/providers/${editingId}`, body);
       providers = providers.map(p => p.id === editingId ? updated : p);
-      toast('Instance updated', 'success');
+      toast('Provider updated', 'success');
     } else {
       const created = await api('POST', '/providers', body);
       providers.push(created);
       editingId = created.id;
-      toast('Instance added — you can now test connection or list models', 'success');
+      toast('Provider added — you can now test connection or list models', 'success');
     }
     renderProviders();
     updateSettingsProviderSelect();

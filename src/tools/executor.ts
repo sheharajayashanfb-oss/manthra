@@ -36,9 +36,14 @@ function friendlyLabel(toolName: string): string {
 // Set by REPL to handle interactive permission prompts
 type PermissionFn = (category: string, label: string, detail: string) => Promise<PermissionDecision>;
 let _permissionFn: PermissionFn | null = null;
+let _verbose = false;
 
 export function setPermissionHandler(fn: PermissionFn): void {
   _permissionFn = fn;
+}
+
+export function setVerbose(flag: boolean): void {
+  _verbose = flag;
 }
 
 export async function executeTool(
@@ -51,7 +56,7 @@ export async function executeTool(
   if (!tool) {
     const result: ToolResult = { success: false, output: '', error: `Unknown tool: ${toolName}` };
     if (!opts?.silent) {
-      process.stdout.write(chalk.red(`\n  ✗  Working`) + chalk.dim('  (unknown tool)\n'));
+      process.stdout.write(chalk.red(`\n  ✗  ${_verbose ? toolName : 'Working'}`) + chalk.dim('  (unknown tool)\n'));
     }
     return result;
   }
@@ -62,7 +67,7 @@ export async function executeTool(
     if (check && !isSessionAllowed(check.category) && !isProjectAllowed(check.category)) {
       const decision = await _permissionFn(check.category, check.label, check.detail);
       if (decision === 'deny') {
-        process.stdout.write(chalk.red('  ✗  ') + chalk.red(friendlyLabel(toolName)) + chalk.dim('  permission denied\n'));
+        process.stdout.write(chalk.red('  ✗  ') + chalk.red(_verbose ? toolName : friendlyLabel(toolName)) + chalk.dim('  permission denied\n'));
         return { success: false, output: '', error: 'Permission denied by user' };
       }
       if (decision === 'always')  grantSession(check.category);
@@ -86,7 +91,7 @@ export async function executeTool(
   const elapsed = ((Date.now() - start) / 1000).toFixed(2) + 's';
 
   if (!opts?.silent) {
-    const label = friendlyLabel(toolName);
+    const label = _verbose ? toolName : friendlyLabel(toolName);
     if (result.success) {
       process.stdout.write(
         chalk.green('  ✓  ') +

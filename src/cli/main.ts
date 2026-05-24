@@ -8,6 +8,7 @@ import { printWelcome } from '../ui/renderer.js';
 import { loadConfig } from '../config/loader.js';
 import { autoInitProviders } from '../config/auto-init.js';
 import { REPL } from './repl.js';
+import { setVerbose } from '../tools/executor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -36,9 +37,9 @@ function printProviderStatus(providers: Array<{ name: string; id: string; type: 
 
 async function main(): Promise<void> {
   const argv = minimist(process.argv.slice(2), {
-    boolean: ['help', 'version', 'no-tools'],
+    boolean: ['help', 'version', 'no-tools', 'verbose'],
     string: ['provider', 'model', 'print'],
-    alias: { h: 'help', v: 'version', p: 'provider', m: 'model' },
+    alias: { h: 'help', v: 'version', p: 'provider', m: 'model', V: 'verbose' },
   });
 
   if (argv['version']) {
@@ -57,6 +58,7 @@ ${chalk.bold('Usage:')}
 ${chalk.bold('Options:')}
   -m, --model <id>             Use a specific model
   --print <message>            Run a single prompt and exit (non-interactive)
+  -V, --verbose                Show full tool names (developer mode)
   -v, --version                Show version
   -h, --help                   Show this help
 
@@ -68,6 +70,8 @@ ${chalk.bold('Examples:')}
 `);
     process.exit(0);
   }
+
+  if (argv['verbose']) setVerbose(true);
 
   let config = loadConfig();
   ({ config } = autoInitProviders(config));

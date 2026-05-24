@@ -23,7 +23,12 @@ export interface ImageContent {
   mimeType?: string;
 }
 
-export type ContentBlock = TextContent | ToolCallContent | ToolResultContent | ImageContent;
+export interface ThinkingContent {
+  type: 'thinking';
+  thinking: string;
+}
+
+export type ContentBlock = TextContent | ToolCallContent | ToolResultContent | ImageContent | ThinkingContent;
 
 export interface Message {
   role: 'user' | 'assistant' | 'system';

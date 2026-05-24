@@ -5,6 +5,7 @@ interface OpenAIMessage {
   content: string | OpenAIContentPart[] | null;
   tool_calls?: OpenAIToolCall[];
   tool_call_id?: string;
+  reasoning_content?: string;
 }
 
 interface OpenAIContentPart {
@@ -23,6 +24,7 @@ interface OpenAIChunk {
   choices?: Array<{
     delta: {
       content?: string | null;
+      reasoning_content?: string | null;
       tool_calls?: Array<{
         index: number;
         id?: string;
@@ -57,10 +59,13 @@ function normalizeMessages(messages: Message[], system?: string): OpenAIMessage[
     const imageParts: OpenAIContentPart[] = [];
     const toolCalls: OpenAIToolCall[] = [];
     let hasToolResult = false;
+    let reasoningContent: string | undefined;
 
     for (const b of blocks) {
       if (b.type === 'text') {
         textParts.push(b.text);
+      } else if (b.type === 'thinking') {
+        reasoningContent = b.thinking;
       } else if (b.type === 'image') {
         const mime = b.mimeType ?? 'image/png';
         imageParts.push({ type: 'image_url', image_url: { url: `data:${mime};base64,${b.data}` } });
@@ -83,14 +88,18 @@ function normalizeMessages(messages: Message[], system?: string): OpenAIMessage[
     if (hasToolResult) continue;
 
     if (toolCalls.length > 0) {
-      result.push({ role: m.role, content: textParts.join('') || null, tool_calls: toolCalls });
+      const msg: OpenAIMessage = { role: m.role, content: textParts.join('') || null, tool_calls: toolCalls };
+      if (reasoningContent) msg.reasoning_content = reasoningContent;
+      result.push(msg);
     } else if (imageParts.length > 0) {
       const parts: OpenAIContentPart[] = [];
       if (textParts.length > 0) parts.push({ type: 'text', text: textParts.join('') });
       parts.push(...imageParts);
       result.push({ role: m.role, content: parts });
     } else {
-      result.push({ role: m.role, content: textParts.join('') });
+      const msg: OpenAIMessage = { role: m.role, content: textParts.join('') };
+      if (reasoningContent) msg.reasoning_content = reasoningContent;
+      result.push(msg);
     }
   }
 
@@ -184,6 +193,10 @@ export class OpenAIProvider implements Provider {
 
         const choice = parsed.choices?.[0];
         if (!choice) continue;
+
+        if (choice.delta.reasoning_content) {
+          events.push({ type: 'thinking_delta', delta: choice.delta.reasoning_content });
+        }
 
         if (choice.delta.content) {
           events.push({ type: 'text_delta', delta: choice.delta.content });

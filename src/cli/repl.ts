@@ -465,6 +465,7 @@ export class REPL {
     stopThinking: () => void,
   ): Promise<{
     text: string;
+    thinking: string;
     toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }>;
     usage?: { input_tokens: number; output_tokens: number };
   }> {
@@ -514,7 +515,7 @@ export class REPL {
       process.stdout.write('\n' + formatMarkdown(text) + '\n');
     }
 
-    return { text, toolCalls, usage };
+    return { text, thinking: thinkingBuf, toolCalls, usage };
   }
 
   private async runTurn(userMessage: string): Promise<{ turnIn: number; turnOut: number }> {
@@ -571,11 +572,12 @@ export class REPL {
 
       this.stopThinkingFn = startThinking();
       let text: string;
+      let thinking: string;
       let toolCallsList: Array<{ id: string; name: string; input: Record<string, unknown> }>;
       let usage: { input_tokens: number; output_tokens: number } | undefined;
 
       try {
-        ({ text, toolCalls: toolCallsList, usage } = await this.processStream(stream, this.stopThinkingFn));
+        ({ text, thinking, toolCalls: toolCallsList, usage } = await this.processStream(stream, this.stopThinkingFn));
         if (this.abortController?.signal.aborted) {
           process.stdout.write(chalk.dim('\n  ⎋  interrupted\n'));
           break;
@@ -593,6 +595,9 @@ export class REPL {
 
       // Build assistant content blocks
       const assistantContent: ContentBlock[] = [];
+      if (thinking) {
+        assistantContent.push({ type: 'thinking', thinking });
+      }
       if (text) {
         assistantContent.push({ type: 'text', text });
       }

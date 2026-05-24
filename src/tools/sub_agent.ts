@@ -68,11 +68,14 @@ export function createSubAgentTool(provider: Provider, model: string): Tool {
         }
 
         let text = '';
+        let thinking = '';
         const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
 
         for await (const event of stream) {
           if (event.type === 'text_delta' && event.delta) {
             text += event.delta;
+          } else if (event.type === 'thinking_delta' && event.delta) {
+            thinking += event.delta;
           } else if (event.type === 'tool_call_done' && event.tool_call) {
             toolCalls.push({
               id: event.tool_call.id,
@@ -85,6 +88,7 @@ export function createSubAgentTool(provider: Provider, model: string): Tool {
         finalText = text;
 
         const assistantContent: ContentBlock[] = [];
+        if (thinking) assistantContent.push({ type: 'thinking', thinking });
         if (text) assistantContent.push({ type: 'text', text });
         for (const tc of toolCalls) {
           assistantContent.push({ type: 'tool_call', id: tc.id, name: tc.name, input: tc.input });

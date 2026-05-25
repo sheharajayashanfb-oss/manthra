@@ -17,6 +17,7 @@ const __dirname = dirname(__filename);
 const VERSION_URL = 'https://manthra.informaticsint.au/version.json';
 
 function getCurrentVersion(): string {
+  if (process.env.APP_VERSION) return process.env.APP_VERSION;
   try {
     const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as { version: string };
     return pkg.version;

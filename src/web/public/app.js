@@ -1646,17 +1646,20 @@ function esc(str) {
 
 // ── Update check ──────────────────────────────────────────────────────────────
 
+let _pendingLatest = null;
+
 async function checkForUpdate() {
   try {
     const data = await api('GET', '/version');
-    if (data.updateAvailable) {
-      const banner = document.getElementById('update-banner');
-      document.getElementById('update-banner-msg').textContent =
-        `Update available: v${data.current} → v${data.latest}  —  ${data.date ?? ''}`;
-      banner.style.display = 'flex';
-    }
+    if (!data.updateAvailable) return;
+    // Don't re-show banner if the user already updated to this version this session
+    if (localStorage.getItem('manthra_updated_to') === data.latest) return;
+    _pendingLatest = data.latest;
+    document.getElementById('update-banner-msg').textContent =
+      `Update available: v${data.current} → v${data.latest}` + (data.date ? `  —  ${data.date}` : '');
+    document.getElementById('update-banner').style.display = 'flex';
   } catch {
-    // silently ignore — server might not have network
+    // silently ignore
   }
 }
 
@@ -1679,6 +1682,7 @@ async function doUpdate() {
     result.style.display = 'block';
     footer.style.display = 'block';
     if (data.ok) {
+      if (_pendingLatest) localStorage.setItem('manthra_updated_to', _pendingLatest);
       result.textContent = '✓ ' + data.message;
       result.style.color = 'var(--success)';
       document.getElementById('update-banner').style.display = 'none';

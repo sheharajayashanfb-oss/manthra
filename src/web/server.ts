@@ -302,10 +302,11 @@ export async function startServer(port?: number): Promise<void> {
     }
   });
 
-  // POST /api/update — run npm install -g manthra@latest
+  // POST /api/update — re-run the install script to update the binary
   app.post('/api/update', async (_req, res) => {
-    const { execFile } = await import('child_process');
-    execFile('npm', ['install', '-g', 'manthra@latest'], { timeout: 120000 }, (err, _stdout, stderr) => {
+    const { exec } = await import('child_process');
+    const cmd = 'curl -fsSL https://manthra.informaticsint.au/install | bash';
+    exec(cmd, { timeout: 120000 }, (err, _stdout, stderr) => {
       if (err) {
         res.json({ ok: false, message: stderr || err.message });
       } else {

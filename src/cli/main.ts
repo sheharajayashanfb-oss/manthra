@@ -101,7 +101,7 @@ ${chalk.bold('Examples:')}
 
   if (updateVersion) {
     console.log(chalk.yellow(`  Update available: v${getVersion()} → v${updateVersion}`));
-    console.log(chalk.dim('  Run: npm update -g manthra\n'));
+    console.log(chalk.dim('  Run: curl -fsSL https://manthra.informaticsint.au/install | bash\n'));
   }
 
   // Non-interactive: manthra --print "message"

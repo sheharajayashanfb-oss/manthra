@@ -9,6 +9,7 @@ import { loadConfig } from '../config/loader.js';
 import { autoInitProviders } from '../config/auto-init.js';
 import { REPL } from './repl.js';
 import { setVerbose } from '../tools/executor.js';
+import { checkForUpdate } from './update-check.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -87,10 +88,18 @@ ${chalk.bold('Examples:')}
   printProviderStatus(config.providers);
 
   const repl = new REPL();
-  await repl.init({
-    provider: argv['provider'] as string | undefined,
-    model: argv['model'] as string | undefined,
-  });
+  const [updateVersion] = await Promise.all([
+    checkForUpdate(getVersion()),
+    repl.init({
+      provider: argv['provider'] as string | undefined,
+      model: argv['model'] as string | undefined,
+    }),
+  ]);
+
+  if (updateVersion) {
+    console.log(chalk.yellow(`  Update available: v${getVersion()} → v${updateVersion}`));
+    console.log(chalk.dim('  Run: npm update -g manthra\n'));
+  }
 
   // Non-interactive: manthra --print "message"
   const printMsg = argv['print'] as string | undefined;

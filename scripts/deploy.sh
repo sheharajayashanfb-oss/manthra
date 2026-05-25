@@ -8,6 +8,12 @@ REMOTE_DIR="/var/www/manthra"
 
 echo "Deploying to ${VM_HOST}:${REMOTE_DIR}..."
 
+# Auto-generate version.json from package.json
+VERSION=$(node -p "require('./package.json').version")
+DATE=$(date -u +%Y-%m-%d)
+echo "{\"version\":\"${VERSION}\",\"date\":\"${DATE}\"}" > web/version.json
+echo "Generated web/version.json: v${VERSION} (${DATE})"
+
 # Upload web assets (marketing site)
 rsync -avz web/ "${VM_HOST}:${REMOTE_DIR}/"
 

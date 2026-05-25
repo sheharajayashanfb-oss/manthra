@@ -490,6 +490,32 @@ input[type="range"] { padding: 0; background: transparent; border: none; cursor:
 .toast-error { background: var(--error-bg); color: var(--error); border-color: rgba(220,38,38,0.25); }
 .toast-info { background: var(--bg-alt); color: var(--text-sec); }
 
+/* Update banner */
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 32px;
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+.update-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.update-spinner {
+  width: 20px; height: 20px;
+  border: 2px solid var(--border);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 8px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

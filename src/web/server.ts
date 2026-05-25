@@ -1,12 +1,40 @@
 import express from 'express';
 import cors from 'cors';
 import chalk from 'chalk';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { getConfig, updateConfig } from '../config/loader.js';
 import { createProvider } from '../providers/registry.js';
 import { ProviderConfigSchema, McpServerConfigSchema } from '../config/types.js';
 import { getAllTools } from '../tools/registry.js';
 import { McpClient } from '../mcp/client.js';
 import { INLINE_HTML } from './assets.generated.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const VERSION_URL = 'https://manthra.informaticsint.au/version.json';
+
+function getCurrentVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as { version: string };
+    return pkg.version;
+  } catch {
+    return '0.0.0';
+  }
+}
+
+function isNewer(latest: string, current: string): boolean {
+  const pa = latest.replace(/^v/, '').split('.').map(Number);
+  const pb = current.replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff > 0) return true;
+    if (diff < 0) return false;
+  }
+  return false;
+}
 
 export async function startServer(port?: number): Promise<void> {
   const config = getConfig();
@@ -257,6 +285,33 @@ export async function startServer(port?: number): Promise<void> {
     } catch (err: unknown) {
       res.json({ ok: false, message: String(err) });
     }
+  });
+
+  // GET /api/version — current + latest version info
+  app.get('/api/version', async (_req, res) => {
+    const current = getCurrentVersion();
+    try {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), 5000);
+      const response = await fetch(VERSION_URL, { signal: controller.signal });
+      const data = (await response.json()) as { version: string; date?: string };
+      const latest = data.version.replace(/^v/, '');
+      res.json({ current, latest, date: data.date ?? null, updateAvailable: isNewer(latest, current) });
+    } catch {
+      res.json({ current, latest: null, date: null, updateAvailable: false });
+    }
+  });
+
+  // POST /api/update — run npm install -g manthra@latest
+  app.post('/api/update', async (_req, res) => {
+    const { execFile } = await import('child_process');
+    execFile('npm', ['install', '-g', 'manthra@latest'], { timeout: 120000 }, (err, _stdout, stderr) => {
+      if (err) {
+        res.json({ ok: false, message: stderr || err.message });
+      } else {
+        res.json({ ok: true, message: 'Update complete. Please restart Manthra.' });
+      }
+    });
   });
 
   // Serve the self-contained web UI (CSS+JS inlined at build time)

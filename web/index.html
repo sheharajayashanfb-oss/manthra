@@ -492,6 +492,7 @@
     <a href="#docs">Docs</a>
     <a href="#mcp">MCP</a>
     <a href="#commands">Commands</a>
+    <a id="nav-version-badge" href="#" style="display:none;font-size:0.72rem;padding:4px 10px;border:1px solid var(--border);border-radius:100px;color:var(--text-muted);cursor:default;pointer-events:none"></a>
   </div>
 </nav>
 
@@ -1341,6 +1342,15 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
 </footer>
 
 <script>
+  // Load latest version badge from version.json
+  fetch('/version.json').then(r => r.json()).then(d => {
+    const badge = document.getElementById('nav-version-badge');
+    if (badge && d.version) {
+      badge.textContent = 'v' + d.version;
+      badge.style.display = '';
+    }
+  }).catch(() => {});
+
   function copyInstall() {
     const cmd = document.getElementById('install-cmd').textContent;
     navigator.clipboard.writeText(cmd).then(() => {

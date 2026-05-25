@@ -1644,6 +1644,60 @@ function esc(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// ── Update check ──────────────────────────────────────────────────────────────
+
+async function checkForUpdate() {
+  try {
+    const data = await api('GET', '/version');
+    if (data.updateAvailable) {
+      const banner = document.getElementById('update-banner');
+      document.getElementById('update-banner-msg').textContent =
+        `Update available: v${data.current} → v${data.latest}  —  ${data.date ?? ''}`;
+      banner.style.display = 'flex';
+    }
+  } catch {
+    // silently ignore — server might not have network
+  }
+}
+
+async function doUpdate() {
+  const modal = document.getElementById('update-modal');
+  const spinner = document.getElementById('update-spinner');
+  const result = document.getElementById('update-modal-result');
+  const footer = document.getElementById('update-modal-footer');
+  const btn = document.getElementById('btn-update-now');
+
+  modal.style.display = 'flex';
+  spinner.style.display = 'block';
+  result.style.display = 'none';
+  footer.style.display = 'none';
+  btn.disabled = true;
+
+  try {
+    const data = await api('POST', '/update');
+    spinner.style.display = 'none';
+    result.style.display = 'block';
+    footer.style.display = 'block';
+    if (data.ok) {
+      result.textContent = '✓ ' + data.message;
+      result.style.color = 'var(--success)';
+      document.getElementById('update-banner').style.display = 'none';
+    } else {
+      result.textContent = '✗ ' + data.message;
+      result.style.color = 'var(--error)';
+      btn.disabled = false;
+    }
+  } catch (e) {
+    spinner.style.display = 'none';
+    result.style.display = 'block';
+    result.textContent = '✗ ' + e.message;
+    result.style.color = 'var(--error)';
+    footer.style.display = 'block';
+    btn.disabled = false;
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 loadProviders();
+checkForUpdate();

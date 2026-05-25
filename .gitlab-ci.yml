@@ -1,11 +1,41 @@
 stages:
+  - bump
   - build
+  - version
   - deploy
 
 variables:
   DEPLOY_HOST: "ubuntu@140.245.113.229"
   DEPLOY_PATH: "/var/www/manthra"
   PKG_CACHE_PATH: "$CI_PROJECT_DIR/.pkg-cache"
+
+# ── Bump version (manual) ─────────────────────────────────────────────────────
+# Trigger manually from GitLab CI → Run Pipeline.
+# Set BUMP_TYPE variable to: patch | minor | major
+# This commits the version bump with [skip ci] so the commit doesn't re-trigger
+# a pipeline, then pushes the tag — the tag triggers build → version → deploy.
+#
+# Requires GIT_PUSH_TOKEN project variable:
+#   Settings → CI/CD → Variables → add GIT_PUSH_TOKEN
+#   Value: a project access token with Developer role + write_repository scope
+
+bump:
+  stage: bump
+  image: node:18-bullseye
+  tags:
+    - iins-v4-backend
+  variables:
+    BUMP_TYPE: "patch"
+  script:
+    - git config user.email "ci@manthra"
+    - git config user.name "Manthra CI"
+    - git remote set-url origin "https://oauth2:${GIT_PUSH_TOKEN}@gitlab.informaticsint.au/infoins-v4/info-ai/manthra.git"
+    - npm version $BUMP_TYPE -m "chore: bump to %s [skip ci]"
+    - git push origin HEAD:main
+    - git push origin --tags
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
 
 # ── Build standalone binaries ─────────────────────────────────────────────────
 
@@ -36,7 +66,30 @@ build:
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_COMMIT_TAG'
 
+# ── Generate version.json (tag releases only) ─────────────────────────────────
+
+version:
+  stage: version
+  image: node:18-alpine
+  tags:
+    - iins-v4-backend
+  needs:
+    - build
+  script:
+    - VERSION=$(node -p "require('./package.json').version")
+    - DATE=$(date -u +%Y-%m-%d)
+    - echo "{\"version\":\"${VERSION}\",\"date\":\"${DATE}\"}" > web/version.json
+    - echo "Generated version.json — v${VERSION} (${DATE})"
+  artifacts:
+    paths:
+      - web/version.json
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_TAG'
+
 # ── Deploy to server ───────────────────────────────────────────────────────────
+# On tag: includes version.json → users get update notification
+# On main push: deploys code changes only, no version.json update
 
 deploy:
   stage: deploy
@@ -44,7 +97,9 @@ deploy:
   tags:
     - iins-v4-backend
   needs:
-    - build
+    - job: build
+    - job: version
+      optional: true
   before_script:
     - apk add --no-cache openssh-client rsync
     - eval $(ssh-agent -s)
@@ -62,6 +117,7 @@ deploy:
     - echo "Deployed to https://manthra.informaticsint.au"
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_TAG'
   environment:
     name: production
     url: https://manthra.informaticsint.au

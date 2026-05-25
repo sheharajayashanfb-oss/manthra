@@ -15,11 +15,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 function getVersion(): string {
+  // In standalone binary, process.env.APP_VERSION is injected at build time by tsup define.
+  // In dev mode, fall back to reading package.json.
+  if (process.env.APP_VERSION) return process.env.APP_VERSION;
   try {
     const pkg = JSON.parse(readFileSync(join(__dirname, '../../package.json'), 'utf-8')) as { version: string };
     return pkg.version;
   } catch {
-    return '0.1.0';
+    return '0.0.0';
   }
 }
 

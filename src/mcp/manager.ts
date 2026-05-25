@@ -24,21 +24,22 @@ class McpManager {
 
   async initAll(): Promise<Array<{ name: string; ok: boolean; toolCount: number; error?: string }>> {
     const config = getConfig();
-    const servers: McpServerConfig[] = config.mcpServers ?? [];
-    const results: Array<{ name: string; ok: boolean; toolCount: number; error?: string }> = [];
+    const servers = (config.mcpServers ?? []).filter((s) => s.enabled);
 
-    for (const server of servers) {
-      if (!server.enabled) continue;
-      const before = this.tools.size;
-      const result = await this.connectServer(server);
-      const after = this.tools.size;
-      results.push({ name: server.name, ok: result.ok, toolCount: after - before, error: result.error });
-    }
+    const settled = await Promise.allSettled(
+      servers.map((server) =>
+        this.connectServer(server).then((r) => ({ name: server.name, ...r })),
+      ),
+    );
 
-    return results;
+    return settled.map((r) =>
+      r.status === 'fulfilled'
+        ? r.value
+        : { name: '?', ok: false, toolCount: 0, error: String(r.reason) },
+    );
   }
 
-  async connectServer(server: McpServerConfig): Promise<{ ok: boolean; error?: string }> {
+  async connectServer(server: McpServerConfig): Promise<{ ok: boolean; toolCount: number; error?: string }> {
     try {
       const client = new McpClient(server);
       await client.connect();
@@ -50,9 +51,9 @@ class McpManager {
         const prefixed = mcpToolName(server.name, tool.name);
         this.tools.set(prefixed, { ...tool, name: prefixed });
       }
-      return { ok: true };
+      return { ok: true, toolCount: serverTools.length };
     } catch (err) {
-      return { ok: false, error: String(err) };
+      return { ok: false, toolCount: 0, error: String(err) };
     }
   }
 

@@ -29,7 +29,7 @@ export class McpClient {
       transport = new SSEClientTransport(new URL(this.config.url));
     }
 
-    await this.client.connect(transport);
+    await this.client.connect(transport, { timeout: 20000 });
     this._connected = true;
   }
 

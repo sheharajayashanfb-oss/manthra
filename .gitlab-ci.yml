@@ -27,12 +27,12 @@ bump:
   variables:
     BUMP_TYPE: "patch"
   script:
-    - git config user.email "ci@manthra"
-    - git config user.name "Manthra CI"
-    - git remote set-url origin "https://oauth2:${GIT_PUSH_TOKEN}@gitlab.informaticsint.au/infoins-v4/info-ai/manthra.git"
-    - npm version $BUMP_TYPE -m "chore: bump to %s [skip ci]"
-    - git push origin HEAD:main
-    - git push origin --tags
+    - 'git config user.email "ci@manthra"'
+    - 'git config user.name "Manthra CI"'
+    - 'git remote set-url origin "https://oauth2:${GIT_PUSH_TOKEN}@gitlab.informaticsint.au/infoins-v4/info-ai/manthra.git"'
+    - 'npm version $BUMP_TYPE --message "chore: bump to %s [skip ci]"'
+    - 'git push origin HEAD:main'
+    - 'git push origin --tags'
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual

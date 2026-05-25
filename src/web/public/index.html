@@ -112,6 +112,81 @@
             <button class="btn btn-primary" onclick="showAddMcp()">+ Add Server</button>
           </div>
         </div>
+
+        <!-- MCP Guide -->
+        <div class="mcp-guide">
+          <h2 class="mcp-guide-title">How to add an MCP server</h2>
+
+          <div class="mcp-guide-steps">
+            <div class="mcp-guide-step">
+              <div class="mcp-guide-step-num">1</div>
+              <div>
+                <strong>Find a server</strong>
+                <p>Browse the official registry or community directories to find MCP servers for your needs.</p>
+                <div class="mcp-guide-links">
+                  <a href="https://github.com/modelcontextprotocol/servers" target="_blank" class="mcp-guide-link">Official MCP Registry ↗</a>
+                  <a href="https://mcp.so" target="_blank" class="mcp-guide-link">mcp.so ↗</a>
+                  <a href="https://smithery.ai" target="_blank" class="mcp-guide-link">Smithery ↗</a>
+                </div>
+              </div>
+            </div>
+            <div class="mcp-guide-step">
+              <div class="mcp-guide-step-num">2</div>
+              <div>
+                <strong>Copy the config from its README</strong>
+                <p>Each server's README shows the exact <code>command</code>, <code>args</code>, and <code>env</code> values to use.</p>
+              </div>
+            </div>
+            <div class="mcp-guide-step">
+              <div class="mcp-guide-step-num">3</div>
+              <div>
+                <strong>Paste into the form and test</strong>
+                <p>Click <em>+ Add Server</em>, fill in the details, then hit <em>Test Connection</em> to verify it works.</p>
+              </div>
+            </div>
+          </div>
+
+          <h3 class="mcp-guide-subtitle">Popular servers</h3>
+          <div class="mcp-examples-grid">
+            <div class="mcp-example">
+              <div class="mcp-example-name">Playwright</div>
+              <div class="mcp-example-desc">Browser automation &amp; web scraping</div>
+              <div class="mcp-example-code">
+                <span class="mcp-code-label">Command</span><code>npx</code>
+                <span class="mcp-code-label">Args</span><code>--prefer-offline<br>-y<br>@playwright/mcp@latest</code>
+              </div>
+            </div>
+            <div class="mcp-example">
+              <div class="mcp-example-name">Context7</div>
+              <div class="mcp-example-desc">Up-to-date library documentation</div>
+              <div class="mcp-example-code">
+                <span class="mcp-code-label">Command</span><code>npx</code>
+                <span class="mcp-code-label">Args</span><code>--prefer-offline<br>-y<br>@upstash/context7-mcp</code>
+              </div>
+            </div>
+            <div class="mcp-example">
+              <div class="mcp-example-name">Sequential Thinking</div>
+              <div class="mcp-example-desc">Step-by-step reasoning tool</div>
+              <div class="mcp-example-code">
+                <span class="mcp-code-label">Command</span><code>npx</code>
+                <span class="mcp-code-label">Args</span><code>--prefer-offline<br>-y<br>@modelcontextprotocol/server-sequential-thinking</code>
+              </div>
+            </div>
+            <div class="mcp-example">
+              <div class="mcp-example-name">GitLab</div>
+              <div class="mcp-example-desc">GitLab repos, issues &amp; MRs</div>
+              <div class="mcp-example-code">
+                <span class="mcp-code-label">Command</span><code>npx</code>
+                <span class="mcp-code-label">Args</span><code>--prefer-offline<br>-y<br>@zereight/mcp-gitlab</code>
+                <span class="mcp-code-label">Env</span><code>GITLAB_PERSONAL_ACCESS_TOKEN=your_token<br>GITLAB_API_URL=https://gitlab.com/api/v4</code>
+              </div>
+            </div>
+          </div>
+
+          <div class="mcp-guide-tip">
+            <strong>Tip:</strong> Always add <code>--prefer-offline</code> as the first argument when using <code>npx</code> — it skips the npm registry check and starts the server instantly from cache.
+          </div>
+        </div>
       </div>
 
       <!-- Tools View -->

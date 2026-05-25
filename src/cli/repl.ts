@@ -305,7 +305,7 @@ export class REPL {
     // Inject multi-agent guidance when enabled
     const config2 = getConfig();
     const agentSection = config2.multiAgent
-      ? `# Multi-Agent Mode\n\nYou have access to the \`agent_spawn\` tool to delegate self-contained subtasks to a sub-agent. Use it when a task can be broken into independent parts that each require multiple tool calls. Each sub-agent has full tool access and runs to completion before returning its result.`
+      ? `# Multi-Agent Mode\n\nMulti-agent mode is enabled. You MUST actively use the \`agent_spawn\` tool to delegate work whenever possible. For any task that involves multiple steps, file operations, research, or can be broken into independent parts — always spawn sub-agents rather than doing everything yourself. Each sub-agent has full tool access and runs to completion before returning its result. Prefer parallelism: spawn multiple sub-agents for independent subtasks instead of working sequentially.`
       : null;
 
     return [projectInstructions, base, cwd, platform, memory, mcpSection, agentSection].filter(Boolean).join('\n\n');

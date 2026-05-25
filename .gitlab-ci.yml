@@ -85,6 +85,7 @@ version:
       - web/version.json
     expire_in: 30 days
   rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_COMMIT_TAG'
 
 # ── Deploy to server ───────────────────────────────────────────────────────────

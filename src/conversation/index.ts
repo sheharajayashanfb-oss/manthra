@@ -10,10 +10,21 @@ export class ConversationHistory {
   add(message: Message): void {
     this.messages.push(message);
     if (this.messages.length > this.maxMessages) {
-      // Keep system messages and trim oldest non-system messages
       const system = this.messages.filter((m) => m.role === 'system');
       const rest = this.messages.filter((m) => m.role !== 'system');
-      this.messages = [...system, ...rest.slice(-this.maxMessages + system.length)];
+      let sliced = rest.slice(-this.maxMessages + system.length);
+
+      // Don't start with an orphaned tool_result — that would have no preceding tool_calls
+      while (sliced.length > 0) {
+        const first = sliced[0];
+        const isToolResult =
+          Array.isArray(first.content) &&
+          (first.content as Array<{ type: string }>).some((b) => b.type === 'tool_result');
+        if (!isToolResult) break;
+        sliced = sliced.slice(1);
+      }
+
+      this.messages = [...system, ...sliced];
     }
   }
 

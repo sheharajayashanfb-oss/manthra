@@ -89,6 +89,7 @@ function normalizeMessages(messages: Message[], system?: string): OpenAIMessage[
 
     if (toolCalls.length > 0) {
       const msg: OpenAIMessage = { role: m.role, content: textParts.join('') || null, tool_calls: toolCalls };
+      if (reasoningContent) msg.reasoning_content = reasoningContent;
       result.push(msg);
     } else if (imageParts.length > 0) {
       const parts: OpenAIContentPart[] = [];

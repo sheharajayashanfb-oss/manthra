@@ -101,7 +101,10 @@
             <h1>MCP Servers</h1>
             <p class="subtitle">Model Context Protocol servers extend Manthra with additional tools</p>
           </div>
-          <button class="btn btn-primary" id="btn-add-mcp">+ Add Server</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" onclick="openCatalog()">Browse Catalog</button>
+            <button class="btn btn-primary" id="btn-add-mcp">+ Add Server</button>
+          </div>
         </div>
 
         <div id="mcp-grid" class="providers-grid">
@@ -335,6 +338,26 @@
           <button class="btn btn-ghost" onclick="closeMcpModal()">Cancel</button>
           <button class="btn btn-primary" onclick="saveMcpServer()">Save Server</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MCP Catalog Modal -->
+  <div id="catalog-overlay" class="catalog-overlay" style="display:none" onclick="if(event.target===this)closeCatalog()">
+    <div class="catalog-modal">
+      <div class="catalog-header">
+        <div>
+          <h2>MCP Server Catalog</h2>
+          <p class="subtitle">Browse and add MCP servers to Manthra</p>
+        </div>
+        <button class="modal-close" onclick="closeCatalog()">✕</button>
+      </div>
+      <div class="catalog-toolbar">
+        <input type="text" id="catalog-search" class="catalog-search" placeholder="Search servers…" oninput="renderCatalog()">
+        <div class="catalog-filters" id="catalog-filters"></div>
+      </div>
+      <div class="catalog-body">
+        <div id="catalog-grid" class="catalog-grid"></div>
       </div>
     </div>
   </div>

@@ -4,6 +4,263 @@ let config = {};
 let mcpServers = [];
 let editingMcpId = null;
 let editingId = null;
+let catalogFilter = 'all';
+
+// ── MCP Catalog ───────────────────────────────────────────────────────────────
+
+const MCP_CATALOG = [
+  {
+    id: 'playwright',
+    name: 'Playwright',
+    category: 'browser',
+    official: false,
+    description: 'Browser automation, web scraping and UI testing via a real Chromium browser.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@playwright/mcp@latest'],
+    env: [],
+    tools: ['browser_navigate', 'browser_click', 'browser_fill', 'browser_screenshot', 'browser_evaluate', 'browser_select_option', 'browser_hover', 'browser_type', 'browser_get_text', 'browser_wait'],
+  },
+  {
+    id: 'context7',
+    name: 'Context7',
+    category: 'docs',
+    official: false,
+    description: 'Fetches up-to-date documentation for any library directly into the context.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@upstash/context7-mcp'],
+    env: [],
+    tools: ['resolve-library-id', 'get-library-docs'],
+  },
+  {
+    id: 'sequential-thinking',
+    name: 'Sequential Thinking',
+    category: 'reasoning',
+    official: true,
+    description: 'Structured step-by-step reasoning for complex multi-step problems.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@modelcontextprotocol/server-sequential-thinking'],
+    env: [],
+    tools: ['sequentialthinking'],
+  },
+  {
+    id: 'gitlab',
+    name: 'GitLab',
+    category: 'code',
+    official: false,
+    description: 'Manage GitLab repos, issues, merge requests, pipelines and more.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@zereight/mcp-gitlab'],
+    env: ['GITLAB_PERSONAL_ACCESS_TOKEN=your_token', 'GITLAB_API_URL=https://gitlab.com/api/v4'],
+    tools: ['list_projects', 'get_project', 'list_issues', 'create_issue', 'update_issue', 'list_merge_requests', 'create_merge_request', 'list_pipelines', 'get_file_contents', 'push_files'],
+  },
+  {
+    id: 'github',
+    name: 'GitHub',
+    category: 'code',
+    official: true,
+    description: 'Interact with GitHub repos, issues, pull requests, files and search.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@modelcontextprotocol/server-github'],
+    env: ['GITHUB_PERSONAL_ACCESS_TOKEN=your_token'],
+    tools: ['search_repositories', 'get_file_contents', 'push_files', 'create_issue', 'create_pull_request', 'list_issues', 'create_or_update_file', 'fork_repository', 'create_branch'],
+  },
+  {
+    id: 'filesystem',
+    name: 'Filesystem',
+    category: 'files',
+    official: true,
+    description: 'Secure file read/write access to a specified directory on your machine.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@modelcontextprotocol/server-filesystem', '/path/to/dir'],
+    env: [],
+    tools: ['read_file', 'write_file', 'create_directory', 'list_directory', 'move_file', 'search_files', 'get_file_info'],
+  },
+  {
+    id: 'brave-search',
+    name: 'Brave Search',
+    category: 'search',
+    official: true,
+    description: 'Real-time web and local search powered by the Brave Search API.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@modelcontextprotocol/server-brave-search'],
+    env: ['BRAVE_API_KEY=your_key'],
+    tools: ['brave_web_search', 'brave_local_search'],
+  },
+  {
+    id: 'memory',
+    name: 'Memory',
+    category: 'reasoning',
+    official: true,
+    description: 'Persistent knowledge graph memory that survives across sessions.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@modelcontextprotocol/server-memory'],
+    env: [],
+    tools: ['create_entities', 'create_relations', 'add_observations', 'delete_entities', 'search_nodes', 'read_graph', 'open_nodes'],
+  },
+  {
+    id: 'slack',
+    name: 'Slack',
+    category: 'communication',
+    official: true,
+    description: 'Post messages, reply to threads and read channels in Slack workspaces.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@modelcontextprotocol/server-slack'],
+    env: ['SLACK_BOT_TOKEN=xoxb-your-token', 'SLACK_TEAM_ID=your_team_id'],
+    tools: ['slack_post_message', 'slack_reply_to_thread', 'slack_add_reaction', 'slack_get_channels', 'slack_get_channel_history', 'slack_get_users'],
+  },
+  {
+    id: 'postgres',
+    name: 'PostgreSQL',
+    category: 'database',
+    official: true,
+    description: 'Read-only SQL queries against a PostgreSQL database with schema inspection.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@modelcontextprotocol/server-postgres', 'postgresql://user:pass@localhost/db'],
+    env: [],
+    tools: ['query', 'list_tables', 'describe_table'],
+  },
+  {
+    id: 'sqlite',
+    name: 'SQLite',
+    category: 'database',
+    official: true,
+    description: 'Read and write SQLite databases with schema inspection and query execution.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@modelcontextprotocol/server-sqlite', '--db-path', '/path/to/db.sqlite'],
+    env: [],
+    tools: ['read_query', 'write_query', 'create_table', 'list_tables', 'describe_table', 'append_insight'],
+  },
+  {
+    id: 'puppeteer',
+    name: 'Puppeteer',
+    category: 'browser',
+    official: true,
+    description: 'Headless browser automation with screenshots and JavaScript evaluation.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@modelcontextprotocol/server-puppeteer'],
+    env: [],
+    tools: ['puppeteer_navigate', 'puppeteer_screenshot', 'puppeteer_click', 'puppeteer_fill', 'puppeteer_evaluate', 'puppeteer_select', 'puppeteer_hover'],
+  },
+  {
+    id: 'jira',
+    name: 'Jira',
+    category: 'communication',
+    official: false,
+    description: 'Create, update and search Jira issues and projects.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', 'mcp-server-jira'],
+    env: ['JIRA_HOST=https://your-org.atlassian.net', 'JIRA_EMAIL=you@example.com', 'JIRA_API_TOKEN=your_token'],
+    tools: ['get_issue', 'create_issue', 'update_issue', 'search_issues', 'list_projects', 'add_comment'],
+  },
+  {
+    id: 'notion',
+    name: 'Notion',
+    category: 'docs',
+    official: false,
+    description: 'Read and write Notion pages, databases and blocks.',
+    command: 'npx',
+    args: ['--prefer-offline', '-y', '@suesu/notion-mcp-server'],
+    env: ['NOTION_API_TOKEN=secret_your_token'],
+    tools: ['get_page', 'create_page', 'update_page', 'query_database', 'search', 'append_block'],
+  },
+];
+
+const CATALOG_CATEGORIES = [
+  { id: 'all', label: 'All' },
+  { id: 'browser', label: 'Browser' },
+  { id: 'code', label: 'Code' },
+  { id: 'database', label: 'Database' },
+  { id: 'docs', label: 'Docs' },
+  { id: 'files', label: 'Files' },
+  { id: 'reasoning', label: 'Reasoning' },
+  { id: 'search', label: 'Search' },
+  { id: 'communication', label: 'Communication' },
+];
+
+function openCatalog() {
+  document.getElementById('catalog-overlay').style.display = 'flex';
+  catalogFilter = 'all';
+  renderCatalogFilters();
+  renderCatalog();
+  setTimeout(() => document.getElementById('catalog-search').focus(), 50);
+}
+
+function closeCatalog() {
+  document.getElementById('catalog-overlay').style.display = 'none';
+  document.getElementById('catalog-search').value = '';
+}
+
+function renderCatalogFilters() {
+  const el = document.getElementById('catalog-filters');
+  el.innerHTML = CATALOG_CATEGORIES.map(c => `
+    <button class="catalog-filter-btn ${catalogFilter === c.id ? 'active' : ''}"
+      onclick="setCatalogFilter('${c.id}')">${c.label}</button>
+  `).join('');
+}
+
+function setCatalogFilter(id) {
+  catalogFilter = id;
+  renderCatalogFilters();
+  renderCatalog();
+}
+
+function renderCatalog() {
+  const q = (document.getElementById('catalog-search').value || '').toLowerCase();
+  const grid = document.getElementById('catalog-grid');
+
+  const filtered = MCP_CATALOG.filter(s => {
+    const matchCat = catalogFilter === 'all' || s.category === catalogFilter;
+    const matchQ = !q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q) ||
+      s.tools.some(t => t.toLowerCase().includes(q));
+    return matchCat && matchQ;
+  });
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '<p style="color:var(--text-muted);font-size:0.78rem;grid-column:1/-1;text-align:center;padding:40px 0">No servers match your search.</p>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(s => {
+    const visibleTools = s.tools.slice(0, 5);
+    const moreCount = s.tools.length - visibleTools.length;
+    const envHtml = s.env.length
+      ? `<div class="catalog-card-env">Requires: ${s.env.map(e => `<code>${e.split('=')[0]}</code>`).join(', ')}</div>`
+      : '';
+    return `
+      <div class="catalog-card">
+        <div class="catalog-card-head">
+          <span class="catalog-card-name">${s.name}</span>
+          <div class="catalog-card-badges">
+            <span class="catalog-badge ${s.official ? 'badge-official' : 'badge-community'}">${s.official ? 'official' : 'community'}</span>
+          </div>
+        </div>
+        <div class="catalog-card-desc">${s.description}</div>
+        <div class="catalog-card-tools">
+          ${visibleTools.map(t => `<span class="catalog-tool-tag">${t}</span>`).join('')}
+          ${moreCount > 0 ? `<span class="catalog-tool-more">+${moreCount} more</span>` : ''}
+        </div>
+        ${envHtml}
+        <div class="catalog-card-footer">
+          <button class="catalog-add-btn" onclick="catalogAdd('${s.id}')">+ Add to Manthra</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function catalogAdd(id) {
+  const s = MCP_CATALOG.find(x => x.id === id);
+  if (!s) return;
+  closeCatalog();
+  showAddMcp();
+  setTimeout(() => {
+    document.getElementById('mcp-form-name').value = s.name;
+    document.getElementById('mcp-form-transport').value = 'stdio';
+    onMcpTransportChange();
+    document.getElementById('mcp-form-command').value = s.command;
+    document.getElementById('mcp-form-args').value = s.args.join('\n');
+    document.getElementById('mcp-form-env').value = s.env.join('\n');
+  }, 50);
+}
 
 const PROVIDER_META = {
   ollama:     { icon: '🟣', label: 'Ollama' },

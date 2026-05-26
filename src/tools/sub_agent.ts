@@ -54,36 +54,44 @@ export function createSubAgentTool(
       let memberLabel = 'sub-agent';
       let memberIdMismatch: string | null = null;
 
+      // Unique member list (registry stores each runtime under slug + raw ID — deduplicate by reference)
+      const uniqueMembers: TeamMemberRuntime[] = [];
       if (teamMembers && teamMembers.size > 0) {
+        const seen = new Set<TeamMemberRuntime>();
+        for (const m of teamMembers.values()) {
+          if (!seen.has(m)) { seen.add(m); uniqueMembers.push(m); }
+        }
+      }
+
+      if (uniqueMembers.length > 0) {
         let matched: TeamMemberRuntime | undefined;
 
         if (memberId) {
           // 1. Exact key match (slug or raw ID)
-          matched = teamMembers.get(memberId);
+          matched = teamMembers!.get(memberId);
 
           if (!matched) {
-            // 2. Case-insensitive slug match
+            // 2. Normalise and try again
             const normalised = memberId.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-            matched = teamMembers.get(normalised);
+            matched = teamMembers!.get(normalised);
           }
 
           if (!matched) {
-            // 3. Case-insensitive name match across all entries
+            // 3. Case-insensitive name match
             const lower = memberId.toLowerCase();
-            for (const m of teamMembers.values()) {
-              if (m.name.toLowerCase() === lower) { matched = m; break; }
-            }
+            matched = uniqueMembers.find((m) => m.name.toLowerCase() === lower);
           }
 
           if (!matched) memberIdMismatch = memberId;
         }
 
-        if (matched) {
-          spawnProvider = matched.provider;
-          spawnModel = matched.model;
-          if (matched.tools.length > 0) allowedTools = matched.tools;
-          memberLabel = matched.name;
-        }
+        // In team mode always use a member — fall back to first when unresolved
+        if (!matched) matched = uniqueMembers[0];
+
+        spawnProvider = matched.provider;
+        spawnModel = matched.model;
+        if (matched.tools.length > 0) allowedTools = matched.tools;
+        memberLabel = matched.name;
       }
 
       const BOX_W = 62;
@@ -97,11 +105,7 @@ export function createSubAgentTool(
       );
       process.stdout.write(chalk.dim(`  │  Task: ${taskPreview}\n`));
       if (memberIdMismatch) {
-        process.stdout.write(chalk.yellow(`  │  ⚠  member_id not found: "${memberIdMismatch}"\n`));
-      }
-      if (!memberId && teamMembers && teamMembers.size > 0) {
-        const available = [...new Set([...teamMembers.values()].map((m) => m.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')))].join(', ');
-        process.stdout.write(chalk.yellow(`  │  ⚠  no member_id given — available: ${available}\n`));
+        process.stdout.write(chalk.yellow(`  │  ⚠  member_id "${memberIdMismatch}" not matched — using ${memberLabel}\n`));
       }
       if (allowedTools) {
         process.stdout.write(chalk.dim(`  │  Tools: ${allowedTools.join(', ')}\n`));

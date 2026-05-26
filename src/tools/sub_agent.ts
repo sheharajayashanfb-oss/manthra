@@ -52,13 +52,38 @@ export function createSubAgentTool(
       let spawnModel = defaultModel;
       let allowedTools: string[] | null = null;
       let memberLabel = 'sub-agent';
+      let memberIdMismatch: string | null = null;
 
-      if (memberId && teamMembers?.has(memberId)) {
-        const member = teamMembers.get(memberId)!;
-        spawnProvider = member.provider;
-        spawnModel = member.model;
-        if (member.tools.length > 0) allowedTools = member.tools;
-        memberLabel = member.name;
+      if (teamMembers && teamMembers.size > 0) {
+        let matched: TeamMemberRuntime | undefined;
+
+        if (memberId) {
+          // 1. Exact key match (slug or raw ID)
+          matched = teamMembers.get(memberId);
+
+          if (!matched) {
+            // 2. Case-insensitive slug match
+            const normalised = memberId.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            matched = teamMembers.get(normalised);
+          }
+
+          if (!matched) {
+            // 3. Case-insensitive name match across all entries
+            const lower = memberId.toLowerCase();
+            for (const m of teamMembers.values()) {
+              if (m.name.toLowerCase() === lower) { matched = m; break; }
+            }
+          }
+
+          if (!matched) memberIdMismatch = memberId;
+        }
+
+        if (matched) {
+          spawnProvider = matched.provider;
+          spawnModel = matched.model;
+          if (matched.tools.length > 0) allowedTools = matched.tools;
+          memberLabel = matched.name;
+        }
       }
 
       const BOX_W = 62;
@@ -71,6 +96,13 @@ export function createSubAgentTool(
         chalk.dim(` · ${modelShort} `) + chalk.dim('─'.repeat(headerFill)) + '\n',
       );
       process.stdout.write(chalk.dim(`  │  Task: ${taskPreview}\n`));
+      if (memberIdMismatch) {
+        process.stdout.write(chalk.yellow(`  │  ⚠  member_id not found: "${memberIdMismatch}"\n`));
+      }
+      if (!memberId && teamMembers && teamMembers.size > 0) {
+        const available = [...new Set([...teamMembers.values()].map((m) => m.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')))].join(', ');
+        process.stdout.write(chalk.yellow(`  │  ⚠  no member_id given — available: ${available}\n`));
+      }
       if (allowedTools) {
         process.stdout.write(chalk.dim(`  │  Tools: ${allowedTools.join(', ')}\n`));
       }

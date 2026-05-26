@@ -362,8 +362,10 @@ export class REPL {
       agentSection =
         `# Active Team: ${activeTeam2.name}\n\n` +
         (activeTeam2.description ? `${activeTeam2.description}\n\n` : '') +
-        `You are the orchestrator. Break tasks down and delegate to team members using \`agent_spawn\` with the appropriate \`member_id\`. ` +
-        `Each member has specific tools and expertise — always route work to the most suitable member. ` +
+        `You are the orchestrator. You MUST delegate ALL work to team members using \`agent_spawn\` with the appropriate \`member_id\`. ` +
+        `Never attempt to complete tasks directly — always route every subtask to the most suitable member. ` +
+        `For any request involving multiple steps, file operations, research, code changes, or analysis — spawn the relevant team member instead of doing it yourself. ` +
+        `Prefer parallelism: spawn multiple members for independent subtasks rather than working sequentially. ` +
         `Synthesize all member results into a cohesive final response.\n\n` +
         `## Team Members\n\n${memberLines}`;
     } else if (config2.multiAgent) {

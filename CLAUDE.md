@@ -75,12 +75,17 @@ interface Tool {
 - Silent mode for internal tool calls
 
 **Tool Categories**:
-- **fs**: `read`, `write`, `edit`, `list_dir`, `glob`, `grep` (all CWD-aware; operations outside CWD prompt for permission)
+- **fs**: `read_file`, `write_file`, `edit_file`, `list_files`, `delete_file` (all CWD-aware; operations outside CWD prompt for permission)
+- **search**: `glob_search`, `grep_search`, `search_symbol`, `docs_search`
 - **shell**: `bash`, `run_script` (platform-aware: detects Windows/PowerShell)
-- **git**: `git_log`, `git_status`, `git_diff`, `git_add`, `git_commit`, etc.
-- **web**: `web_fetch`, `http_request`
-- **search**: `search_web`, `search_files`
-- **others**: `agent_*` (Manthra internal), `build_*` (npm/gradle/etc.), `db_*` (query), `infra_*` (cloud), `safety_*` (code analysis), `embed_*` (embeddings)
+- **git**: `git_status`, `git_diff`, `git_add`, `git_commit`, `git_log`
+- **web**: `web_fetch`, `web_search`
+- **build**: `run_tests`, `build_project`, `lint_code`
+- **infra**: `docker_exec`, `docker_logs`, `k8s_apply`
+- **db**: `db_query`, `db_schema`
+- **safety**: `confirm_action`, `block_command`
+- **embed**: `generate_embeddings`
+- **agent**: `think`, `memory_save`, `memory_get`, `task_create`, `task_update`, `agent_spawn`
 
 ### Configuration
 

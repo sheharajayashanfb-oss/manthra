@@ -302,7 +302,7 @@ export class REPL {
       registerDynamicTool(createSubAgentTool(this.provider!, this.model, teamRegistry));
       process.stdout.write(
         chalk.green('  ✓  ') + chalk.cyan(`Team: ${activeTeam.name}`) +
-        chalk.dim(`  ${activeTeam.members.length} member${activeTeam.members.length !== 1 ? 's' : ''} · orchestrator ready`) + '\n',
+        chalk.dim(`  ${activeTeam.members.length} member${activeTeam.members.length !== 1 ? 's' : ''} · agent_spawn ready`) + '\n',
       );
       for (const m of activeTeam.members) {
         const ok = teamRegistry.has(m.id);

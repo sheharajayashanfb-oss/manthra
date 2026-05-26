@@ -76,7 +76,7 @@ export function createSubAgentTool(
       }
       process.stdout.write(chalk.dim('  │\n'));
 
-      const allTools = getAllTools();
+      const allTools = getAllTools().filter((t) => t.name !== 'agent_spawn');
       const toolDefs = (allowedTools
         ? allTools.filter((t) => allowedTools!.includes(t.name))
         : allTools

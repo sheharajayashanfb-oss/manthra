@@ -386,8 +386,10 @@ export class REPL {
     }
 
     const { projectInstructions, base, cwd, platform, memory, mcpSection } = this.buildBasePromptParts();
+    // Orchestrator with active team only has agent_spawn — MCP section would be misleading
+    const effectiveMcpSection = activeTeam ? null : mcpSection;
     // agentSection first so delegation rules are the first thing the model reads
-    return [agentSection, projectInstructions, base, cwd, platform, memory, mcpSection].filter(Boolean).join('\n\n');
+    return [agentSection, projectInstructions, base, cwd, platform, memory, effectiveMcpSection].filter(Boolean).join('\n\n');
   }
 
 

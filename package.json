@@ -1,6 +1,6 @@
 {
   "name": "manthra",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "AI coding assistant CLI with multi-provider support",
   "type": "module",
   "bin": {

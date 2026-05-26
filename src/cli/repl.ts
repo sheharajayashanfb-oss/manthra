@@ -299,7 +299,7 @@ export class REPL {
       }
       this.activeTeamName = activeTeam.name;
 
-      registerDynamicTool(createSubAgentTool(this.provider!, this.model, teamRegistry));
+      registerDynamicTool(createSubAgentTool(this.provider!, this.model, teamRegistry, () => this.getSubAgentSystemPrompt()));
       process.stdout.write(
         chalk.green('  ✓  ') + chalk.cyan(`Team: ${activeTeam.name}`) +
         chalk.dim(`  ${activeTeam.members.length} member${activeTeam.members.length !== 1 ? 's' : ''} · agent_spawn ready`) + '\n',
@@ -313,7 +313,7 @@ export class REPL {
         );
       }
     } else if (config.multiAgent && this.provider) {
-      registerDynamicTool(createSubAgentTool(this.provider, this.model));
+      registerDynamicTool(createSubAgentTool(this.provider, this.model, undefined, () => this.getSubAgentSystemPrompt()));
       process.stdout.write(chalk.green('  ✓  ') + chalk.cyan('Multi-agent') + chalk.dim('  agent_spawn tool ready') + '\n');
     }
   }
@@ -329,7 +329,7 @@ export class REPL {
     };
   }
 
-  private getSystemPrompt(): string {
+  private buildBasePromptParts(): (string | null)[] {
     const config = getConfig();
     const base = config.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
     const memory = formatMemoryForContext();
@@ -341,34 +341,37 @@ export class REPL {
       ? `# Project instructions (MANTHRA.md)\n\nThe following instructions come from the project's MANTHRA.md file. They are authoritative and override any conflicting defaults below. You MUST follow them exactly.\n\n${manthraMdContent}`
       : null;
 
-    // Inject MCP tool names into system prompt so the model knows they exist
     const mcpTools = getAllTools().filter((t) => t.name.startsWith('mcp__'));
     const mcpSection = mcpTools.length > 0
       ? `# MCP Tools Available\n\nYou have access to the following MCP (Model Context Protocol) tools. Use them when the user asks for browser automation, web scraping, or any task these tools can handle:\n\n${mcpTools.map((t) => `- \`${t.name}\`: ${t.description}`).join('\n')}`
       : null;
 
-    // Inject team or multi-agent guidance
-    const config2 = getConfig();
-    const activeTeam2 = config2.activeTeam
-      ? config2.teams?.find((t) => t.id === config2.activeTeam && t.enabled)
+    return [projectInstructions, base, cwd, platform, memory, mcpSection];
+  }
+
+  // Full system prompt for the orchestrator (includes team/agent delegation section)
+  private getSystemPrompt(): string {
+    const config = getConfig();
+    const activeTeam = config.activeTeam
+      ? config.teams?.find((t) => t.id === config.activeTeam && t.enabled)
       : undefined;
 
     let agentSection: string | null = null;
-    if (activeTeam2) {
-      const memberLines = activeTeam2.members.map((m) => {
+    if (activeTeam) {
+      const memberLines = activeTeam.members.map((m) => {
         const toolList = m.tools.length > 0 ? m.tools.join(', ') : 'all tools';
         return `- **${m.name}** [member_id: "${m.id}"]\n  Role: ${m.role}\n  Tools: ${toolList}`;
       }).join('\n');
       agentSection =
-        `# Active Team: ${activeTeam2.name}\n\n` +
-        (activeTeam2.description ? `${activeTeam2.description}\n\n` : '') +
+        `# Active Team: ${activeTeam.name}\n\n` +
+        (activeTeam.description ? `${activeTeam.description}\n\n` : '') +
         `You are the orchestrator. You MUST delegate ALL work to team members using \`agent_spawn\` with the appropriate \`member_id\`. ` +
         `Never attempt to complete tasks directly — always route every subtask to the most suitable member. ` +
         `For any request involving multiple steps, file operations, research, code changes, or analysis — spawn the relevant team member instead of doing it yourself. ` +
         `Prefer parallelism: spawn multiple members for independent subtasks rather than working sequentially. ` +
         `Synthesize all member results into a cohesive final response.\n\n` +
         `## Team Members\n\n${memberLines}`;
-    } else if (config2.multiAgent) {
+    } else if (config.multiAgent) {
       agentSection =
         `# Multi-Agent Mode\n\nMulti-agent mode is enabled. You MUST actively use the \`agent_spawn\` tool to delegate work whenever possible. ` +
         `For any task that involves multiple steps, file operations, research, or can be broken into independent parts — always spawn sub-agents rather than doing everything yourself. ` +
@@ -377,7 +380,12 @@ export class REPL {
     }
 
     // agentSection first so delegation rules are the first thing the model reads
-    return [agentSection, projectInstructions, base, cwd, platform, memory, mcpSection].filter(Boolean).join('\n\n');
+    return [agentSection, ...this.buildBasePromptParts()].filter(Boolean).join('\n\n');
+  }
+
+  // System prompt for sub-agents — same blueprint as orchestrator but without delegation instructions
+  private getSubAgentSystemPrompt(): string {
+    return this.buildBasePromptParts().filter(Boolean).join('\n\n');
   }
 
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────

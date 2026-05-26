@@ -16,6 +16,7 @@ export function createSubAgentTool(
   defaultProvider: Provider,
   defaultModel: string,
   teamMembers?: Map<string, TeamMemberRuntime>,
+  getSystemPrompt?: () => string,
 ): Tool {
   return {
     name: 'agent_spawn',
@@ -82,13 +83,12 @@ export function createSubAgentTool(
         : allTools
       ).map((t) => ({ name: t.name, description: t.description, parameters: t.parameters }));
 
+      const systemContent = getSystemPrompt
+        ? getSystemPrompt() + '\n\nYou are a focused sub-agent. Complete the assigned task efficiently using available tools. When finished, provide a concise summary of what you accomplished and any key results.'
+        : 'You are a focused sub-agent. Complete the assigned task efficiently using available tools. When finished, provide a concise summary of what you accomplished and any key results.';
+
       const messages: Message[] = [
-        {
-          role: 'system',
-          content:
-            'You are a focused sub-agent. Complete the assigned task efficiently using available tools. ' +
-            'When finished, provide a concise summary of what you accomplished and any key results.',
-        },
+        { role: 'system', content: systemContent },
         { role: 'user', content: task },
       ];
 

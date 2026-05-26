@@ -191,10 +191,29 @@ export async function startServer(port?: number): Promise<void> {
     }
   });
 
-  // GET /api/tools
-  app.get('/api/tools', (_req, res) => {
+  // GET /api/tools — includes MCP tools fetched live from enabled servers
+  app.get('/api/tools', async (_req, res) => {
     const tools = getAllTools().map(t => ({ name: t.name, description: t.description }));
-    res.json(tools);
+
+    const cfg = getConfig();
+    const mcpServers = (cfg.mcpServers ?? []).filter(s => s.enabled !== false);
+    const mcpTools: { name: string; description: string }[] = [];
+
+    await Promise.all(mcpServers.map(async (srv) => {
+      const client = new McpClient(srv);
+      try {
+        await client.connect();
+        const serverTools = await client.listTools();
+        const prefix = `mcp__${srv.name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}__`;
+        for (const t of serverTools) {
+          mcpTools.push({ name: prefix + t.name, description: t.description });
+        }
+      } catch { /* skip unreachable servers */ } finally {
+        await client.disconnect().catch(() => {});
+      }
+    }));
+
+    res.json([...tools, ...mcpTools]);
   });
 
   // ── MCP Servers ──────────────────────────────────────────────────────────────

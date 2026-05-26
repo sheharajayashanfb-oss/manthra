@@ -40,6 +40,27 @@ export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export const PermissionSchema = z.enum(['ask', 'allow-session', 'allow-always', 'deny-session', 'deny-always']);
 export type Permission = z.infer<typeof PermissionSchema>;
 
+export const TeamMemberSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  role: z.string(),
+  providerId: z.string(),
+  model: z.string(),
+  tools: z.array(z.string()).default([]), // empty = all tools
+});
+export type TeamMember = z.infer<typeof TeamMemberSchema>;
+
+export const TeamSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().default(''),
+  enabled: z.boolean().default(true),
+  orchestratorProviderId: z.string(),
+  orchestratorModel: z.string(),
+  members: z.array(TeamMemberSchema).default([]),
+});
+export type Team = z.infer<typeof TeamSchema>;
+
 export const AppConfigSchema = z.object({
   activeProvider: z.string().optional(),
   activeModel: z.string().optional(),
@@ -52,5 +73,7 @@ export const AppConfigSchema = z.object({
   theme: z.enum(['dark', 'light']).default('dark'),
   mcpServers: z.array(McpServerConfigSchema).default([]),
   multiAgent: z.boolean().default(false),
+  teams: z.array(TeamSchema).default([]),
+  activeTeam: z.string().optional(),
 });
 export type AppConfig = z.infer<typeof AppConfigSchema>;

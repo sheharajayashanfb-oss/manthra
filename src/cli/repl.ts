@@ -7,7 +7,7 @@ import chalk from 'chalk';
 import type { Provider, Message, ContentBlock, StreamEvent, ImageContent } from '../providers/types.js';
 import { ConversationHistory } from '../conversation/index.js';
 import { getConfig } from '../config/loader.js';
-import { loadProviders, getProvider, getDefaultProvider } from '../providers/registry.js';
+import { loadProviders, getProvider, getDefaultProvider, createProvider } from '../providers/registry.js';
 import { DEFAULT_SYSTEM_PROMPT } from '../config/defaults.js';
 import { formatMemoryForContext } from '../memory/store.js';
 import { getCommand, getAllCommands } from '../slash-commands/registry.js';
@@ -17,7 +17,7 @@ import { loadManthraMd } from '../config/manthra-md.js';
 import { getToolDefinitions, registerDynamicTool, getAllTools } from '../tools/registry.js';
 import { executeTool, setPermissionHandler } from '../tools/executor.js';
 import { mcpManager } from '../mcp/manager.js';
-import { createSubAgentTool } from '../tools/sub_agent.js';
+import { createSubAgentTool, type TeamMemberRuntime } from '../tools/sub_agent.js';
 import { platformSystemPrompt } from '../tools/platform.js';
 import type { PermissionDecision } from '../permissions/index.js';
 
@@ -266,8 +266,51 @@ export class REPL {
       }
     }
 
-    // Register sub-agent tool if multi-agent is enabled
-    if (config.multiAgent && this.provider) {
+    // Register sub-agent tool — enabled by multi-agent flag OR active team
+    const activeTeam = config.activeTeam
+      ? config.teams?.find((t) => t.id === config.activeTeam && t.enabled)
+      : undefined;
+
+    if (activeTeam) {
+      // Build provider registry for team members
+      const teamRegistry = new Map<string, TeamMemberRuntime>();
+      for (const member of activeTeam.members) {
+        const memberProviderCfg = config.providers.find((p) => p.id === member.providerId);
+        if (memberProviderCfg) {
+          try {
+            const memberProvider = createProvider(memberProviderCfg);
+            teamRegistry.set(member.id, {
+              provider: memberProvider,
+              model: member.model,
+              tools: member.tools,
+              name: member.name,
+              role: member.role,
+            });
+          } catch { /* skip misconfigured members */ }
+        }
+      }
+
+      // Override active provider/model with orchestrator's
+      const orchCfg = config.providers.find((p) => p.id === activeTeam.orchestratorProviderId);
+      if (orchCfg) {
+        this.provider = createProvider(orchCfg);
+        this.model = activeTeam.orchestratorModel;
+      }
+
+      registerDynamicTool(createSubAgentTool(this.provider!, this.model, teamRegistry));
+      process.stdout.write(
+        chalk.green('  ✓  ') + chalk.cyan(`Team: ${activeTeam.name}`) +
+        chalk.dim(`  ${activeTeam.members.length} member${activeTeam.members.length !== 1 ? 's' : ''} · orchestrator ready`) + '\n',
+      );
+      for (const m of activeTeam.members) {
+        const ok = teamRegistry.has(m.id);
+        process.stdout.write(
+          (ok ? chalk.green('  ✓  ') : chalk.red('  ✗  ')) +
+          chalk.dim(`${m.name}`) +
+          chalk.dim(ok ? `  ${m.tools.length ? m.tools.join(', ') : 'all tools'}` : '  provider not found') + '\n',
+        );
+      }
+    } else if (config.multiAgent && this.provider) {
       registerDynamicTool(createSubAgentTool(this.provider, this.model));
       process.stdout.write(chalk.green('  ✓  ') + chalk.cyan('Multi-agent') + chalk.dim('  agent_spawn tool ready') + '\n');
     }
@@ -302,11 +345,32 @@ export class REPL {
       ? `# MCP Tools Available\n\nYou have access to the following MCP (Model Context Protocol) tools. Use them when the user asks for browser automation, web scraping, or any task these tools can handle:\n\n${mcpTools.map((t) => `- \`${t.name}\`: ${t.description}`).join('\n')}`
       : null;
 
-    // Inject multi-agent guidance when enabled
+    // Inject team or multi-agent guidance
     const config2 = getConfig();
-    const agentSection = config2.multiAgent
-      ? `# Multi-Agent Mode\n\nMulti-agent mode is enabled. You MUST actively use the \`agent_spawn\` tool to delegate work whenever possible. For any task that involves multiple steps, file operations, research, or can be broken into independent parts — always spawn sub-agents rather than doing everything yourself. Each sub-agent has full tool access and runs to completion before returning its result. Prefer parallelism: spawn multiple sub-agents for independent subtasks instead of working sequentially.`
-      : null;
+    const activeTeam2 = config2.activeTeam
+      ? config2.teams?.find((t) => t.id === config2.activeTeam && t.enabled)
+      : undefined;
+
+    let agentSection: string | null = null;
+    if (activeTeam2) {
+      const memberLines = activeTeam2.members.map((m) => {
+        const toolList = m.tools.length > 0 ? m.tools.join(', ') : 'all tools';
+        return `- **${m.name}** [member_id: "${m.id}"]\n  Role: ${m.role}\n  Tools: ${toolList}`;
+      }).join('\n');
+      agentSection =
+        `# Active Team: ${activeTeam2.name}\n\n` +
+        (activeTeam2.description ? `${activeTeam2.description}\n\n` : '') +
+        `You are the orchestrator. Break tasks down and delegate to team members using \`agent_spawn\` with the appropriate \`member_id\`. ` +
+        `Each member has specific tools and expertise — always route work to the most suitable member. ` +
+        `Synthesize all member results into a cohesive final response.\n\n` +
+        `## Team Members\n\n${memberLines}`;
+    } else if (config2.multiAgent) {
+      agentSection =
+        `# Multi-Agent Mode\n\nMulti-agent mode is enabled. You MUST actively use the \`agent_spawn\` tool to delegate work whenever possible. ` +
+        `For any task that involves multiple steps, file operations, research, or can be broken into independent parts — always spawn sub-agents rather than doing everything yourself. ` +
+        `Each sub-agent has full tool access and runs to completion before returning its result. ` +
+        `Prefer parallelism: spawn multiple sub-agents for independent subtasks instead of working sequentially.`;
+    }
 
     return [projectInstructions, base, cwd, platform, memory, mcpSection, agentSection].filter(Boolean).join('\n\n');
   }

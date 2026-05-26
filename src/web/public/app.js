@@ -2,6 +2,10 @@
 let providers = [];
 let config = {};
 let mcpServers = [];
+let teams = [];
+let activeTeam = null;
+let editingTeamId = null;
+let teamMembers = []; // members being edited in the modal
 let editingMcpId = null;
 let editingId = null;
 let catalogFilter = 'all';
@@ -1058,6 +1062,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (btn.dataset.view === 'tools') loadTools();
     if (btn.dataset.view === 'settings') loadSettings();
     if (btn.dataset.view === 'mcp') loadMcpServers();
+    if (btn.dataset.view === 'teams') loadTeams();
   });
 });
 
@@ -1642,6 +1647,241 @@ document.getElementById('btn-add-mcp').addEventListener('click', showAddMcp);
 
 function esc(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Teams ─────────────────────────────────────────────────────────────────────
+
+async function loadTeams() {
+  try {
+    const data = await api('GET', '/teams');
+    teams = data.teams ?? [];
+    activeTeam = data.activeTeam ?? null;
+    renderTeams();
+  } catch (e) {
+    console.error('Failed to load teams', e);
+  }
+}
+
+function renderTeams() {
+  const list = document.getElementById('teams-list');
+  if (!teams.length) {
+    list.innerHTML = `<div class="empty-state" style="display:block">
+      <div class="empty-icon">👥</div>
+      <h3>No teams configured</h3>
+      <p>Create a team to group providers with specific roles and tool restrictions</p>
+      <button class="btn btn-primary" onclick="showAddTeam()">+ New Team</button>
+    </div>`;
+    return;
+  }
+  list.innerHTML = teams.map(team => {
+    const isActive = team.id === activeTeam;
+    const orchProvider = providers.find(p => p.id === team.orchestratorProviderId);
+    const orchLabel = orchProvider ? `${orchProvider.name} / ${team.orchestratorModel}` : team.orchestratorModel;
+    return `<div class="team-card ${isActive ? 'active' : ''}">
+      <div class="team-card-header">
+        <span class="team-card-name">${esc(team.name)}</span>
+        ${isActive ? '<span class="team-active-badge">Active</span>' : ''}
+        <label class="checkbox-label" style="margin:0">
+          <input type="checkbox" ${team.enabled ? 'checked' : ''} onchange="toggleTeamEnabled('${team.id}', this.checked)">
+          <span>Enabled</span>
+        </label>
+      </div>
+      ${team.description ? `<div class="team-card-desc">${esc(team.description)}</div>` : ''}
+      <div class="team-orchestrator">Orchestrator: ${esc(orchLabel)}</div>
+      <div class="team-members-grid">
+        ${team.members.map(m => `
+          <div class="team-member-row">
+            <span class="team-member-name">${esc(m.name)}</span>
+            <span class="team-member-role">${esc(m.role)}</span>
+            <span class="team-member-tools">${m.tools.length ? m.tools.join(', ') : 'all tools'}</span>
+          </div>`).join('')}
+      </div>
+      <div class="team-card-actions">
+        ${isActive
+          ? `<button class="btn btn-secondary btn-sm" onclick="setActiveTeam(null)">Deactivate</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="setActiveTeam('${team.id}')">Set Active</button>`}
+        <button class="btn btn-secondary btn-sm" onclick="editTeam('${team.id}')">Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="deleteTeam('${team.id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function setActiveTeam(teamId) {
+  try {
+    await api('PATCH', '/teams/active', { teamId });
+    activeTeam = teamId;
+    renderTeams();
+    toast(teamId ? 'Team activated' : 'Team deactivated', 'success');
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+async function toggleTeamEnabled(id, enabled) {
+  try {
+    const team = teams.find(t => t.id === id);
+    if (!team) return;
+    const updated = await api('PUT', `/teams/${id}`, { ...team, enabled });
+    teams = teams.map(t => t.id === id ? updated : t);
+    renderTeams();
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+async function deleteTeam(id) {
+  if (!confirm('Delete this team?')) return;
+  try {
+    await api('DELETE', `/teams/${id}`);
+    teams = teams.filter(t => t.id !== id);
+    if (activeTeam === id) activeTeam = null;
+    renderTeams();
+    toast('Team deleted', 'success');
+  } catch (e) {
+    toast('Failed: ' + e.message, 'error');
+  }
+}
+
+function showAddTeam() {
+  editingTeamId = null;
+  teamMembers = [];
+  document.getElementById('team-modal-title').textContent = 'New Team';
+  document.getElementById('team-form-id').value = '';
+  document.getElementById('team-form-name').value = '';
+  document.getElementById('team-form-desc').value = '';
+  document.getElementById('team-form-orch-model').value = '';
+  populateTeamProviderSelects();
+  renderTeamMemberEditors();
+  document.getElementById('team-modal-overlay').style.display = 'flex';
+}
+
+function editTeam(id) {
+  const team = teams.find(t => t.id === id);
+  if (!team) return;
+  editingTeamId = id;
+  teamMembers = team.members.map(m => ({ ...m }));
+  document.getElementById('team-modal-title').textContent = 'Edit Team';
+  document.getElementById('team-form-id').value = team.id;
+  document.getElementById('team-form-name').value = team.name;
+  document.getElementById('team-form-desc').value = team.description ?? '';
+  populateTeamProviderSelects();
+  document.getElementById('team-form-orch-provider').value = team.orchestratorProviderId;
+  document.getElementById('team-form-orch-model').value = team.orchestratorModel;
+  renderTeamMemberEditors();
+  document.getElementById('team-modal-overlay').style.display = 'flex';
+}
+
+function closeTeamModal() {
+  document.getElementById('team-modal-overlay').style.display = 'none';
+}
+
+function populateTeamProviderSelects() {
+  const sel = document.getElementById('team-form-orch-provider');
+  const opts = providers.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  sel.innerHTML = '<option value="">— Select provider —</option>' + opts;
+}
+
+function onTeamOrchProviderChange() {
+  const pid = document.getElementById('team-form-orch-provider').value;
+  const prov = providers.find(p => p.id === pid);
+  if (prov?.defaultModel) {
+    document.getElementById('team-form-orch-model').value = prov.defaultModel;
+  }
+}
+
+function addTeamMember() {
+  teamMembers.push({ id: 'member-' + Date.now(), name: '', role: '', providerId: '', model: '', tools: [] });
+  renderTeamMemberEditors();
+}
+
+function removeTeamMember(idx) {
+  teamMembers.splice(idx, 1);
+  renderTeamMemberEditors();
+}
+
+function renderTeamMemberEditors() {
+  const container = document.getElementById('team-members-list');
+  if (!teamMembers.length) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:12px;padding:8px 0">No members yet. Add a member to assign roles and tools.</p>';
+    return;
+  }
+  const provOpts = providers.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  container.innerHTML = teamMembers.map((m, i) => `
+    <div class="team-member-editor">
+      <button type="button" class="remove-btn" onclick="removeTeamMember(${i})">✕</button>
+      <div class="team-member-grid">
+        <div class="form-group">
+          <label>Name <span class="required">*</span></label>
+          <input type="text" value="${esc(m.name)}" placeholder="e.g. Git Analyst"
+            oninput="teamMembers[${i}].name=this.value">
+        </div>
+        <div class="form-group">
+          <label>Provider</label>
+          <select onchange="teamMembers[${i}].providerId=this.value;updateMemberModel(${i})">
+            <option value="">— Select —</option>
+            ${providers.map(p => `<option value="${p.id}" ${m.providerId===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Role / Responsibility</label>
+          <input type="text" value="${esc(m.role)}" placeholder="e.g. Analyze git history and diffs"
+            oninput="teamMembers[${i}].role=this.value">
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input type="text" id="member-model-${i}" value="${esc(m.model)}" placeholder="e.g. qwen2.5-coder:latest"
+            oninput="teamMembers[${i}].model=this.value">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:8px;margin-bottom:0">
+        <label>Allowed Tools <span class="hint">space or comma separated — leave blank for all tools</span></label>
+        <input type="text" value="${esc((m.tools||[]).join(', '))}" placeholder="e.g. git_log, git_diff, git_status"
+          oninput="teamMembers[${i}].tools=this.value.split(/[,\\s]+/).map(s=>s.trim()).filter(Boolean)">
+      </div>
+    </div>`).join('');
+}
+
+function updateMemberModel(idx) {
+  const pid = teamMembers[idx].providerId;
+  const prov = providers.find(p => p.id === pid);
+  if (prov?.defaultModel) {
+    teamMembers[idx].model = prov.defaultModel;
+    const el = document.getElementById(`member-model-${idx}`);
+    if (el) el.value = prov.defaultModel;
+  }
+}
+
+async function saveTeam() {
+  const name = document.getElementById('team-form-name').value.trim();
+  const orchProvider = document.getElementById('team-form-orch-provider').value;
+  const orchModel = document.getElementById('team-form-orch-model').value.trim();
+  if (!name || !orchProvider || !orchModel) {
+    toast('Name, orchestrator provider and model are required', 'error'); return;
+  }
+  const body = {
+    name,
+    description: document.getElementById('team-form-desc').value.trim(),
+    orchestratorProviderId: orchProvider,
+    orchestratorModel: orchModel,
+    enabled: true,
+    members: teamMembers.filter(m => m.name),
+  };
+  try {
+    if (editingTeamId) {
+      const updated = await api('PUT', `/teams/${editingTeamId}`, body);
+      teams = teams.map(t => t.id === editingTeamId ? updated : t);
+      toast('Team updated', 'success');
+    } else {
+      const created = await api('POST', '/teams', body);
+      teams.push(created);
+      toast('Team created', 'success');
+    }
+    renderTeams();
+    closeTeamModal();
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'error');
+  }
 }
 
 // ── Update check ──────────────────────────────────────────────────────────────

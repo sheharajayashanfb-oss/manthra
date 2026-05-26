@@ -490,6 +490,67 @@ input[type="range"] { padding: 0; background: transparent; border: none; cursor:
 .toast-error { background: var(--error-bg); color: var(--error); border-color: rgba(220,38,38,0.25); }
 .toast-info { background: var(--bg-alt); color: var(--text-sec); }
 
+/* Teams */
+.teams-list { display: flex; flex-direction: column; gap: 12px; }
+
+.team-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+}
+.team-card.active { border-color: var(--text); }
+.team-card-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.team-card-name { font-weight: 600; font-size: 14px; flex: 1; }
+.team-active-badge {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 100px;
+  background: var(--text); color: var(--bg);
+}
+.team-card-desc { color: var(--text-muted); font-size: 12px; margin-bottom: 12px; }
+.team-orchestrator {
+  font-size: 11px; color: var(--text-sec);
+  margin-bottom: 12px; padding: 6px 10px;
+  background: var(--bg-alt); border-radius: var(--radius-sm);
+}
+.team-members-grid {
+  display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;
+}
+.team-member-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; background: var(--bg-alt); border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.team-member-name { font-weight: 600; min-width: 110px; }
+.team-member-role { color: var(--text-muted); flex: 1; }
+.team-member-tools { color: var(--text-dim); font-size: 11px; }
+.team-card-actions { display: flex; gap: 8px; }
+
+/* Team modal members */
+.team-members-section { margin-top: 16px; }
+.team-members-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.team-members-header label { font-weight: 500; }
+.team-members-list { display: flex; flex-direction: column; gap: 8px; }
+.team-member-editor {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px; background: var(--bg-alt); position: relative;
+}
+.team-member-editor .remove-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 14px; padding: 2px 6px;
+}
+.team-member-editor .remove-btn:hover { color: var(--error); }
+.team-member-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.team-member-grid .form-group { margin-bottom: 0; }
+
 /* Update banner */
 .update-banner {
   display: flex;

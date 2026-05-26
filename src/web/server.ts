@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { getConfig, updateConfig } from '../config/loader.js';
 import { createProvider } from '../providers/registry.js';
-import { ProviderConfigSchema, McpServerConfigSchema } from '../config/types.js';
+import { ProviderConfigSchema, McpServerConfigSchema, TeamSchema } from '../config/types.js';
 import { getAllTools } from '../tools/registry.js';
 import { McpClient } from '../mcp/client.js';
 import { INLINE_HTML } from './assets.generated.js';
@@ -286,6 +286,63 @@ export async function startServer(port?: number): Promise<void> {
     } catch (err: unknown) {
       res.json({ ok: false, message: String(err) });
     }
+  });
+
+  // ── Teams ─────────────────────────────────────────────────────────────────────
+
+  // GET /api/teams
+  app.get('/api/teams', (_req, res) => {
+    const cfg = getConfig();
+    res.json({ teams: cfg.teams ?? [], activeTeam: cfg.activeTeam ?? null });
+  });
+
+  // POST /api/teams
+  app.post('/api/teams', (req, res) => {
+    try {
+      const parsed = TeamSchema.parse({ id: `team-${Date.now()}`, ...req.body });
+      const cfg = getConfig();
+      updateConfig({ teams: [...(cfg.teams ?? []), parsed] });
+      res.json(parsed);
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // PUT /api/teams/:id
+  app.put('/api/teams/:id', (req, res) => {
+    const { id } = req.params;
+    const cfg = getConfig();
+    const teams = cfg.teams ?? [];
+    const idx = teams.findIndex((t) => t.id === id);
+    if (idx === -1) { res.status(404).json({ error: 'Team not found' }); return; }
+    try {
+      const parsed = TeamSchema.parse({ ...teams[idx], ...req.body, id });
+      const updated = [...teams];
+      updated[idx] = parsed;
+      updateConfig({ teams: updated });
+      res.json(parsed);
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // DELETE /api/teams/:id
+  app.delete('/api/teams/:id', (req, res) => {
+    const { id } = req.params;
+    const cfg = getConfig();
+    const teams = (cfg.teams ?? []).filter((t) => t.id !== id);
+    if (teams.length === (cfg.teams ?? []).length) { res.status(404).json({ error: 'Not found' }); return; }
+    const update: Record<string, unknown> = { teams };
+    if (cfg.activeTeam === id) update.activeTeam = undefined;
+    updateConfig(update);
+    res.json({ ok: true });
+  });
+
+  // PATCH /api/teams/active — set or clear active team
+  app.patch('/api/teams/active', (req, res) => {
+    const { teamId } = req.body as { teamId: string | null };
+    updateConfig({ activeTeam: teamId ?? undefined });
+    res.json({ ok: true, activeTeam: teamId ?? null });
   });
 
   // GET /api/version — current + latest version info

@@ -329,10 +329,10 @@ export class REPL {
     };
   }
 
-  private buildBasePromptParts(): (string | null)[] {
+  private buildBasePromptParts(): { projectInstructions: string | null; base: string; cwd: string; platform: string; memory: string | null; mcpSection: string | null } {
     const config = getConfig();
     const base = config.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
-    const memory = formatMemoryForContext();
+    const memory = formatMemoryForContext() || null;
     const cwd = `Current working directory: ${process.cwd()}`;
     const platform = platformSystemPrompt();
 
@@ -346,7 +346,7 @@ export class REPL {
       ? `# MCP Tools Available\n\nYou have access to the following MCP (Model Context Protocol) tools. Use them when the user asks for browser automation, web scraping, or any task these tools can handle:\n\n${mcpTools.map((t) => `- \`${t.name}\`: ${t.description}`).join('\n')}`
       : null;
 
-    return [projectInstructions, base, cwd, platform, memory, mcpSection];
+    return { projectInstructions, base, cwd, platform, memory, mcpSection };
   }
 
   // Full system prompt for the orchestrator (includes team/agent delegation section)
@@ -379,13 +379,15 @@ export class REPL {
         `Prefer parallelism: spawn multiple sub-agents for independent subtasks instead of working sequentially.`;
     }
 
+    const { projectInstructions, base, cwd, platform, memory, mcpSection } = this.buildBasePromptParts();
     // agentSection first so delegation rules are the first thing the model reads
-    return [agentSection, ...this.buildBasePromptParts()].filter(Boolean).join('\n\n');
+    return [agentSection, projectInstructions, base, cwd, platform, memory, mcpSection].filter(Boolean).join('\n\n');
   }
 
-  // System prompt for sub-agents — same blueprint as orchestrator but without delegation instructions
+  // Sub-agent prompt: CWD + platform + MANTHRA.md + base only — no memory or MCP section (redundant/noisy)
   private getSubAgentSystemPrompt(): string {
-    return this.buildBasePromptParts().filter(Boolean).join('\n\n');
+    const { projectInstructions, base, cwd, platform } = this.buildBasePromptParts();
+    return [projectInstructions, base, cwd, platform].filter(Boolean).join('\n\n');
   }
 
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────

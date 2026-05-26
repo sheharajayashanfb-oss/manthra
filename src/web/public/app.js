@@ -6,6 +6,8 @@ let teams = [];
 let activeTeam = null;
 let editingTeamId = null;
 let teamMembers = []; // members being edited in the modal
+let allTools = [];
+let modelsCache = {};
 let editingMcpId = null;
 let editingId = null;
 let catalogFilter = 'all';
@@ -1743,20 +1745,21 @@ async function deleteTeam(id) {
   }
 }
 
-function showAddTeam() {
+async function showAddTeam() {
   editingTeamId = null;
   teamMembers = [];
   document.getElementById('team-modal-title').textContent = 'New Team';
   document.getElementById('team-form-id').value = '';
   document.getElementById('team-form-name').value = '';
   document.getElementById('team-form-desc').value = '';
-  document.getElementById('team-form-orch-model').value = '';
+  document.getElementById('team-form-orch-model').innerHTML = '<option value="">— Select provider first —</option>';
   populateTeamProviderSelects();
+  await ensureToolsLoaded();
   renderTeamMemberEditors();
   document.getElementById('team-modal-overlay').style.display = 'flex';
 }
 
-function editTeam(id) {
+async function editTeam(id) {
   const team = teams.find(t => t.id === id);
   if (!team) return;
   editingTeamId = id;
@@ -1767,8 +1770,9 @@ function editTeam(id) {
   document.getElementById('team-form-desc').value = team.description ?? '';
   populateTeamProviderSelects();
   document.getElementById('team-form-orch-provider').value = team.orchestratorProviderId;
-  document.getElementById('team-form-orch-model').value = team.orchestratorModel;
+  await ensureToolsLoaded();
   renderTeamMemberEditors();
+  loadOrchModelSelect(team.orchestratorProviderId, team.orchestratorModel);
   document.getElementById('team-modal-overlay').style.display = 'flex';
 }
 
@@ -1782,12 +1786,55 @@ function populateTeamProviderSelects() {
   sel.innerHTML = '<option value="">— Select provider —</option>' + opts;
 }
 
-function onTeamOrchProviderChange() {
-  const pid = document.getElementById('team-form-orch-provider').value;
-  const prov = providers.find(p => p.id === pid);
-  if (prov?.defaultModel) {
-    document.getElementById('team-form-orch-model').value = prov.defaultModel;
+async function ensureToolsLoaded() {
+  if (allTools.length) return;
+  try { allTools = await api('GET', '/tools'); } catch {}
+}
+
+async function fetchProviderModels(pid) {
+  if (!pid) return [];
+  if (modelsCache[pid]) return modelsCache[pid];
+  try {
+    const models = await api('GET', `/providers/${pid}/models`);
+    modelsCache[pid] = models;
+    return models;
+  } catch { return []; }
+}
+
+async function loadOrchModelSelect(pid, currentModel) {
+  const sel = document.getElementById('team-form-orch-model');
+  if (!pid) { sel.innerHTML = '<option value="">— Select provider first —</option>'; return; }
+  sel.innerHTML = '<option value="">Loading…</option>';
+  const models = await fetchProviderModels(pid);
+  if (!models.length) { sel.innerHTML = `<option value="${esc(currentModel||'')}" selected>${esc(currentModel||'No models found')}</option>`; return; }
+  sel.innerHTML = models.map(m => `<option value="${esc(m.id)}" ${m.id === currentModel ? 'selected' : ''}>${esc(m.id)}</option>`).join('');
+  if (currentModel && !models.find(m => m.id === currentModel)) {
+    sel.innerHTML += `<option value="${esc(currentModel)}" selected>${esc(currentModel)}</option>`;
   }
+}
+
+async function onTeamOrchProviderChange() {
+  const pid = document.getElementById('team-form-orch-provider').value;
+  await loadOrchModelSelect(pid, '');
+}
+
+async function populateMemberModelSelect(idx, currentModel) {
+  const pid = teamMembers[idx]?.providerId;
+  const sel = document.getElementById(`member-model-${idx}`);
+  if (!sel) return;
+  if (!pid) { sel.innerHTML = '<option value="">— Select provider first —</option>'; return; }
+  sel.innerHTML = '<option value="">Loading…</option>';
+  const models = await fetchProviderModels(pid);
+  if (!models.length) { sel.innerHTML = `<option value="${esc(currentModel||'')}" selected>${esc(currentModel||'No models found')}</option>`; return; }
+  sel.innerHTML = models.map(m => `<option value="${esc(m.id)}" ${m.id === currentModel ? 'selected' : ''}>${esc(m.id)}</option>`).join('');
+  if (currentModel && !models.find(m => m.id === currentModel)) {
+    sel.innerHTML += `<option value="${esc(currentModel)}" selected>${esc(currentModel)}</option>`;
+  }
+}
+
+async function onMemberProviderChange(idx) {
+  teamMembers[idx].model = '';
+  await populateMemberModelSelect(idx, '');
 }
 
 function addTeamMember() {
@@ -1806,7 +1853,6 @@ function renderTeamMemberEditors() {
     container.innerHTML = '<p style="color:var(--text-muted);font-size:12px;padding:8px 0">No members yet. Add a member to assign roles and tools.</p>';
     return;
   }
-  const provOpts = providers.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   container.innerHTML = teamMembers.map((m, i) => `
     <div class="team-member-editor">
       <button type="button" class="remove-btn" onclick="removeTeamMember(${i})">✕</button>
@@ -1818,7 +1864,7 @@ function renderTeamMemberEditors() {
         </div>
         <div class="form-group">
           <label>Provider</label>
-          <select onchange="teamMembers[${i}].providerId=this.value;updateMemberModel(${i})">
+          <select onchange="teamMembers[${i}].providerId=this.value;onMemberProviderChange(${i})">
             <option value="">— Select —</option>
             ${providers.map(p => `<option value="${p.id}" ${m.providerId===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}
           </select>
@@ -1830,26 +1876,33 @@ function renderTeamMemberEditors() {
         </div>
         <div class="form-group">
           <label>Model</label>
-          <input type="text" id="member-model-${i}" value="${esc(m.model)}" placeholder="e.g. qwen2.5-coder:latest"
-            oninput="teamMembers[${i}].model=this.value">
+          <select id="member-model-${i}" onchange="teamMembers[${i}].model=this.value">
+            <option value="">— Select provider first —</option>
+          </select>
         </div>
       </div>
       <div class="form-group" style="margin-top:8px;margin-bottom:0">
-        <label>Allowed Tools <span class="hint">space or comma separated — leave blank for all tools</span></label>
-        <input type="text" value="${esc((m.tools||[]).join(', '))}" placeholder="e.g. git_log, git_diff, git_status"
-          oninput="teamMembers[${i}].tools=this.value.split(/[,\\s]+/).map(s=>s.trim()).filter(Boolean)">
+        <label>Allowed Tools <span class="hint">leave all unchecked for unrestricted access</span></label>
+        <div class="tools-checkbox-list">
+          ${allTools.map(t => `
+            <label class="tool-checkbox-item">
+              <input type="checkbox" ${(m.tools||[]).includes(t.name)?'checked':''}
+                onchange="onMemberToolToggle(${i},'${t.name}')">
+              <span>${esc(t.name)}</span>
+            </label>`).join('')}
+        </div>
       </div>
     </div>`).join('');
+  // Async-populate model selects for members that already have a provider
+  teamMembers.forEach((m, i) => { if (m.providerId) populateMemberModelSelect(i, m.model); });
 }
 
-function updateMemberModel(idx) {
-  const pid = teamMembers[idx].providerId;
-  const prov = providers.find(p => p.id === pid);
-  if (prov?.defaultModel) {
-    teamMembers[idx].model = prov.defaultModel;
-    const el = document.getElementById(`member-model-${idx}`);
-    if (el) el.value = prov.defaultModel;
-  }
+function onMemberToolToggle(idx, toolName) {
+  const tools = teamMembers[idx].tools || [];
+  const pos = tools.indexOf(toolName);
+  if (pos === -1) tools.push(toolName);
+  else tools.splice(pos, 1);
+  teamMembers[idx].tools = tools;
 }
 
 async function saveTeam() {

@@ -5,6 +5,7 @@ import { initCommand } from './init.js';
 import { helpCommand } from './help.js';
 import { clearCommand } from './clear.js';
 import { modelCommand } from './model.js';
+import { teamCommand } from './team.js';
 import { rememberCommand, forgetCommand, memoryCommand } from './memory.js';
 import { doctorCommand } from './doctor.js';
 import { contextCommand } from './context.js';
@@ -27,6 +28,7 @@ const commands: SlashCommand[] = [
   clearCommand,
   contextCommand,
   modelCommand,
+  teamCommand,
   rememberCommand,
   forgetCommand,
   memoryCommand,

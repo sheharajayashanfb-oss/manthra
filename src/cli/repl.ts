@@ -1043,6 +1043,8 @@ export class REPL {
         ];
       case 'model':
         return []; // populated dynamically in enterSlashArgMode
+      case 'team':
+        return []; // populated dynamically in enterSlashArgMode
       default:
         return null;
     }
@@ -1059,6 +1061,20 @@ export class REPL {
       } catch {
         opts = null;
       }
+    }
+
+    // Dynamic: load teams for /team command
+    if (cmdName === 'team') {
+      const cfg = getConfig();
+      const teams = cfg.teams ?? [];
+      opts = [
+        { value: 'none', description: 'Solo mode — no team' },
+        ...teams.map((t) => ({
+          value: t.name,
+          description: `${t.members.length} member${t.members.length !== 1 ? 's' : ''}` +
+            (t.id === cfg.activeTeam ? '  ✓ active' : ''),
+        })),
+      ];
     }
 
     if (!opts || opts.length === 0) {

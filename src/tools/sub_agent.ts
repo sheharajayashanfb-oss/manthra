@@ -196,6 +196,19 @@ export function createSubAgentTool(
             toolLabel = tc.name;
           }
           process.stdout.write(chalk.dim('  │  ') + chalk.cyan('◈  ') + chalk.dim(toolLabel) + '\n');
+
+          // Hard-enforce tool restriction — reject calls outside allowed set
+          if (allowedTools && !allowedTools.includes(tc.name)) {
+            process.stdout.write(chalk.dim('  │  ') + chalk.red('✗  ') + chalk.dim(`blocked: ${tc.name} not in allowed tools\n`));
+            toolResultBlocks.push({
+              type: 'tool_result',
+              tool_call_id: tc.id,
+              content: `[BLOCKED] You called "${tc.name}" but your allowed tools are: ${allowedTools.join(', ')}. You cannot use tools outside this list.`,
+              is_error: true,
+            });
+            continue;
+          }
+
           const result = await executeTool(tc.name, tc.input, { silent: true });
           const content = result.success
             ? result.output

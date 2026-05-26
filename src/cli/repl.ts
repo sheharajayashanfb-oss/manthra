@@ -365,20 +365,19 @@ export class REPL {
       const memberLines = activeTeam.members.map((m) => {
         const slug = m.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const toolList = m.tools.length > 0 ? m.tools.join(', ') : 'all tools';
-        return `- **${m.name}** [member_id: "${slug}"]\n  Role: ${m.role}\n  Tools: ${toolList}`;
-      }).join('\n');
+        return `- **${m.name}** (member_id: "${slug}")\n  Role: ${m.role}\n  Available tools: ${toolList}\n  IMPORTANT: This member can ONLY use the tools listed above. Do NOT give them tasks that require other tools.`;
+      }).join('\n\n');
       agentSection =
         `# Active Team: ${activeTeam.name}\n\n` +
         (activeTeam.description ? `${activeTeam.description}\n\n` : '') +
-        `You are the orchestrator. You MUST delegate ALL work to team members using \`agent_spawn\` with the appropriate \`member_id\`. ` +
-        `Never attempt to complete tasks directly — always route every subtask to the most suitable member. ` +
-        `For any request involving multiple steps, file operations, research, code changes, or analysis — spawn the relevant team member instead of doing it yourself. ` +
-        `Prefer parallelism: spawn multiple members for independent subtasks rather than working sequentially. ` +
-        `Synthesize all member results into a cohesive final response.\n\n` +
-        `## Task delegation rules\n\n` +
-        `Each task you pass to \`agent_spawn\` must be fully self-contained. The sub-agent has NO memory of this conversation and NO shared context. ` +
-        `Always include in the task: relevant URLs, file paths, repo names, branch names, error messages, code snippets, and any background the member needs to act. ` +
-        `Never write a task like "review the MR" — write "review MR #1252 at https://gitlab.example.com/org/repo/-/merge_requests/1252, check for X and Y, post inline comments via GitLab MCP tools".\n\n` +
+        `You are the orchestrator. You MUST delegate ALL work to team members using \`agent_spawn\`. ` +
+        `Never attempt to complete tasks directly — always route every subtask to the right member.\n\n` +
+        `## Delegation rules\n\n` +
+        `1. Read each member's role and available tools carefully before assigning a task.\n` +
+        `2. Match the task to the member whose tools can actually accomplish it. A member with only read tools CANNOT write files — assign writes to a member that has write_file.\n` +
+        `3. For multi-step tasks, split them: e.g. spawn a reader first, then pass its output to a writer in a second spawn.\n` +
+        `4. Always pass member_id exactly as shown (the slug in quotes).\n` +
+        `5. Each task must be fully self-contained — include all file paths, content, URLs, and context the member needs.\n\n` +
         `## Team Members\n\n${memberLines}`;
     } else if (config.multiAgent) {
       agentSection =

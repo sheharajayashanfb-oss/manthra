@@ -1883,18 +1883,91 @@ function renderTeamMemberEditors() {
       </div>
       <div class="form-group" style="margin-top:8px;margin-bottom:0">
         <label>Allowed Tools <span class="hint">leave all unchecked for unrestricted access</span></label>
-        <div class="tools-checkbox-list">
-          ${allTools.map(t => `
-            <label class="tool-checkbox-item">
-              <input type="checkbox" ${(m.tools||[]).includes(t.name)?'checked':''}
-                onchange="onMemberToolToggle(${i},'${t.name}')">
-              <span>${esc(t.name)}</span>
-            </label>`).join('')}
-        </div>
+        <div class="tools-checkbox-list">${renderToolCheckboxes(i, m.tools)}</div>
       </div>
     </div>`).join('');
   // Async-populate model selects for members that already have a provider
   teamMembers.forEach((m, i) => { if (m.providerId) populateMemberModelSelect(i, m.model); });
+}
+
+const TOOL_CATEGORIES = {
+  'File System':    ['read_file','write_file','edit_file','list_files','delete_file'],
+  'Search':         ['glob_search','grep_search','search_symbol','docs_search'],
+  'Shell':          ['bash','run_script'],
+  'Git':            ['git_status','git_diff','git_add','git_commit','git_log'],
+  'Web':            ['web_fetch','web_search'],
+  'Build':          ['run_tests','build_project','lint_code'],
+  'Infrastructure': ['docker_exec','docker_logs','k8s_apply'],
+  'Database':       ['db_query','db_schema'],
+  'Agent / Memory': ['think','memory_save','memory_get','task_create','task_update'],
+  'Safety':         ['confirm_action','block_command'],
+  'Embeddings':     ['generate_embeddings'],
+};
+
+function getToolCategory(toolName) {
+  if (toolName.startsWith('mcp__')) {
+    const parts = toolName.split('__');
+    return 'MCP · ' + (parts[1] || 'unknown').replace(/_/g, ' ');
+  }
+  for (const [cat, names] of Object.entries(TOOL_CATEGORIES)) {
+    if (names.includes(toolName)) return cat;
+  }
+  return 'Other';
+}
+
+function renderToolCheckboxes(memberIdx, selectedTools) {
+  const grouped = {};
+  for (const t of allTools) {
+    const cat = getToolCategory(t.name);
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(t);
+  }
+  // Sort categories: built-ins first in defined order, then MCP by server, then Other
+  const builtinOrder = [...Object.keys(TOOL_CATEGORIES), 'Other'];
+  const cats = Object.keys(grouped).sort((a, b) => {
+    const ai = a.startsWith('MCP') ? 999 : builtinOrder.indexOf(a);
+    const bi = b.startsWith('MCP') ? 999 : builtinOrder.indexOf(b);
+    if (ai !== bi) return ai - bi;
+    return a.localeCompare(b);
+  });
+  return cats.map(cat => `
+    <div class="tool-category">
+      <div class="tool-category-header">
+        <span class="tool-category-label">${esc(cat)}</span>
+        <label class="tool-category-select-all">
+          <input type="checkbox"
+            ${grouped[cat].every(t => (selectedTools||[]).includes(t.name)) ? 'checked' : ''}
+            onchange="onCategoryToggle(${memberIdx},'${esc(cat)}',this.checked)">
+          all
+        </label>
+      </div>
+      <div class="tool-category-items">
+        ${grouped[cat].map(t => `
+          <label class="tool-checkbox-item">
+            <input type="checkbox" ${(selectedTools||[]).includes(t.name)?'checked':''}
+              onchange="onMemberToolToggle(${memberIdx},'${t.name}')">
+            <span title="${esc(t.description||'')}">${esc(t.name.startsWith('mcp__') ? t.name.split('__').slice(2).join('__') : t.name)}</span>
+          </label>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function onCategoryToggle(memberIdx, cat, checked) {
+  const grouped = {};
+  for (const t of allTools) {
+    const c = getToolCategory(t.name);
+    if (!grouped[c]) grouped[c] = [];
+    grouped[c].push(t);
+  }
+  const catTools = (grouped[cat] || []).map(t => t.name);
+  const tools = teamMembers[memberIdx].tools || [];
+  if (checked) {
+    for (const n of catTools) { if (!tools.includes(n)) tools.push(n); }
+  } else {
+    teamMembers[memberIdx].tools = tools.filter(n => !catTools.includes(n));
+    return;
+  }
+  teamMembers[memberIdx].tools = tools;
 }
 
 function onMemberToolToggle(idx, toolName) {

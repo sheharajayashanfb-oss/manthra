@@ -553,14 +553,43 @@ input[type="range"] { padding: 0; background: transparent; border: none; cursor:
 
 .tools-checkbox-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 8px;
-  max-height: 150px;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
   overflow-y: auto;
   padding: 8px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--bg-alt);
+}
+.tool-category { display: flex; flex-direction: column; gap: 4px; }
+.tool-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tool-category-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.tool-category-select-all {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+.tool-category-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 6px;
 }
 .tool-checkbox-item {
   display: flex;

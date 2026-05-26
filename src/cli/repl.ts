@@ -280,13 +280,16 @@ export class REPL {
         if (memberProviderCfg) {
           try {
             const memberProvider = createProvider(memberProviderCfg);
-            teamRegistry.set(member.id, {
+            const slug = member.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            const runtime: TeamMemberRuntime = {
               provider: memberProvider,
               model: member.model,
               tools: member.tools,
               name: member.name,
               role: member.role,
-            });
+            };
+            teamRegistry.set(slug, runtime);
+            teamRegistry.set(member.id, runtime); // fallback for raw IDs
           } catch { /* skip misconfigured members */ }
         }
       }
@@ -305,10 +308,11 @@ export class REPL {
         chalk.dim(`  ${activeTeam.members.length} member${activeTeam.members.length !== 1 ? 's' : ''} · agent_spawn ready`) + '\n',
       );
       for (const m of activeTeam.members) {
-        const ok = teamRegistry.has(m.id);
+        const slug = m.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        const ok = teamRegistry.has(slug);
         process.stdout.write(
           (ok ? chalk.green('  ✓  ') : chalk.red('  ✗  ')) +
-          chalk.dim(`${m.name}`) +
+          chalk.dim(`${m.name}`) + chalk.dim(` [${slug}]`) +
           chalk.dim(ok ? `  ${m.tools.length ? m.tools.join(', ') : 'all tools'}` : '  provider not found') + '\n',
         );
       }
@@ -359,8 +363,9 @@ export class REPL {
     let agentSection: string | null = null;
     if (activeTeam) {
       const memberLines = activeTeam.members.map((m) => {
+        const slug = m.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         const toolList = m.tools.length > 0 ? m.tools.join(', ') : 'all tools';
-        return `- **${m.name}** [member_id: "${m.id}"]\n  Role: ${m.role}\n  Tools: ${toolList}`;
+        return `- **${m.name}** [member_id: "${slug}"]\n  Role: ${m.role}\n  Tools: ${toolList}`;
       }).join('\n');
       agentSection =
         `# Active Team: ${activeTeam.name}\n\n` +

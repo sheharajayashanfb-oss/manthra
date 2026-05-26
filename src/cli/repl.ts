@@ -167,6 +167,7 @@ export class REPL {
   private history = new ConversationHistory();
   private provider: Provider | undefined;
   private model = '';
+  private activeTeamName = '';
   private rl: readline.Interface | null = null;
   private isProcessing = false;
   private stopThinkingFn: (() => void) | null = null;
@@ -296,6 +297,7 @@ export class REPL {
         this.provider = createProvider(orchCfg);
         this.model = activeTeam.orchestratorModel;
       }
+      this.activeTeamName = activeTeam.name;
 
       registerDynamicTool(createSubAgentTool(this.provider!, this.model, teamRegistry));
       process.stdout.write(
@@ -410,11 +412,16 @@ export class REPL {
     const mShort = mRaw.length > 32 ? '…' + mRaw.slice(-31) : mRaw;
     const hasT = this.sessionIn + this.sessionOut > 0;
     const elapsed = hasT ? this.formatElapsed() : '';
+    const teamName = this.activeTeamName;
+
+    const contextLabel = teamName
+      ? chalk.cyan(teamName) + chalk.dim('  ·  ')
+      : (pName ? chalk.dim(pName) + chalk.dim('  ·  ') : '');
 
     const statusLine =
       '  ' + chalk.hex('#3b82f6')('■') + '  ' +
       chalk.bold.white('Chat') + chalk.dim('  ·  ') +
-      (pName ? chalk.dim(pName) + chalk.dim('  ·  ') : '') +
+      contextLabel +
       chalk.dim(mShort) +
       (elapsed ? chalk.dim('  ·  ' + elapsed) : '');
 
@@ -424,8 +431,9 @@ export class REPL {
     const ctxPct = (this.contextWindow && hasT)
       ? chalk.dim(`  ${((this.sessionIn + this.sessionOut) / this.contextWindow * 100).toFixed(0)}%`)
       : '';
+    const bottomBarLabel = teamName ? teamName + '  ·  ' : (pName ? pName + '  ·  ' : '');
     const bottomBar =
-      chalk.dim('  ' + (pName ? pName + '  ·  ' : '') + mShort) +
+      chalk.dim('  ' + bottomBarLabel + mShort) +
       tokInfo + ctxPct + chalk.dim('   Ctrl+E: editor  ·  Manthra');
 
     process.stdout.write('\x1B7');

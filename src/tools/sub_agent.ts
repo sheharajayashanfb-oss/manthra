@@ -61,13 +61,18 @@ export function createSubAgentTool(
         memberLabel = member.name;
       }
 
+      const BOX_W = 62;
+      const headerFill = Math.max(2, BOX_W - memberLabel.length - 5);
       process.stdout.write('\n');
-      process.stdout.write(chalk.bold.cyan(`  ◆  Spawning ${memberLabel}\n`));
-      process.stdout.write(chalk.dim(`     Task: ${taskPreview}\n`));
+      process.stdout.write(
+        chalk.dim('  ╭─ ') + chalk.bold.cyan(memberLabel) +
+        chalk.dim(' ' + '─'.repeat(headerFill)) + '\n',
+      );
+      process.stdout.write(chalk.dim(`  │  Task: ${taskPreview}\n`));
       if (allowedTools) {
-        process.stdout.write(chalk.dim(`     Tools: ${allowedTools.join(', ')}\n`));
+        process.stdout.write(chalk.dim(`  │  Tools: ${allowedTools.join(', ')}\n`));
       }
-      process.stdout.write(chalk.dim('  ' + '─'.repeat(60)) + '\n');
+      process.stdout.write(chalk.dim('  │\n'));
 
       const allTools = getAllTools();
       const toolDefs = (allowedTools
@@ -88,6 +93,7 @@ export function createSubAgentTool(
       const MAX_ITER = 10;
       let iterCount = 0;
       let finalText = '';
+      let totalToolCalls = 0;
 
       while (iterCount < MAX_ITER) {
         iterCount++;
@@ -137,8 +143,9 @@ export function createSubAgentTool(
         if (toolCalls.length === 0) break;
 
         const toolResultBlocks: ContentBlock[] = [];
+        totalToolCalls += toolCalls.length;
         for (const tc of toolCalls) {
-          process.stdout.write(chalk.cyan(`  ◈  `) + chalk.dim(`[${memberLabel}] `) + chalk.cyan(tc.name) + '\n');
+          process.stdout.write(chalk.dim('  │  ') + chalk.cyan('◈  ') + chalk.dim(tc.name) + '\n');
           const result = await executeTool(tc.name, tc.input, { silent: true });
           const content = result.success
             ? result.output
@@ -156,11 +163,14 @@ export function createSubAgentTool(
         }
       }
 
-      process.stdout.write(chalk.dim('  ' + '─'.repeat(60)) + '\n');
+      process.stdout.write(chalk.dim('  │\n'));
+      const toolSummary = totalToolCalls > 0
+        ? chalk.dim(`  · ${totalToolCalls} tool call${totalToolCalls !== 1 ? 's' : ''}`)
+        : '';
       if (iterCount >= MAX_ITER) {
-        process.stdout.write(chalk.yellow(`  ◆  ${memberLabel} reached max iterations\n\n`));
+        process.stdout.write(chalk.dim('  ╰─ ') + chalk.yellow('max iterations reached') + toolSummary + '\n\n');
       } else {
-        process.stdout.write(chalk.bold.cyan(`  ◆  ${memberLabel} done\n\n`));
+        process.stdout.write(chalk.dim('  ╰─ ') + chalk.cyan('done') + toolSummary + '\n\n');
       }
 
       return {

@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import type { Tool, ToolResult } from './types.js';
 import type { Provider, Message, ContentBlock, StreamEvent } from '../providers/types.js';
 import { getAllTools } from './registry.js';
-import { executeTool } from './executor.js';
+import { executeTool, isVerbose } from './executor.js';
 
 export interface TeamMemberRuntime {
   provider: Provider;
@@ -62,11 +62,13 @@ export function createSubAgentTool(
       }
 
       const BOX_W = 62;
-      const headerFill = Math.max(2, BOX_W - memberLabel.length - 5);
+      const modelShort = spawnModel.length > 28 ? spawnModel.slice(0, 25) + '…' : spawnModel;
+      const headerText = `${memberLabel} · ${modelShort}`;
+      const headerFill = Math.max(2, BOX_W - headerText.length - 5);
       process.stdout.write('\n');
       process.stdout.write(
         chalk.dim('  ╭─ ') + chalk.bold.cyan(memberLabel) +
-        chalk.dim(' ' + '─'.repeat(headerFill)) + '\n',
+        chalk.dim(` · ${modelShort} `) + chalk.dim('─'.repeat(headerFill)) + '\n',
       );
       process.stdout.write(chalk.dim(`  │  Task: ${taskPreview}\n`));
       if (allowedTools) {
@@ -145,7 +147,17 @@ export function createSubAgentTool(
         const toolResultBlocks: ContentBlock[] = [];
         totalToolCalls += toolCalls.length;
         for (const tc of toolCalls) {
-          process.stdout.write(chalk.dim('  │  ') + chalk.cyan('◈  ') + chalk.dim(tc.name) + '\n');
+          let toolLabel: string;
+          if (tc.name === 'bash' || tc.name === 'run_script') {
+            const cmd = String(tc.input['command'] ?? tc.input['script'] ?? '').replace(/\s+/g, ' ').trim();
+            const preview = cmd.length > 52 ? cmd.slice(0, 49) + '…' : cmd;
+            toolLabel = preview ? `bash - ${preview}` : tc.name;
+          } else if (tc.name.startsWith('mcp__') && !isVerbose()) {
+            toolLabel = 'Using tool';
+          } else {
+            toolLabel = tc.name;
+          }
+          process.stdout.write(chalk.dim('  │  ') + chalk.cyan('◈  ') + chalk.dim(toolLabel) + '\n');
           const result = await executeTool(tc.name, tc.input, { silent: true });
           const content = result.success
             ? result.output

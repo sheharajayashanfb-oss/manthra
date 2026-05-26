@@ -46,6 +46,10 @@ export function setVerbose(flag: boolean): void {
   _verbose = flag;
 }
 
+export function isVerbose(): boolean {
+  return _verbose;
+}
+
 export async function executeTool(
   toolName: string,
   input: Record<string, unknown>,

@@ -131,6 +131,7 @@ export function createSubAgentTool(
       const MAX_ITER = 10;
       let iterCount = 0;
       let finalText = '';
+      let finalThinking = '';
       let totalToolCalls = 0;
 
       while (iterCount < MAX_ITER) {
@@ -167,6 +168,7 @@ export function createSubAgentTool(
         }
 
         finalText = text;
+        if (thinking) finalThinking = thinking;
 
         const assistantContent: ContentBlock[] = [];
         if (thinking) assistantContent.push({ type: 'thinking', thinking });
@@ -223,7 +225,7 @@ export function createSubAgentTool(
 
       return {
         success: true,
-        output: finalText || '(sub-agent completed without text output)',
+        output: finalText || finalThinking || '(sub-agent completed without text output)',
       };
     },
   };

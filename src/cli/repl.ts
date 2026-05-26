@@ -376,7 +376,8 @@ export class REPL {
         `Prefer parallelism: spawn multiple sub-agents for independent subtasks instead of working sequentially.`;
     }
 
-    return [projectInstructions, base, cwd, platform, memory, mcpSection, agentSection].filter(Boolean).join('\n\n');
+    // agentSection first so delegation rules are the first thing the model reads
+    return [agentSection, projectInstructions, base, cwd, platform, memory, mcpSection].filter(Boolean).join('\n\n');
   }
 
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────
@@ -610,7 +611,11 @@ export class REPL {
       this.history.addUser(effectiveMessage);
     }
 
-    const tools = getToolDefinitions();
+    const allToolDefs = getToolDefinitions();
+    // When a team is active the orchestrator must delegate — give it only agent_spawn
+    const tools = this.activeTeamName
+      ? allToolDefs.filter((t) => t.name === 'agent_spawn')
+      : allToolDefs;
     const MAX_ITER = 15;
     let iterCount = 0;
     let totalIn = 0;

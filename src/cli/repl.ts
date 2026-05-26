@@ -299,7 +299,7 @@ export class REPL {
       }
       this.activeTeamName = activeTeam.name;
 
-      registerDynamicTool(createSubAgentTool(this.provider!, this.model, teamRegistry, () => this.getSubAgentSystemPrompt()));
+      registerDynamicTool(createSubAgentTool(this.provider!, this.model, teamRegistry));
       process.stdout.write(
         chalk.green('  ✓  ') + chalk.cyan(`Team: ${activeTeam.name}`) +
         chalk.dim(`  ${activeTeam.members.length} member${activeTeam.members.length !== 1 ? 's' : ''} · agent_spawn ready`) + '\n',
@@ -313,7 +313,7 @@ export class REPL {
         );
       }
     } else if (config.multiAgent && this.provider) {
-      registerDynamicTool(createSubAgentTool(this.provider, this.model, undefined, () => this.getSubAgentSystemPrompt()));
+      registerDynamicTool(createSubAgentTool(this.provider, this.model));
       process.stdout.write(chalk.green('  ✓  ') + chalk.cyan('Multi-agent') + chalk.dim('  agent_spawn tool ready') + '\n');
     }
   }
@@ -370,13 +370,19 @@ export class REPL {
         `For any request involving multiple steps, file operations, research, code changes, or analysis — spawn the relevant team member instead of doing it yourself. ` +
         `Prefer parallelism: spawn multiple members for independent subtasks rather than working sequentially. ` +
         `Synthesize all member results into a cohesive final response.\n\n` +
+        `## Task delegation rules\n\n` +
+        `Each task you pass to \`agent_spawn\` must be fully self-contained. The sub-agent has NO memory of this conversation and NO shared context. ` +
+        `Always include in the task: relevant URLs, file paths, repo names, branch names, error messages, code snippets, and any background the member needs to act. ` +
+        `Never write a task like "review the MR" — write "review MR #1252 at https://gitlab.example.com/org/repo/-/merge_requests/1252, check for X and Y, post inline comments via GitLab MCP tools".\n\n` +
         `## Team Members\n\n${memberLines}`;
     } else if (config.multiAgent) {
       agentSection =
         `# Multi-Agent Mode\n\nMulti-agent mode is enabled. You MUST actively use the \`agent_spawn\` tool to delegate work whenever possible. ` +
         `For any task that involves multiple steps, file operations, research, or can be broken into independent parts — always spawn sub-agents rather than doing everything yourself. ` +
         `Each sub-agent has full tool access and runs to completion before returning its result. ` +
-        `Prefer parallelism: spawn multiple sub-agents for independent subtasks instead of working sequentially.`;
+        `Prefer parallelism: spawn multiple sub-agents for independent subtasks instead of working sequentially.\n\n` +
+        `Each task passed to \`agent_spawn\` must be fully self-contained — the sub-agent has NO shared context. ` +
+        `Always include all relevant URLs, file paths, repo names, error messages, and background needed to complete the task independently.`;
     }
 
     const { projectInstructions, base, cwd, platform, memory, mcpSection } = this.buildBasePromptParts();
@@ -384,11 +390,6 @@ export class REPL {
     return [agentSection, projectInstructions, base, cwd, platform, memory, mcpSection].filter(Boolean).join('\n\n');
   }
 
-  // Sub-agent prompt: CWD + platform + MANTHRA.md + base only — no memory or MCP section (redundant/noisy)
-  private getSubAgentSystemPrompt(): string {
-    const { projectInstructions, base, cwd, platform } = this.buildBasePromptParts();
-    return [projectInstructions, base, cwd, platform].filter(Boolean).join('\n\n');
-  }
 
   // ── Terminal layout (scrolling region + fixed chrome) ────────────────────
 

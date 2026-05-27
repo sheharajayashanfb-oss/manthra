@@ -25,7 +25,7 @@ Manthra is an AI coding assistant CLI with a pluggable provider system. The code
 2. **REPL** (`src/cli/repl.ts`): Interactive loop that:
    - Reads user input and detects multi-line pastes via coalescing
    - Handles slash commands (`/help`, `/model`, etc.) with autocomplete dropdowns
-   - Builds system prompt (merges defaults + MANTHRA.md instructions + memory context)
+   - Builds system prompt (merges defaults + AGENTS.md instructions + memory context)
    - Calls `provider.chat()` with message history and tools
    - Processes the async stream event-by-event (text, tool calls, thinking)
    - Auto-executes tool calls, appends results to history, re-streams
@@ -129,8 +129,8 @@ interface Tool {
 - On first run, if no providers configured, suggests Ollama setup
 - Called from `main.ts` before REPL starts
 
-**MANTHRA.md** (`src/config/manthra-md.ts`):
-- Loads optional `MANTHRA.md` from launch directory
+**AGENTS.md** (`src/config/agents-md.ts`):
+- Loads optional `AGENTS.md` from launch directory
 - Merges its instructions into system prompt (takes highest priority)
 - Allows per-project AI behavior customization
 
@@ -167,7 +167,7 @@ interface SlashCommand {
 - `/remember <text>`: add to persistent memory
 - `/forget <id>`: remove from memory
 - `/memory`: list memory entries
-- `/init`: scaffold MANTHRA.md
+- `/init`: scaffold AGENTS.md
 - `/web`: open config UI
 - `/context` (alias `/ctx`): show context usage — message count, estimated tokens, % of context window
 - `/doctor`: diagnose provider/model setup

@@ -6,7 +6,7 @@ import type { SlashCommand } from './types.js';
 import type { Message } from '../providers/types.js';
 import { startSpinner } from '../ui/spinner.js';
 
-const FILENAME = 'MANTHRA.md';
+const FILENAME = 'AGENTS.md';
 
 // ── project context gathering ─────────────────────────────────────────────
 
@@ -82,11 +82,11 @@ function gatherContext(cwd: string): string {
 
 // ── prompt ────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You generate MANTHRA.md files for software projects.
+const SYSTEM_PROMPT = `You generate AGENTS.md files for software projects.
 
-MANTHRA.md is a project briefing loaded automatically into Manthra (an AI coding assistant) at the start of every session. It replaces the need to re-explain the project on each new conversation. Think of it as a persistent memory file — a compact but complete briefing that gives the AI instant project context.
+AGENTS.md is a project briefing loaded automatically into Manthra (an AI coding assistant) at the start of every session. It replaces the need to re-explain the project on each new conversation. Think of it as a persistent memory file — a compact but complete briefing that gives the AI instant project context.
 
-Write MANTHRA.md so that an AI reading it cold can immediately:
+Write AGENTS.md so that an AI reading it cold can immediately:
 - Understand what the project does and why
 - Know how to build, run, test, and lint it
 - Follow the project's conventions and style
@@ -100,11 +100,11 @@ Rules:
 - Do not invent commands or structure that isn't visible in the project info`;
 
 function buildPrompt(context: string): string {
-  return `Based on the project information below, generate a MANTHRA.md file.
+  return `Based on the project information below, generate an AGENTS.md file.
 
 ${context}
 
-Generate the MANTHRA.md now. Start with # followed by the project name.`;
+Generate the AGENTS.md now. Start with # followed by the project name.`;
 }
 
 // ── command ───────────────────────────────────────────────────────────────

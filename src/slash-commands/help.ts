@@ -18,7 +18,7 @@ export const helpCommand: SlashCommand = {
       { name: '/remember <text>', desc: 'Save something to persistent memory' },
       { name: '/forget <id>',     desc: 'Remove a memory entry by ID' },
       { name: '/memory',          desc: 'List all saved memory entries' },
-      { name: '/init [--force]',  desc: 'Generate a MANTHRA.md project instructions file' },
+      { name: '/init [--force]',  desc: 'Generate an AGENTS.md project instructions file' },
       { name: '/web',             desc: 'Open the web UI to configure providers' },
       { name: '/exit',            desc: 'Exit Manthra' },
     ];
@@ -27,7 +27,7 @@ export const helpCommand: SlashCommand = {
       console.log(`  ${chalk.cyan(name.padEnd(22))}${chalk.dim(desc)}`);
     }
 
-    console.log(chalk.dim('\n  MANTHRA.md is loaded automatically from your project directory.'));
+    console.log(chalk.dim('\n  AGENTS.md is loaded automatically from your project directory.'));
     console.log(chalk.dim('  Use /init to generate one, or edit it directly.\n'));
   },
 };

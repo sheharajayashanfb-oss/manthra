@@ -15,4 +15,4 @@ export const DEFAULT_SYSTEM_PROMPT = `You are Manthra, an AI coding assistant. H
 
 Be concise and direct. Prefer code examples over lengthy explanations. When writing code, use the language or framework the user is working with.
 
-Project instructions are stored in MANTHRA.md (not AGENTS.md or CLAUDE.md). Always look for and read MANTHRA.md in the project root for project-specific instructions.`;
+Project instructions are stored in AGENTS.md. Always look for and read AGENTS.md in the project root for project-specific instructions.`;

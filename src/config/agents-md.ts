@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { homedir } from 'os';
 
-const FILENAME = 'MANTHRA.md';
+const FILENAME = 'AGENTS.md';
 
 // ── @import resolution ────────────────────────────────────────────────────────
 
@@ -51,24 +51,24 @@ function findProjectRoot(startDir: string): string | null {
 
 // ── public API ────────────────────────────────────────────────────────────────
 
-export interface ManthraMdResult {
-  /** Merged content of all loaded MANTHRA.md files, or empty string if none. */
+export interface AgentsMdResult {
+  /** Merged content of all loaded AGENTS.md files, or empty string if none. */
   content: string;
   /** Absolute paths of every file that was loaded, in priority order. */
   sources: string[];
 }
 
 /**
- * Load MANTHRA.md from three levels — exactly how Claude Code loads CLAUDE.md:
+ * Load AGENTS.md from three levels — exactly how Claude Code loads CLAUDE.md:
  *
- *   1. Global:  ~/.manthra/MANTHRA.md           (user-wide instructions)
- *   2. Project: <project-root>/MANTHRA.md        (repo-level instructions)
- *   3. Local:   <cwd>/MANTHRA.md                 (directory-level instructions)
+ *   1. Global:  ~/.manthra/AGENTS.md           (user-wide instructions)
+ *   2. Project: <project-root>/AGENTS.md        (repo-level instructions)
+ *   3. Local:   <cwd>/AGENTS.md                 (directory-level instructions)
  *
  * Each file may contain `@relative/path` lines to import other files.
  * All found files are merged in order (global → project → local).
  */
-export function loadManthraMd(startDir = process.cwd()): ManthraMdResult {
+export function loadAgentsMd(startDir = process.cwd()): AgentsMdResult {
   const seen = new Set<string>();
   const sources: string[] = [];
   const sections: string[] = [];
@@ -101,7 +101,7 @@ export function loadManthraMd(startDir = process.cwd()): ManthraMdResult {
   };
 }
 
-/** Canonical path for creating a new MANTHRA.md in the current project. */
-export function getManthraMdPath(): string {
+/** Canonical path for creating a new AGENTS.md in the current project. */
+export function getAgentsMdPath(): string {
   return join(process.cwd(), FILENAME);
 }

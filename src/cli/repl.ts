@@ -13,13 +13,14 @@ import { formatMemoryForContext } from '../memory/store.js';
 import { getCommand, getAllCommands } from '../slash-commands/registry.js';
 import type { CommandContext } from '../slash-commands/types.js';
 import { formatMarkdown } from '../ui/renderer.js';
-import { loadManthraMd } from '../config/manthra-md.js';
+import { loadAgentsMd } from '../config/agents-md.js';
 import { getToolDefinitions, registerDynamicTool, getAllTools } from '../tools/registry.js';
 import { executeTool, setPermissionHandler } from '../tools/executor.js';
 import { mcpManager } from '../mcp/manager.js';
 import { createSubAgentTool, type TeamMemberRuntime } from '../tools/sub_agent.js';
 import { platformSystemPrompt } from '../tools/platform.js';
 import type { PermissionDecision } from '../permissions/index.js';
+import { sanitizeMessages } from '../utils/messages.js';
 
 // ── Thinking animation ────────────────────────────────────────────────────────
 
@@ -340,9 +341,9 @@ export class REPL {
     const cwd = `Current working directory: ${process.cwd()}`;
     const platform = platformSystemPrompt();
 
-    const { content: manthraMdContent } = loadManthraMd();
-    const projectInstructions = manthraMdContent
-      ? `# Project instructions (MANTHRA.md)\n\nThe following instructions come from the project's MANTHRA.md file. They are authoritative and override any conflicting defaults below. You MUST follow them exactly.\n\n${manthraMdContent}`
+    const { content: agentsMdContent } = loadAgentsMd();
+    const projectInstructions = agentsMdContent
+      ? `# Project instructions (AGENTS.md)\n\nThe following instructions come from the project's AGENTS.md file. They are authoritative and override any conflicting defaults below. You MUST follow them exactly.\n\n${agentsMdContent}`
       : null;
 
     const mcpTools = getAllTools().filter((t) => t.name.startsWith('mcp__'));
@@ -644,10 +645,10 @@ export class REPL {
       printStepHeader(iterCount);
 
       const systemPrompt = this.getSystemPrompt();
-      const messages: Message[] = [
+      const messages = sanitizeMessages([
         { role: 'system', content: systemPrompt },
         ...this.history.get(),
-      ];
+      ]);
 
       let stream: AsyncIterable<StreamEvent>;
       try {
@@ -1635,11 +1636,9 @@ export class REPL {
       this.showPermissionPrompt(category, label, detail),
     );
 
-    const { sources: mdSources } = loadManthraMd();
+    const { sources: mdSources } = loadAgentsMd();
     if (mdSources.length > 0) {
-      const cwd = process.cwd();
-      const labels = mdSources.map((s) => (s.startsWith(cwd) ? s.slice(cwd.length + 1) : s));
-      process.stdout.write(chalk.dim(`  ✦  MANTHRA.md: ${labels.join('  ·  ')}\n`));
+      process.stdout.write(chalk.dim(`  ✦  AGENTS.md loaded\n`));
     }
 
     process.stdout.on('resize', () => {

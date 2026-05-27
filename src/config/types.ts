@@ -7,6 +7,7 @@ export const ProviderTypeSchema = z.enum([
   'groq',
   'openrouter',
   'cerebras',
+  'google',
 ]);
 export type ProviderType = z.infer<typeof ProviderTypeSchema>;
 

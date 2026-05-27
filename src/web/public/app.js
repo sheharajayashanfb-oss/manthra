@@ -1695,7 +1695,16 @@ function renderTeams() {
           <div class="team-member-row">
             <span class="team-member-name">${esc(m.name)}</span>
             <span class="team-member-role">${esc(m.role)}</span>
-            <span class="team-member-tools">${m.tools.length ? m.tools.join(', ') : 'all tools'}</span>
+            <details class="team-member-tools-details">
+              <summary class="team-member-tools-summary">
+                ${m.tools.length ? `${m.tools.length} tools` : 'all tools'}
+              </summary>
+              <div class="team-member-tools-list">
+                ${m.tools.length
+                  ? m.tools.map(t => `<span class="team-member-tool-tag">${esc(t)}</span>`).join('')
+                  : '<span style="color:var(--text-muted);font-size:11px">unrestricted</span>'}
+              </div>
+            </details>
           </div>`).join('')}
       </div>
       <div class="team-card-actions">

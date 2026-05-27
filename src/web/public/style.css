@@ -526,6 +526,24 @@ input[type="range"] { padding: 0; background: transparent; border: none; cursor:
 .team-member-name { font-weight: 600; min-width: 110px; }
 .team-member-role { color: var(--text-muted); flex: 1; }
 .team-member-tools { color: var(--text-dim); font-size: 11px; }
+.team-member-tools-details { font-size: 11px; }
+.team-member-tools-summary {
+  cursor: pointer; list-style: none;
+  color: var(--text-muted); font-size: 11px;
+  display: flex; align-items: center; gap: 4px;
+  user-select: none;
+}
+.team-member-tools-summary::-webkit-details-marker { display: none; }
+.team-member-tools-summary::before { content: '▶'; font-size: 8px; color: var(--text-muted); transition: transform 0.15s; }
+details[open].team-member-tools-details .team-member-tools-summary::before { transform: rotate(90deg); }
+.team-member-tools-list {
+  display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; padding-left: 12px;
+}
+.team-member-tool-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  background: var(--border); padding: 1px 5px; border-radius: 3px;
+  color: var(--text);
+}
 .team-card-actions { display: flex; gap: 8px; }
 
 /* Team modal members */

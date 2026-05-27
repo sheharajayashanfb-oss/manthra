@@ -259,7 +259,7 @@ export function createSubAgentTool(
         ? `  · ${totalToolCalls} tool call${totalToolCalls !== 1 ? 's' : ''}`
         : '';
       const statusText = iterCount >= MAX_ITER ? 'max iterations reached' : 'done';
-      const footerFill = Math.max(1, cols - statusText.length - toolSummaryPlain.length - 11);
+      const footerFill = Math.max(1, cols - statusText.length - toolSummaryPlain.length - 7);
       const statusColor = iterCount >= MAX_ITER ? chalk.yellow : chalk.cyan;
       process.stdout.write(
         chalk.dim('  ╰─ ') + statusColor(statusText) +

@@ -69,7 +69,7 @@ export const contextCommand: SlashCommand = {
     // ── Hints ─────────────────────────────────────────────────────────────────
     if (total > 0) {
       sep();
-      line(chalk.dim('/clear') + chalk.dim(' to reset  ·  ') + chalk.dim('/clear') + chalk.dim(' frees ~') + chalk.dim(fmtTokens(estimatedTokens)) + chalk.dim(' tokens'));
+      line(chalk.dim('/compact') + chalk.dim(' to summarise  ·  ') + chalk.dim('/clear') + chalk.dim(' to reset'));
     }
 
     process.stdout.write(chalk.dim('  ╰' + '─'.repeat(cols - 3)) + '\n\n');

@@ -18,6 +18,7 @@ export const helpCommand: SlashCommand = {
       { name: '/remember <text>', desc: 'Save something to persistent memory' },
       { name: '/forget <id>',     desc: 'Remove a memory entry by ID' },
       { name: '/memory',          desc: 'List all saved memory entries' },
+      { name: '/compact',         desc: 'Summarise history to free up context tokens' },
       { name: '/init [--force]',  desc: 'Generate an AGENTS.md project instructions file' },
       { name: '/web',             desc: 'Open the web UI to configure providers' },
       { name: '/exit',            desc: 'Exit Manthra' },

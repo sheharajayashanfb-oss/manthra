@@ -57,6 +57,10 @@ export class ConversationHistory {
     this.messages = data;
   }
 
+  replace(messages: Message[]): void {
+    this.messages = [...messages];
+  }
+
   length(): number {
     return this.messages.length;
   }

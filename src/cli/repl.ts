@@ -21,6 +21,7 @@ import { createSubAgentTool, type TeamMemberRuntime } from '../tools/sub_agent.j
 import { platformSystemPrompt } from '../tools/platform.js';
 import type { PermissionDecision } from '../permissions/index.js';
 import { sanitizeMessages } from '../utils/messages.js';
+import { runCompact } from '../slash-commands/compact.js';
 
 // ── Thinking animation ────────────────────────────────────────────────────────
 
@@ -1310,6 +1311,23 @@ export class REPL {
       const { turnIn, turnOut } = await this.runTurn(input);
       this.sessionIn += turnIn;
       this.sessionOut += turnOut;
+      // Auto-compact when history tokens exceed 80% of context window
+      if (this.contextWindow && this.provider) {
+        const histTokens = this.history.estimateTokens();
+        if (histTokens / this.contextWindow >= 0.8) {
+          process.stdout.write(chalk.dim('\n  ✦  Context at 80% — auto-compacting…\n'));
+          try {
+            const { before, after } = await runCompact(this.history, this.provider, this.model);
+            const freed = before - after;
+            const pct = before > 0 ? Math.round((freed / before) * 100) : 0;
+            process.stdout.write(
+              chalk.dim('  ✦  Compacted — ') +
+              chalk.white(`~${freed >= 1000 ? (freed / 1000).toFixed(1) + 'k' : freed} tokens freed`) +
+              chalk.dim(` (${pct}%)\n\n`),
+            );
+          } catch { /* silent — compact failure shouldn't break the session */ }
+        }
+      }
     } catch (err: unknown) {
       if (this.stopThinkingFn) { this.stopThinkingFn(); this.stopThinkingFn = null; }
       console.log(chalk.red(`\n  ${err instanceof Error ? err.message : err}`));

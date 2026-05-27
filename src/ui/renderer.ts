@@ -85,7 +85,7 @@ export function formatMarkdown(text: string): string {
     const label = lang ? chalk.dim(` ${lang} `) : '';
     const lines = code.trimEnd().split('\n').map((l: string) => chalk.yellow('  ' + l));
     const block =
-      chalk.dim('  ╭' + (label ? '─' + label : '') + '─'.repeat(Math.max(1, 56 - (lang?.length ?? 0))) + '╮') + '\n' +
+      chalk.dim('  ╭' + (label ? '─' + label + '─'.repeat(Math.max(1, 55 - (lang?.length ?? 0))) : '─'.repeat(58)) + '╮') + '\n' +
       lines.join('\n') + '\n' +
       chalk.dim('  ╰' + '─'.repeat(58) + '╯');
     blocks.push(block);

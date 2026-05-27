@@ -344,7 +344,7 @@ export class REPL {
 
     const { content: agentsMdContent } = loadAgentsMd();
     const projectInstructions = agentsMdContent
-      ? `# Project instructions (AGENTS.md)\n\nThe following instructions come from the project's AGENTS.md file. They are authoritative and override any conflicting defaults below. You MUST follow them exactly.\n\n${agentsMdContent}`
+      ? `# AGENTS.md — Project Instructions (HIGHEST PRIORITY)\n\nThese instructions are loaded from the project's AGENTS.md file. They take absolute precedence over all other instructions. Apply them to EVERY response without exception — do not wait to be reminded.\n\n${agentsMdContent}\n\n<!-- end AGENTS.md -->`
       : null;
 
     const mcpTools = getAllTools().filter((t) => t.name.startsWith('mcp__'));
@@ -395,7 +395,11 @@ export class REPL {
     // Orchestrator with active team only has agent_spawn — MCP section would be misleading
     const effectiveMcpSection = activeTeam ? null : mcpSection;
     // agentSection first so delegation rules are the first thing the model reads
-    return [agentSection, projectInstructions, base, cwd, platform, memory, effectiveMcpSection].filter(Boolean).join('\n\n');
+    const parts = [agentSection, projectInstructions, base, cwd, platform, memory, effectiveMcpSection].filter(Boolean);
+    if (projectInstructions) {
+      parts.push('Always apply the AGENTS.md project instructions above. They govern every response in this session.');
+    }
+    return parts.join('\n\n');
   }
 
 

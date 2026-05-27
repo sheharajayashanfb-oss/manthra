@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import type { Tool, ToolResult } from './types.js';
 import type { Provider, Message, ContentBlock, StreamEvent } from '../providers/types.js';
 import { getAllTools } from './registry.js';
-import { executeTool, isVerbose } from './executor.js';
+import { executeTool } from './executor.js';
 
 export interface TeamMemberRuntime {
   provider: Provider;
@@ -45,7 +45,6 @@ export function createSubAgentTool(
     async execute(input): Promise<ToolResult> {
       const task = String(input['task']);
       const memberId = input['member_id'] as string | undefined;
-      const taskPreview = task.length > 64 ? task.slice(0, 61) + '…' : task;
 
       // Resolve provider, model, and tool restrictions
       let spawnProvider = defaultProvider;
@@ -94,23 +93,44 @@ export function createSubAgentTool(
         memberLabel = matched.name;
       }
 
-      const BOX_W = 62;
-      const modelShort = spawnModel.length > 28 ? spawnModel.slice(0, 25) + '…' : spawnModel;
-      const headerText = `${memberLabel} · ${modelShort}`;
-      const headerFill = Math.max(2, BOX_W - headerText.length - 5);
+      // Box dimensions: "  │  " (5) + INNER + "  │" (3) = cols
+      const cols = Math.min(process.stdout.columns ?? 80, 120);
+      const INNER = Math.max(10, cols - 8);
+
+      const wrapChars = (text: string, width: number): string[] => {
+        if (text.length === 0) return [''];
+        const lines: string[] = [];
+        for (let i = 0; i < text.length; i += width) lines.push(text.slice(i, i + width));
+        return lines;
+      };
+
+      const boxLine = (text: string) => {
+        for (const chunk of wrapChars(text, INNER)) {
+          process.stdout.write(chalk.dim('  │  ' + chunk.padEnd(INNER) + '  │') + '\n');
+        }
+      };
+
+      const boxSep = () =>
+        process.stdout.write(chalk.dim('  │  ' + ' '.repeat(INNER) + '  │') + '\n');
+
+      // Header: "  ╭─ MemberLabel · model ──────╮"
+      const headerFill = Math.max(1, cols - memberLabel.length - spawnModel.length - 10);
       process.stdout.write('\n');
       process.stdout.write(
         chalk.dim('  ╭─ ') + chalk.bold.cyan(memberLabel) +
-        chalk.dim(` · ${modelShort} `) + chalk.dim('─'.repeat(headerFill)) + '\n',
+        chalk.dim(` · ${spawnModel} `) + chalk.dim('─'.repeat(headerFill) + '╮') + '\n',
       );
-      process.stdout.write(chalk.dim(`  │  Task: ${taskPreview}\n`));
+
+      // Task — full text, wrapped inside box
+      boxLine(`Task: ${task}`);
+
       if (memberIdMismatch) {
-        process.stdout.write(chalk.yellow(`  │  ⚠  member_id "${memberIdMismatch}" not matched — using ${memberLabel}\n`));
+        boxLine(`⚠  member_id "${memberIdMismatch}" not matched — using ${memberLabel}`);
       }
       if (allowedTools) {
-        process.stdout.write(chalk.dim(`  │  Tools: ${allowedTools.join(', ')}\n`));
+        boxLine(`Tools: ${allowedTools.join(', ')}`);
       }
-      process.stdout.write(chalk.dim('  │\n'));
+      boxSep();
 
       const allTools = getAllTools().filter((t) => t.name !== 'agent_spawn');
       const toolDefs = (allowedTools
@@ -185,21 +205,28 @@ export function createSubAgentTool(
         const toolResultBlocks: ContentBlock[] = [];
         totalToolCalls += toolCalls.length;
         for (const tc of toolCalls) {
+          // Build full tool label — no truncation
           let toolLabel: string;
           if (tc.name === 'bash' || tc.name === 'run_script') {
             const cmd = String(tc.input['command'] ?? tc.input['script'] ?? '').replace(/\s+/g, ' ').trim();
-            const preview = cmd.length > 52 ? cmd.slice(0, 49) + '…' : cmd;
-            toolLabel = preview ? `bash - ${preview}` : tc.name;
-          } else if (tc.name.startsWith('mcp__') && !isVerbose()) {
-            toolLabel = 'Using tool';
+            toolLabel = cmd ? `bash - ${cmd}` : tc.name;
           } else {
             toolLabel = tc.name;
           }
-          process.stdout.write(chalk.dim('  │  ') + chalk.cyan('◈  ') + chalk.dim(toolLabel) + '\n');
+
+          // Print ◈ prefix + full label, wrapped inside box
+          const ICON = '◈  '; // 3 visual chars
+          const contentWidth = INNER - ICON.length;
+          const chunks = wrapChars(toolLabel, contentWidth);
+          for (let i = 0; i < chunks.length; i++) {
+            const icon = i === 0 ? chalk.cyan(ICON) : ' '.repeat(ICON.length);
+            const pad = ' '.repeat(Math.max(0, contentWidth - chunks[i].length));
+            process.stdout.write(chalk.dim('  │  ') + icon + chalk.dim(chunks[i]) + pad + chalk.dim('  │') + '\n');
+          }
 
           // Hard-enforce tool restriction — reject calls outside allowed set
           if (allowedTools && !allowedTools.includes(tc.name)) {
-            process.stdout.write(chalk.dim('  │  ') + chalk.red('✗  ') + chalk.dim(`blocked: ${tc.name} not in allowed tools\n`));
+            boxLine(`✗  blocked: ${tc.name} not in allowed tools`);
             toolResultBlocks.push({
               type: 'tool_result',
               tool_call_id: tc.id,
@@ -226,15 +253,18 @@ export function createSubAgentTool(
         }
       }
 
-      process.stdout.write(chalk.dim('  │\n'));
-      const toolSummary = totalToolCalls > 0
-        ? chalk.dim(`  · ${totalToolCalls} tool call${totalToolCalls !== 1 ? 's' : ''}`)
+      // Footer: "  ╰─ done  · N tool calls ────╯"
+      boxSep();
+      const toolSummaryPlain = totalToolCalls > 0
+        ? `  · ${totalToolCalls} tool call${totalToolCalls !== 1 ? 's' : ''}`
         : '';
-      if (iterCount >= MAX_ITER) {
-        process.stdout.write(chalk.dim('  ╰─ ') + chalk.yellow('max iterations reached') + toolSummary + '\n\n');
-      } else {
-        process.stdout.write(chalk.dim('  ╰─ ') + chalk.cyan('done') + toolSummary + '\n\n');
-      }
+      const statusText = iterCount >= MAX_ITER ? 'max iterations reached' : 'done';
+      const footerFill = Math.max(1, cols - statusText.length - toolSummaryPlain.length - 11);
+      const statusColor = iterCount >= MAX_ITER ? chalk.yellow : chalk.cyan;
+      process.stdout.write(
+        chalk.dim('  ╰─ ') + statusColor(statusText) +
+        chalk.dim(`${toolSummaryPlain} `) + chalk.dim('─'.repeat(footerFill) + '╯') + '\n\n',
+      );
 
       return {
         success: true,

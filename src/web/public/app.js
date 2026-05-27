@@ -1881,10 +1881,13 @@ function renderTeamMemberEditors() {
           </select>
         </div>
       </div>
-      <div class="form-group" style="margin-top:8px;margin-bottom:0">
-        <label>Allowed Tools <span class="hint">leave all unchecked for unrestricted access</span></label>
+      <details class="tools-details">
+        <summary class="tools-summary">
+          Allowed Tools
+          <span class="tools-summary-hint">${(m.tools||[]).length ? `${m.tools.length} selected` : 'all (unrestricted)'}</span>
+        </summary>
         <div class="tools-checkbox-list">${renderToolCheckboxes(i, m.tools)}</div>
-      </div>
+      </details>
     </div>`).join('');
   // Async-populate model selects for members that already have a provider
   teamMembers.forEach((m, i) => { if (m.providerId) populateMemberModelSelect(i, m.model); });

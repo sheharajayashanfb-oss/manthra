@@ -328,7 +328,8 @@ export class REPL {
     const self = this;
     return {
       history: this.history,
-      provider: this.provider,
+      get provider() { return self.provider; },
+      set provider(v) { self.provider = v; },
       get model() { return self.model; },
       set model(v: string) { self.model = v; },
       get contextWindow() { return self.contextWindow; },
@@ -1081,6 +1082,8 @@ export class REPL {
         ];
       case 'model':
         return []; // populated dynamically in enterSlashArgMode
+      case 'provider':
+        return []; // populated dynamically in enterSlashArgMode
       case 'team':
         return []; // populated dynamically in enterSlashArgMode
       default:
@@ -1099,6 +1102,17 @@ export class REPL {
       } catch {
         opts = null;
       }
+    }
+
+    // Dynamic: load providers for /provider command
+    if (cmdName === 'provider') {
+      const cfg = getConfig();
+      opts = cfg.providers
+        .filter((p) => p.enabled)
+        .map((p) => ({
+          value: p.name,
+          description: p.defaultModel ?? undefined,
+        }));
     }
 
     // Dynamic: load teams for /team command

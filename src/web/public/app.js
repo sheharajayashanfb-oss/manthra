@@ -1017,7 +1017,6 @@ const PROVIDER_META = {
   groq:       { icon: '🔵', label: 'Groq' },
   openrouter: { icon: '🟠', label: 'OpenRouter' },
   cerebras:   { icon: '🔴', label: 'Cerebras' },
-  google:     { icon: '🔵', label: 'Google AI (Gemini)' },
 };
 
 const PROVIDER_DEFAULTS = {
@@ -1027,7 +1026,6 @@ const PROVIDER_DEFAULTS = {
   groq:       { baseURL: 'https://api.groq.com/openai/v1', apiKeyPlaceholder: 'gsk_...', apiKeyHint: 'required — get from console.groq.com', baseURLHint: 'Default: https://api.groq.com/openai/v1' },
   openrouter: { baseURL: 'https://openrouter.ai/api/v1', apiKeyPlaceholder: 'sk-or-...', apiKeyHint: 'required — get from openrouter.ai/keys', baseURLHint: 'Default: https://openrouter.ai/api/v1' },
   cerebras:   { baseURL: 'https://api.cerebras.ai/v1', apiKeyPlaceholder: 'csk-...', apiKeyHint: 'required — get from cloud.cerebras.ai', baseURLHint: 'Default: https://api.cerebras.ai/v1' },
-  google:     { baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/', apiKeyPlaceholder: 'AIza...', apiKeyHint: 'required — get from aistudio.google.com/apikey', baseURLHint: 'Default: https://generativelanguage.googleapis.com/v1beta/openai/' },
 };
 
 // ── API helpers ───────────────────────────────────────────────────────────────

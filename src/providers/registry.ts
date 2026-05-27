@@ -9,7 +9,6 @@ const OPENAI_DEFAULT_URLS: Record<string, string> = {
   groq:       'https://api.groq.com/openai/v1',
   openrouter: 'https://openrouter.ai/api/v1',
   cerebras:   'https://api.cerebras.ai/v1',
-  google:     'https://generativelanguage.googleapis.com/v1beta/openai/',
 };
 
 const registry = new Map<string, Provider>();
@@ -23,7 +22,6 @@ export function createProvider(config: ProviderConfig): Provider {
     case 'groq':
     case 'openrouter':
     case 'cerebras':
-    case 'google':
       return new OpenAIProvider({ id: config.id, name: config.name, type: config.type, baseURL: config.baseURL ?? OPENAI_DEFAULT_URLS[config.type], apiKey: config.apiKey });
     default:
       throw new Error(`Unknown provider type: ${config.type}`);

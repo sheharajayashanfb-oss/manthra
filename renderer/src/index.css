@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0f0f0f;
+  --color-bg-surface: #1a1a1a;
+  --color-bg-elevated: #242424;
+  --color-bg-hover: #2a2a2a;
+  --color-border: #2e2e2e;
+  --color-text: #e2e2e2;
+  --color-text-muted: #737373;
+  --color-text-faint: #4a4a4a;
+  --color-accent: #8b5cf6;
+  --color-accent-dim: #6d28d9;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  overflow: hidden;
+  background: #0f0f0f;
+  color: #e2e2e2;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2e2e2e; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3e3e3e; }
+
+/* Code blocks */
+pre { overflow-x: auto; }
+code { font-family: 'JetBrains Mono', monospace; }
+
+/* macOS traffic lights spacing */
+.titlebar-drag { -webkit-app-region: drag; }
+.no-drag { -webkit-app-region: no-drag; }
+
+/* Prose styles for markdown */
+.prose { color: #e2e2e2; line-height: 1.7; }
+.prose h1,.prose h2,.prose h3 { color: #fff; font-weight: 600; margin: 1em 0 0.4em; }
+.prose h1 { font-size: 1.4em; }
+.prose h2 { font-size: 1.2em; }
+.prose h3 { font-size: 1.05em; }
+.prose p { margin: 0.5em 0; }
+.prose ul,.prose ol { padding-left: 1.4em; margin: 0.5em 0; }
+.prose li { margin: 0.2em 0; }
+.prose code { background: #242424; border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.88em; color: #c4b5fd; }
+.prose pre { background: #141414; border: 1px solid #2e2e2e; border-radius: 8px; padding: 1em; margin: 0.75em 0; position: relative; }
+.prose pre code { background: none; padding: 0; color: inherit; font-size: 0.85em; }
+.prose blockquote { border-left: 3px solid #8b5cf6; padding-left: 1em; color: #737373; margin: 0.5em 0; }
+.prose a { color: #a78bfa; text-decoration: underline; }
+.prose table { border-collapse: collapse; width: 100%; margin: 0.75em 0; }
+.prose th,.prose td { border: 1px solid #2e2e2e; padding: 0.4em 0.8em; text-align: left; }
+.prose th { background: #1a1a1a; color: #e2e2e2; font-weight: 600; }
+.prose tr:nth-child(even) td { background: #151515; }
+.prose input[type="checkbox"] { margin-right: 0.4em; }
+.prose hr { border: none; border-top: 1px solid #2e2e2e; margin: 1em 0; }

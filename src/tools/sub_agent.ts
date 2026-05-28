@@ -1,4 +1,5 @@
 import chalk, { type ChalkInstance } from 'chalk';
+import { EventEmitter } from 'events';
 import type { Tool, ToolResult } from './types.js';
 import type { Provider, Message, ContentBlock, StreamEvent } from '../providers/types.js';
 import { getAllTools } from './registry.js';
@@ -12,7 +13,20 @@ const AGENT_COLORS: ChalkInstance[] = [
   chalk.blue,
   chalk.red,
 ];
+
+// Hex counterparts for the renderer (same order as AGENT_COLORS)
+const AGENT_COLOR_HEX = ['#06b6d4', '#d946ef', '#eab308', '#22c55e', '#3b82f6', '#ef4444'];
+
 let agentColorIndex = 0;
+
+// Event emitter for desktop app integration — fires alongside stdout output
+export const subAgentEmitter = new EventEmitter();
+
+export interface SubAgentStartEvent { agentId: string; task: string; label: string; color: string }
+export interface SubAgentToolEvent { agentId: string; toolId: string; name: string; label: string }
+export interface SubAgentToolDoneEvent { agentId: string; toolId: string; success: boolean }
+export interface SubAgentDoneEvent { agentId: string; toolCount: number }
+export interface SubAgentErrorEvent { agentId: string; message: string }
 
 export interface TeamMemberRuntime {
   provider: Provider;
@@ -53,9 +67,12 @@ export function createSubAgentTool(
       required: ['task'],
     },
     async execute(input): Promise<ToolResult> {
-      const agentColor = AGENT_COLORS[agentColorIndex % AGENT_COLORS.length];
+      const colorIdx = agentColorIndex % AGENT_COLORS.length;
+      const agentColor = AGENT_COLORS[colorIdx];
+      const agentColorHex = AGENT_COLOR_HEX[colorIdx];
       agentColorIndex++;
 
+      const agentId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const task = String(input['task']);
       const memberId = input['member_id'] as string | undefined;
 
@@ -129,6 +146,8 @@ export function createSubAgentTool(
         process.stdout.write(border('  │  ' + ' '.repeat(INNER) + '  │') + '\n');
 
       // Header: "  ╭─ MemberLabel · model ──────╮"
+      subAgentEmitter.emit('agent:start', { agentId, task, label: memberLabel, color: agentColorHex } satisfies SubAgentStartEvent);
+
       const headerFill = Math.max(1, cols - memberLabel.length - spawnModel.length - 10);
       process.stdout.write('\n');
       process.stdout.write(
@@ -229,6 +248,8 @@ export function createSubAgentTool(
             toolLabel = tc.name;
           }
 
+          subAgentEmitter.emit('agent:tool_call', { agentId, toolId: tc.id, name: tc.name, label: toolLabel } satisfies SubAgentToolEvent);
+
           // Print ◈ prefix + full label, wrapped inside box
           const ICON = '◈  '; // 3 visual chars
           const contentWidth = INNER - ICON.length;
@@ -242,6 +263,7 @@ export function createSubAgentTool(
           // Hard-enforce tool restriction — reject calls outside allowed set
           if (allowedTools && !allowedTools.includes(tc.name)) {
             boxLine(`✗  blocked: ${tc.name} not in allowed tools`);
+            subAgentEmitter.emit('agent:tool_done', { agentId, toolId: tc.id, success: false } satisfies SubAgentToolDoneEvent);
             toolResultBlocks.push({
               type: 'tool_result',
               tool_call_id: tc.id,
@@ -252,6 +274,7 @@ export function createSubAgentTool(
           }
 
           const result = await executeTool(tc.name, tc.input, { silent: true });
+          subAgentEmitter.emit('agent:tool_done', { agentId, toolId: tc.id, success: result.success } satisfies SubAgentToolDoneEvent);
           const content = result.success
             ? result.output
             : `[ERROR] ${result.error ?? 'tool failed'}`;
@@ -267,6 +290,8 @@ export function createSubAgentTool(
           messages.push({ role: 'user', content: toolResultBlocks });
         }
       }
+
+      subAgentEmitter.emit('agent:done', { agentId, toolCount: totalToolCalls } satisfies SubAgentDoneEvent);
 
       // Footer: "  ╰─ done  · N tool calls ────╯"
       boxSep();

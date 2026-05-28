@@ -7,3 +7,4 @@ releases/
 *.log
 .DS_Store
 src/web/assets.generated.ts
+out/

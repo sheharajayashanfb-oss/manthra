@@ -1,8 +1,18 @@
-import chalk from 'chalk';
+import chalk, { type ChalkInstance } from 'chalk';
 import type { Tool, ToolResult } from './types.js';
 import type { Provider, Message, ContentBlock, StreamEvent } from '../providers/types.js';
 import { getAllTools } from './registry.js';
 import { executeTool } from './executor.js';
+
+const AGENT_COLORS: ChalkInstance[] = [
+  chalk.cyan,
+  chalk.magenta,
+  chalk.yellow,
+  chalk.green,
+  chalk.blue,
+  chalk.red,
+];
+let agentColorIndex = 0;
 
 export interface TeamMemberRuntime {
   provider: Provider;
@@ -43,6 +53,9 @@ export function createSubAgentTool(
       required: ['task'],
     },
     async execute(input): Promise<ToolResult> {
+      const agentColor = AGENT_COLORS[agentColorIndex % AGENT_COLORS.length];
+      agentColorIndex++;
+
       const task = String(input['task']);
       const memberId = input['member_id'] as string | undefined;
 
@@ -104,21 +117,23 @@ export function createSubAgentTool(
         return lines;
       };
 
+      const border = (s: string) => agentColor.dim(s);
+
       const boxLine = (text: string) => {
         for (const chunk of wrapChars(text, INNER)) {
-          process.stdout.write(chalk.dim('  │  ' + chunk.padEnd(INNER) + '  │') + '\n');
+          process.stdout.write(border('  │  ' + chunk.padEnd(INNER) + '  │') + '\n');
         }
       };
 
       const boxSep = () =>
-        process.stdout.write(chalk.dim('  │  ' + ' '.repeat(INNER) + '  │') + '\n');
+        process.stdout.write(border('  │  ' + ' '.repeat(INNER) + '  │') + '\n');
 
       // Header: "  ╭─ MemberLabel · model ──────╮"
       const headerFill = Math.max(1, cols - memberLabel.length - spawnModel.length - 10);
       process.stdout.write('\n');
       process.stdout.write(
-        chalk.dim('  ╭─ ') + chalk.bold.cyan(memberLabel) +
-        chalk.dim(` · ${spawnModel} `) + chalk.dim('─'.repeat(headerFill) + '╮') + '\n',
+        border('  ╭─ ') + agentColor.bold(memberLabel) +
+        border(` · ${spawnModel} `) + border('─'.repeat(headerFill) + '╮') + '\n',
       );
 
       // Task — full text, wrapped inside box
@@ -219,9 +234,9 @@ export function createSubAgentTool(
           const contentWidth = INNER - ICON.length;
           const chunks = wrapChars(toolLabel, contentWidth);
           for (let i = 0; i < chunks.length; i++) {
-            const icon = i === 0 ? chalk.cyan(ICON) : ' '.repeat(ICON.length);
+            const icon = i === 0 ? agentColor(ICON) : ' '.repeat(ICON.length);
             const pad = ' '.repeat(Math.max(0, contentWidth - chunks[i].length));
-            process.stdout.write(chalk.dim('  │  ') + icon + chalk.dim(chunks[i]) + pad + chalk.dim('  │') + '\n');
+            process.stdout.write(border('  │  ') + icon + border(chunks[i]) + pad + border('  │') + '\n');
           }
 
           // Hard-enforce tool restriction — reject calls outside allowed set
@@ -260,10 +275,10 @@ export function createSubAgentTool(
         : '';
       const statusText = iterCount >= MAX_ITER ? 'max iterations reached' : 'done';
       const footerFill = Math.max(1, cols - statusText.length - toolSummaryPlain.length - 7);
-      const statusColor = iterCount >= MAX_ITER ? chalk.yellow : chalk.cyan;
+      const statusColor = iterCount >= MAX_ITER ? chalk.yellow : agentColor;
       process.stdout.write(
-        chalk.dim('  ╰─ ') + statusColor(statusText) +
-        chalk.dim(`${toolSummaryPlain} `) + chalk.dim('─'.repeat(footerFill) + '╯') + '\n\n',
+        border('  ╰─ ') + statusColor(statusText) +
+        border(`${toolSummaryPlain} `) + border('─'.repeat(footerFill) + '╯') + '\n\n',
       );
 
       return {

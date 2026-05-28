@@ -16,6 +16,7 @@ import { formatMarkdown } from '../ui/renderer.js';
 import { loadAgentsMd } from '../config/agents-md.js';
 import { getToolDefinitions, registerDynamicTool, getAllTools } from '../tools/registry.js';
 import { executeTool, setPermissionHandler } from '../tools/executor.js';
+import { runToolCalls } from '../tools/run-tools.js';
 import { mcpManager } from '../mcp/manager.js';
 import { createSubAgentTool, type TeamMemberRuntime } from '../tools/sub_agent.js';
 import { platformSystemPrompt } from '../tools/platform.js';
@@ -378,16 +379,21 @@ export class REPL {
         `## Delegation rules\n\n` +
         `1. Read each member's role and available tools carefully before assigning a task.\n` +
         `2. Match the task to the member whose tools can actually accomplish it. A member with only read tools CANNOT write files — assign writes to a member that has write_file.\n` +
-        `3. For multi-step tasks, split them: e.g. spawn a reader first, then pass its output to a writer in a second spawn.\n` +
-        `4. Always pass member_id exactly as shown (the slug in quotes).\n` +
-        `5. Each task must be fully self-contained — include all file paths, content, URLs, and context the member needs.\n\n` +
+        `3. For independent subtasks, spawn ALL relevant members in a SINGLE response with multiple \`agent_spawn\` calls — they execute in parallel. Do NOT call them one at a time.\n` +
+        `4. For multi-step tasks where step B depends on step A's output, use separate turns (spawn A, get result, spawn B).\n` +
+        `5. Always pass member_id exactly as shown (the slug in quotes).\n` +
+        `6. Each task must be fully self-contained — include all file paths, content, URLs, and context the member needs.\n\n` +
         `## Team Members\n\n${memberLines}`;
     } else if (config.multiAgent) {
       agentSection =
         `# Multi-Agent Mode\n\nMulti-agent mode is enabled. You MUST actively use the \`agent_spawn\` tool to delegate work whenever possible. ` +
         `For any task that involves multiple steps, file operations, research, or can be broken into independent parts — always spawn sub-agents rather than doing everything yourself. ` +
-        `Each sub-agent has full tool access and runs to completion before returning its result. ` +
-        `Prefer parallelism: spawn multiple sub-agents for independent subtasks instead of working sequentially.\n\n` +
+        `Each sub-agent has full tool access and runs to completion before returning its result.\n\n` +
+        `## CRITICAL: Parallel Execution Rule\n` +
+        `When spawning multiple sub-agents for independent tasks, you MUST call ALL \`agent_spawn\` tools in a SINGLE response message — do NOT call them one at a time. ` +
+        `The system executes all \`agent_spawn\` calls from a single response concurrently (in parallel). ` +
+        `If you call \`agent_spawn\` once, wait for the result, then call it again, you are working SEQUENTIALLY — this defeats the purpose of multi-agent mode and is WRONG. ` +
+        `Correct approach: respond with multiple \`agent_spawn\` tool calls at once, then wait for all results together.\n\n` +
         `Each task passed to \`agent_spawn\` must be fully self-contained — the sub-agent has NO shared context. ` +
         `Always include all relevant URLs, file paths, repo names, error messages, and background needed to complete the task independently.`;
     }
@@ -716,17 +722,18 @@ export class REPL {
         break;
       }
 
-      // Execute each tool and add results to history
+      // Execute tools — agent_spawn calls run in parallel, others run sequentially
+      const executed = await runToolCalls(toolCallsList);
+
       const toolResultBlocks: ContentBlock[] = [];
-      for (const tc of toolCallsList) {
-        const result = await executeTool(tc.name, tc.input);
+      for (const { toolCallId, result } of executed) {
         const resultContent = result.success
           ? result.output
           : `[ERROR] ${result.error ?? 'tool failed'}${result.output ? '\n' + result.output : ''}`;
 
         toolResultBlocks.push({
           type: 'tool_result',
-          tool_call_id: tc.id,
+          tool_call_id: toolCallId,
           content: resultContent,
           is_error: !result.success,
         });

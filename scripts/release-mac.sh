@@ -16,136 +16,175 @@ cd "$(dirname "$0")/.."
 
 BUMP_TYPE="${1:-patch}"
 VM_HOST="ubuntu@140.245.113.229"
-GITLAB_TOKEN="${GITLAB_TOKEN:-glpat-LByb42RKuWo3FbqEGHQr}"   # replace glpat-xxx with your token once
+GITLAB_TOKEN="${GITLAB_TOKEN:-glpat-LByb42RKuWo3FbqEGHQr}"
 REMOTE_DIR="/var/www/manthra"
 DESKTOP_DIR="releases/desktop"
-GITLAB_API="https://gitlab.informaticsint.au/api/v4/projects/infoins-v4%2Finfo-ai%2Fmanthra"
+GITLAB_API="https://gitlab.informaticsint.au/api/v4/projects/166"
 
-# # ── Validate bump type ────────────────────────────────────────────────────────
-# if [[ "$BUMP_TYPE" != "patch" && "$BUMP_TYPE" != "minor" && "$BUMP_TYPE" != "major" ]]; then
-#   echo "Error: BUMP_TYPE must be patch, minor, or major (got: $BUMP_TYPE)"
-#   exit 1
-# fi
+# ── Validate bump type ────────────────────────────────────────────────────────
+if [[ "$BUMP_TYPE" != "patch" && "$BUMP_TYPE" != "minor" && "$BUMP_TYPE" != "major" ]]; then
+  echo "Error: BUMP_TYPE must be patch, minor, or major (got: $BUMP_TYPE)"
+  exit 1
+fi
 
-# echo "╔══════════════════════════════════════════════════╗"
-# echo "║  Manthra Mac Release — bump: $BUMP_TYPE$(printf '%*s' $((20 - ${#BUMP_TYPE})) '')║"
-# echo "╚══════════════════════════════════════════════════╝"
-# echo ""
+echo "╔══════════════════════════════════════════════════╗"
+echo "║  Manthra Mac Release — bump: $BUMP_TYPE$(printf '%*s' $((20 - ${#BUMP_TYPE})) '')║"
+echo "╚══════════════════════════════════════════════════╝"
+echo ""
 
-# # ── Step 1: Build Mac DMGs ────────────────────────────────────────────────────
-# echo "▶  Step 1/3 — Building Mac desktop app (arm64 + x64)..."
-# echo ""
-# npm run electron:package:mac
-# echo ""
-# echo "✓  Build complete."
-# echo ""
+# ── Step 1: Build Mac DMGs ────────────────────────────────────────────────────
+echo "▶  Step 1/3 — Building Mac desktop app (arm64 + x64)..."
+echo ""
+npm run electron:package:mac
+echo ""
+echo "✓  Build complete."
+echo ""
 
-# # ── Step 2: Deploy to server ──────────────────────────────────────────────────
-# echo "▶  Step 2/3 — Deploying Mac builds to ${VM_HOST}..."
-# echo ""
+# ── Step 2: Deploy to server ──────────────────────────────────────────────────
+echo "▶  Step 2/3 — Deploying Mac builds to ${VM_HOST}..."
+echo ""
 
-# if [ ! -d "$DESKTOP_DIR" ]; then
-#   echo "Error: ${DESKTOP_DIR}/ not found after build."
-#   exit 1
-# fi
+if [ ! -d "$DESKTOP_DIR" ]; then
+  echo "Error: ${DESKTOP_DIR}/ not found after build."
+  exit 1
+fi
 
-# echo "Files to deploy:"
-# find "$DESKTOP_DIR" \( -name "*.dmg" -o -name "*.zip" -o -name "*.yml" \) | sort | while read f; do
-#   echo "  $f  ($(du -sh "$f" | cut -f1))"
-# done
-# echo ""
+echo "Files to deploy:"
+find "$DESKTOP_DIR" \( -name "*.dmg" -o -name "*.zip" -o -name "*.yml" \) | sort | while read -r f; do
+  echo "  $f  ($(du -sh "$f" | cut -f1))"
+done
+echo ""
 
-# rsync -avz --progress \
-#   --include="*.dmg" \
-#   --include="*.zip" \
-#   --include="*.yml" \
-#   --exclude="*" \
-#   "${DESKTOP_DIR}/" "${VM_HOST}:${REMOTE_DIR}/releases/desktop/"
+rsync -avz --progress \
+  --include="*.dmg" \
+  --include="*.zip" \
+  --include="*.yml" \
+  --exclude="*" \
+  "${DESKTOP_DIR}/" "${VM_HOST}:${REMOTE_DIR}/releases/desktop/"
 
-# echo ""
-# echo "✓  Mac builds deployed."
-# echo ""
+echo ""
+echo "✓  Mac builds deployed."
+echo ""
 
 # ── Step 3: Trigger CI — version bump + full pipeline ────────────────────────
 echo "▶  Step 3/3 — Triggering CI pipeline (bump: $BUMP_TYPE)..."
 echo ""
 
-# Helper: extract a JSON field value without failing the whole script
-json_field() {
-  local json="$1" field="$2"
-  echo "$json" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    val = data.get('$field') if isinstance(data, dict) else None
-    print(val if val is not None else '')
-except Exception:
-    print('')
-" 2>/dev/null || true
-}
+# Use the latest pipeline on main that has a manual bump job.
+# (Creating a new pipeline via API requires elevated token scopes — this approach
+# reuses the pipeline that was already created by the most recent push to main.)
 
-# Create a new pipeline on main
-echo "  Creating pipeline..."
-PIPELINE_RESPONSE=$(curl -sS --request POST \
+echo "  Fetching latest pipeline on main..."
+PIPELINES_RESPONSE=$(curl -sS \
   --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  --data "ref=main" \
-  "$GITLAB_API/pipelines")
+  "$GITLAB_API/jobs?scope=manual&per_page=20")
 
-echo "  API response: $(echo "$PIPELINE_RESPONSE" | head -c 400)"
-echo ""
-
-PIPELINE_ID=$(json_field "$PIPELINE_RESPONSE" "id")
-
-if [ -z "$PIPELINE_ID" ] || [ "$PIPELINE_ID" = "None" ]; then
-  echo "Error: Could not get pipeline ID."
-  echo "Full response: $PIPELINE_RESPONSE"
-  exit 1
-fi
-
-echo "  Pipeline #${PIPELINE_ID} created. Waiting for jobs to initialise..."
-sleep 6
-
-# Find the bump job
-echo "  Fetching jobs..."
-JOBS_RESPONSE=$(curl -sS \
-  --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  "$GITLAB_API/pipelines/${PIPELINE_ID}/jobs?per_page=50")
-
-JOB_ID=$(echo "$JOBS_RESPONSE" | python3 -c "
-import sys, json
+JOB_ID=$(echo "$PIPELINES_RESPONSE" | python3 -c "
+import sys, re
+raw = sys.stdin.read()
+# strip control characters that gitlab sometimes embeds in avatar URLs
+raw = re.sub(r'[\x00-\x1f]', '', raw)
+import json
 try:
-    jobs = json.load(sys.stdin)
+    jobs = json.loads(raw)
     for j in (jobs if isinstance(jobs, list) else []):
-        if j.get('name') == 'bump':
+        if j.get('name') == 'bump' and j.get('status') == 'manual':
             print(j['id'])
             break
-except Exception as e:
+except Exception:
     print('', end='')
 " 2>/dev/null || true)
 
 if [ -z "$JOB_ID" ]; then
-  echo "Error: Could not find 'bump' job in pipeline #${PIPELINE_ID}."
-  echo "Trigger it manually:"
-  echo "  https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra/-/pipelines/${PIPELINE_ID}"
-  exit 1
+  echo "  No manual bump job found via jobs API — checking latest pipeline directly..."
+
+  LATEST_PIPELINE=$(curl -sS \
+    --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+    "$GITLAB_API/pipelines?ref=main&per_page=1")
+
+  PIPELINE_ID=$(echo "$LATEST_PIPELINE" | python3 -c "
+import sys, re, json
+raw = re.sub(r'[\x00-\x1f]', '', sys.stdin.read())
+try:
+    p = json.loads(raw)
+    print(p[0]['id'] if isinstance(p, list) and p else '')
+except Exception:
+    print('', end='')
+" 2>/dev/null || true)
+
+  if [ -z "$PIPELINE_ID" ]; then
+    echo "Error: Could not fetch pipelines. Check GITLAB_TOKEN and network."
+    exit 1
+  fi
+
+  echo "  Found pipeline #${PIPELINE_ID}. Fetching its jobs..."
+  JOBS_RESPONSE=$(curl -sS \
+    --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
+    "$GITLAB_API/pipelines/${PIPELINE_ID}/jobs?per_page=50")
+
+  JOB_ID=$(echo "$JOBS_RESPONSE" | python3 -c "
+import sys, re, json
+raw = re.sub(r'[\x00-\x1f]', '', sys.stdin.read())
+try:
+    jobs = json.loads(raw)
+    for j in (jobs if isinstance(jobs, list) else []):
+        if j.get('name') == 'bump':
+            print(j['id'])
+            break
+except Exception:
+    print('', end='')
+" 2>/dev/null || true)
+
+  if [ -z "$JOB_ID" ]; then
+    echo "Error: Could not find 'bump' job in pipeline #${PIPELINE_ID}."
+    echo "Trigger it manually: https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra/-/pipelines/${PIPELINE_ID}"
+    exit 1
+  fi
 fi
 
-echo "  Found bump job #${JOB_ID}. Playing it..."
+echo "  Found bump job #${JOB_ID}. Playing it with BUMP_TYPE=${BUMP_TYPE}..."
 
-# Play the bump job with the requested BUMP_TYPE
 PLAY_RESPONSE=$(curl -sS --request POST \
   --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
   --header "Content-Type: application/json" \
   --data "{\"job_variables_attributes\":[{\"key\":\"BUMP_TYPE\",\"value\":\"$BUMP_TYPE\"}]}" \
   "$GITLAB_API/jobs/${JOB_ID}/play")
-echo "  Play response: $(echo "$PLAY_RESPONSE" | head -c 200)"
+
+STATUS=$(echo "$PLAY_RESPONSE" | python3 -c "
+import sys, re, json
+raw = re.sub(r'[\x00-\x1f]', '', sys.stdin.read())
+try:
+    d = json.loads(raw)
+    print(d.get('status', ''))
+except Exception:
+    print('', end='')
+" 2>/dev/null || true)
+
+if [ -z "$STATUS" ] || [ "$STATUS" = "failed" ]; then
+  echo "  Error playing job. Response: $(echo "$PLAY_RESPONSE" | head -c 300)"
+  exit 1
+fi
+
+PIPELINE_ID=$(echo "$PLAY_RESPONSE" | python3 -c "
+import sys, re, json
+raw = re.sub(r'[\x00-\x1f]', '', sys.stdin.read())
+try:
+    d = json.loads(raw)
+    print(d.get('pipeline', {}).get('id', ''))
+except Exception:
+    print('', end='')
+" 2>/dev/null || true)
 
 echo ""
-echo "✓  Done. Bump job #${JOB_ID} triggered (BUMP_TYPE=$BUMP_TYPE)."
+echo "✓  Done. Bump job #${JOB_ID} triggered (BUMP_TYPE=$BUMP_TYPE, status=$STATUS)."
 echo ""
 echo "   The bump job will:"
 echo "   1. Increment the $BUMP_TYPE version in package.json"
 echo "   2. Push the version commit + git tag"
 echo "   3. Tag triggers: build CLI → version.json → deploy website"
 echo ""
-echo "Pipeline: https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra/-/pipelines/${PIPELINE_ID}"
+if [ -n "$PIPELINE_ID" ]; then
+  echo "Pipeline: https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra/-/pipelines/${PIPELINE_ID}"
+else
+  echo "Check: https://gitlab.informaticsint.au/infoins-v4/info-ai/manthra/-/pipelines"
+fi

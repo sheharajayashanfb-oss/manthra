@@ -354,7 +354,7 @@ export function registerBridge(win: BrowserWindow): void {
         // Execute other tool calls sequentially (same as CLI)
         const otherResults: Array<{ tc: (typeof otherCalls)[0]; result: Awaited<ReturnType<typeof executeTool>> }> = [];
         for (const tc of otherCalls) {
-          const result = await executeTool(tc.name, tc.input, { silent: true });
+          const result = await executeTool(tc.name, tc.input);
           send(win, { type: 'tool_done', toolId: tc.id, toolSuccess: result.success, toolOutput: result.output });
           otherResults.push({ tc, result });
         }

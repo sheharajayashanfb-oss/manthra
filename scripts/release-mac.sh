@@ -11,9 +11,12 @@
 
 set -euo pipefail
 
+# Always run from the project root regardless of where the script is called from
+cd "$(dirname "$0")/.."
+
 BUMP_TYPE="${1:-patch}"
 VM_HOST="ubuntu@140.245.113.229"
-GITLAB_TOKEN="${GITLAB_TOKEN:-glpat-xxx}"   # replace glpat-xxx with your token once
+GITLAB_TOKEN="${GITLAB_TOKEN:-glpat-LByb42RKuWo3FbqEGHQr}"   # replace glpat-xxx with your token once
 REMOTE_DIR="/var/www/manthra"
 DESKTOP_DIR="releases/desktop"
 GITLAB_API="https://gitlab.informaticsint.au/api/v4/projects/infoins-v4%2Finfo-ai%2Fmanthra"

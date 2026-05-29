@@ -74,32 +74,32 @@ build:
 # Uses electronuserland/builder:wine which bundles Wine + NSIS on Debian —
 # no manual Wine install needed. Runs in parallel with the CLI build.
 
-build:electron:win:
-  stage: build
-  image: electronuserland/builder:wine
-  tags:
-    - iins-v4-backend
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
-      - .electron-cache/
-      - .electron-builder-cache/
-  script:
-    - npm ci
-    - npm run electron:build
-    - npx electron-builder --win --x64 --publish never --config electron-builder.config.ts
-  artifacts:
-    name: "manthra-desktop-win-$CI_COMMIT_SHORT_SHA"
-    paths:
-      - releases/desktop/*.exe
-      - releases/desktop/latest.yml
-    expire_in: 30 days
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: '$CI_COMMIT_TAG'
+# build:electron:win:
+#   stage: build
+#   image: electronuserland/builder:wine
+#   tags:
+#     - iins-v4-backend
+#   cache:
+#     key:
+#       files:
+#         - package-lock.json
+#     paths:
+#       - node_modules/
+#       - .electron-cache/
+#       - .electron-builder-cache/
+#   script:
+#     - npm ci
+#     - npm run electron:build
+#     - npx electron-builder --win --x64 --publish never --config electron-builder.config.ts
+#   artifacts:
+#     name: "manthra-desktop-win-$CI_COMMIT_SHORT_SHA"
+#     paths:
+#       - releases/desktop/*.exe
+#       - releases/desktop/latest.yml
+#     expire_in: 30 days
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "main"'
+#     - if: '$CI_COMMIT_TAG'
 
 # ── Build Electron desktop — macOS DMG + ZIP ──────────────────────────────────
 # Requires a self-hosted macOS GitLab runner tagged "macos".
@@ -118,31 +118,31 @@ build:electron:win:
 #   3. Start the service:
 #        brew services start gitlab-runner
 
-build:electron:mac:
-  stage: build
-  tags:
-    - macos
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
-      - .electron-cache/
-      - .electron-builder-cache/
-  script:
-    - npm ci
-    - npm run electron:package:mac
-  artifacts:
-    name: "manthra-desktop-mac-$CI_COMMIT_SHORT_SHA"
-    paths:
-      - releases/desktop/*.dmg
-      - releases/desktop/*.zip
-      - releases/desktop/latest-mac.yml
-    expire_in: 30 days
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-    - if: '$CI_COMMIT_TAG'
+# build:electron:mac:
+#   stage: build
+#   tags:
+#     - macos
+#   cache:
+#     key:
+#       files:
+#         - package-lock.json
+#     paths:
+#       - node_modules/
+#       - .electron-cache/
+#       - .electron-builder-cache/
+#   script:
+#     - npm ci
+#     - npm run electron:package:mac
+#   artifacts:
+#     name: "manthra-desktop-mac-$CI_COMMIT_SHORT_SHA"
+#     paths:
+#       - releases/desktop/*.dmg
+#       - releases/desktop/*.zip
+#       - releases/desktop/latest-mac.yml
+#     expire_in: 30 days
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "main"'
+#     - if: '$CI_COMMIT_TAG'
 
 # ── Build Electron desktop — Linux AppImage (x64) ─────────────────────────────
 

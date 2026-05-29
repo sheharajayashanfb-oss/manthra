@@ -45,6 +45,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
+    "electron-updater": "^6.8.3",
     "express": "^4.21.0",
     "fast-glob": "^3.3.2",
     "framer-motion": "^12.40.0",

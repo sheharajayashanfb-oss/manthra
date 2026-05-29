@@ -23,11 +23,13 @@ find "$DESKTOP_DIR" \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" \) |
 done
 echo ""
 
-# Upload all desktop builds (dmg, exe, AppImage)
+# Upload all desktop builds (dmg, zip, exe, AppImage) + update YAML metadata
 rsync -avz --progress \
   --include="*.dmg" \
+  --include="*.zip" \
   --include="*.exe" \
   --include="*.AppImage" \
+  --include="*.yml" \
   --exclude="*" \
   "${DESKTOP_DIR}/" "${VM_HOST}:${REMOTE_DIR}/releases/desktop/"
 

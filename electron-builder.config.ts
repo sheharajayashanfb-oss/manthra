@@ -9,17 +9,26 @@ export default {
     output: 'releases/desktop',
   },
   files: ['out/**'],
+  // Generic update server — generates latest-mac.yml / latest-linux.yml / latest.yml
+  // which electron-updater reads to check for and download updates.
+  publish: [{
+    provider: 'generic',
+    url: 'https://manthra.informaticsint.au/releases/desktop',
+  }],
   mac: {
     category: 'public.app-category.developer-tools',
-    artifactName: 'Manthra-mac-${arch}.dmg',
-    target: [{ target: 'dmg', arch: ['arm64', 'x64'] }],
+    artifactName: 'Manthra-mac-${arch}.${ext}',
+    target: [
+      { target: 'dmg', arch: ['arm64', 'x64'] },
+      { target: 'zip', arch: ['arm64', 'x64'] }, // required for electron-updater on macOS
+    ],
   },
   win: {
-    artifactName: 'Manthra-win-x64.exe',
+    artifactName: 'Manthra-win-x64.${ext}',
     target: [{ target: 'nsis', arch: ['x64'] }],
   },
   linux: {
-    artifactName: 'Manthra-linux-${arch}.AppImage',
+    artifactName: 'Manthra-linux-${arch}.${ext}',
     target: [
       { target: 'AppImage', arch: ['x64'] },
       { target: 'AppImage', arch: ['arm64'] },

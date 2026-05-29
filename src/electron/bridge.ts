@@ -1,5 +1,8 @@
 import { ipcMain, BrowserWindow, shell, app } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { randomUUID } from 'crypto';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { loadConfig, writeConfig, updateConfig } from '../config/loader.js';
 import { autoInitProviders } from '../config/auto-init.js';
 import { loadProviders, getDefaultProvider, createProvider } from '../providers/registry.js';
@@ -20,6 +23,8 @@ import { sanitizeMessages } from '../utils/messages.js';
 import type { StreamEvent as ProviderStreamEvent, Message } from '../providers/types.js';
 import type { PermissionDecision } from '../permissions/index.js';
 import { runCompact } from '../slash-commands/compact.js';
+
+const execAsync = promisify(exec);
 
 // ── IPC types ──────────────────────────────────────────────────────────────
 export interface StreamEvent {
@@ -665,4 +670,68 @@ export function registerBridge(win: BrowserWindow): void {
       return { kind: 'error', text: String(err) };
     }
   });
+
+  // ── Auto-updater ───────────────────────────────────────────────────────────
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: 'https://manthra.informaticsint.au/releases/desktop',
+  } as Parameters<typeof autoUpdater.setFeedURL>[0]);
+
+  const sendUpdate = (event: Record<string, unknown>) => {
+    if (!win.isDestroyed()) win.webContents.send('update:event', event);
+  };
+
+  autoUpdater.on('checking-for-update', () => sendUpdate({ type: 'checking' }));
+  autoUpdater.on('update-available', (info) => sendUpdate({ type: 'available', version: info.version }));
+  autoUpdater.on('update-not-available', () => sendUpdate({ type: 'current' }));
+  autoUpdater.on('download-progress', (p) => sendUpdate({ type: 'progress', percent: Math.round(p.percent) }));
+  autoUpdater.on('update-downloaded', (info) => sendUpdate({ type: 'ready', version: info.version }));
+  autoUpdater.on('error', (err) => sendUpdate({ type: 'error', message: err.message }));
+
+  ipcMain.handle('update:check-app', async () => {
+    try { await autoUpdater.checkForUpdates(); return { ok: true }; }
+    catch (err) { return { ok: false, error: String(err) }; }
+  });
+
+  ipcMain.handle('update:download-app', async () => {
+    try { await autoUpdater.downloadUpdate(); return { ok: true }; }
+    catch (err) { return { ok: false, error: String(err) }; }
+  });
+
+  ipcMain.handle('update:install-app', () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
+
+  // Update the CLI binary by running the platform install script
+  ipcMain.handle('update:cli', async () => {
+    try {
+      let cmd: string;
+      if (process.platform === 'win32') {
+        cmd = `PowerShell -ExecutionPolicy Bypass -Command "iwr -useb https://manthra.informaticsint.au/install.ps1 | iex"`;
+      } else {
+        cmd = `curl -sSL https://manthra.informaticsint.au/install | bash`;
+      }
+      const shell = process.platform === 'win32' ? 'powershell.exe' : (process.env['SHELL'] || '/bin/bash');
+      const { stdout, stderr } = await execAsync(cmd, { shell, timeout: 120_000 });
+      return { ok: true, output: (stdout + stderr).trim() };
+    } catch (err) {
+      return { ok: false, error: String(err) };
+    }
+  });
+
+  // Check latest version from server (lightweight, no download)
+  ipcMain.handle('update:get-versions', async () => {
+    try {
+      const res = await fetch('https://manthra.informaticsint.au/version.json', { signal: AbortSignal.timeout(5000) });
+      const { version: latest } = await res.json() as { version: string };
+      return { current: app.getVersion(), latest };
+    } catch {
+      return { current: app.getVersion(), latest: null };
+    }
+  });
+
+  // Check for updates automatically 10 s after launch (non-blocking)
+  setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}); }, 10_000);
 }

@@ -41,6 +41,23 @@ const api = {
   slashListModels: (): Promise<ModelInfo[]> => ipcRenderer.invoke('slash:list-models'),
   slashListProviders: (): Promise<ProviderInfo[]> => ipcRenderer.invoke('slash:list-providers'),
   slashListTeams: (): Promise<TeamInfo[]> => ipcRenderer.invoke('slash:list-teams'),
+
+  // ── Updates ───────────────────────────────────────────────────────────────
+  getVersions: (): Promise<{ current: string; latest: string | null }> =>
+    ipcRenderer.invoke('update:get-versions'),
+  checkAppUpdate: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('update:check-app'),
+  downloadAppUpdate: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('update:download-app'),
+  installAppUpdate: (): Promise<void> =>
+    ipcRenderer.invoke('update:install-app'),
+  updateCli: (): Promise<{ ok: boolean; output?: string; error?: string }> =>
+    ipcRenderer.invoke('update:cli'),
+  onUpdateEvent: (cb: (event: { type: string; version?: string; percent?: number; message?: string }) => void) => {
+    const handler = (_: unknown, event: unknown) => cb(event as { type: string; version?: string; percent?: number; message?: string });
+    ipcRenderer.on('update:event', handler);
+    return () => ipcRenderer.removeListener('update:event', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

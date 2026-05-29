@@ -161,6 +161,7 @@
       font-weight: 600; font-family: var(--mono); transition: all .15s;
     }
     .platform-dl a:hover { background: var(--bg-alt); border-color: var(--text); }
+    .dl-v { font-size: 0.75em; opacity: 0.55; font-family: 'JetBrains Mono', monospace; margin-left: 4px; }
     .platform-note { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.6rem; }
 
     /* ── Download type toggle (CLI vs Desktop) ── */
@@ -591,6 +592,7 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
 
   <!-- ── Desktop App downloads ── -->
   <div id="dtype-desktop" class="dtype-content">
+    <p id="desktop-ver-label" style="display:none;font-size:0.78rem;color:var(--text-muted);margin-bottom:0.6rem;font-family:'JetBrains Mono',monospace;"></p>
     <div class="platform-tabs">
       <button class="platform-tab active" onclick="selectDesktopPlatform('d-mac-arm',this)">macOS ARM</button>
       <button class="platform-tab" onclick="selectDesktopPlatform('d-mac-x64',this)">macOS Intel</button>
@@ -600,23 +602,23 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
     </div>
 
     <div id="d-mac-arm" class="platform-dl active">
-      <a href="/releases/desktop/Manthra-mac-arm64.dmg" download>↓ Download Manthra-mac-arm64.dmg</a>
+      <a href="/releases/desktop/Manthra-mac-arm64.dmg" download>↓ Download Manthra-mac-arm64.dmg <span class="dl-v"></span></a>
       <p class="platform-note">macOS 12+ · Apple Silicon (M1 / M2 / M3 / M4) · ~150 MB</p>
     </div>
     <div id="d-mac-x64" class="platform-dl">
-      <a href="/releases/desktop/Manthra-mac-x64.dmg" download>↓ Download Manthra-mac-x64.dmg</a>
+      <a href="/releases/desktop/Manthra-mac-x64.dmg" download>↓ Download Manthra-mac-x64.dmg <span class="dl-v"></span></a>
       <p class="platform-note">macOS 12+ · Intel · ~160 MB</p>
     </div>
     <div id="d-win" class="platform-dl">
-      <a href="/releases/desktop/Manthra-win-x64.exe" download>↓ Download Manthra-win-x64.exe</a>
+      <a href="/releases/desktop/Manthra-win-x64.exe" download>↓ Download Manthra-win-x64.exe <span class="dl-v"></span></a>
       <p class="platform-note">Windows 10/11 · x64 · NSIS installer · ~150 MB</p>
     </div>
     <div id="d-linux-x64" class="platform-dl">
-      <a href="/releases/desktop/Manthra-linux-x64.AppImage" download>↓ Download Manthra-linux-x64.AppImage</a>
+      <a href="/releases/desktop/Manthra-linux-x64.AppImage" download>↓ Download Manthra-linux-x64.AppImage <span class="dl-v"></span></a>
       <p class="platform-note">chmod +x Manthra-linux-x64.AppImage &amp;&amp; ./Manthra-linux-x64.AppImage</p>
     </div>
     <div id="d-linux-arm" class="platform-dl">
-      <a href="/releases/desktop/Manthra-linux-arm64.AppImage" download>↓ Download Manthra-linux-arm64.AppImage</a>
+      <a href="/releases/desktop/Manthra-linux-arm64.AppImage" download>↓ Download Manthra-linux-arm64.AppImage <span class="dl-v"></span></a>
       <p class="platform-note">chmod +x Manthra-linux-arm64.AppImage &amp;&amp; ./Manthra-linux-arm64.AppImage</p>
     </div>
 
@@ -1418,11 +1420,14 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
 <script>
   // Load latest version badge from version.json
   fetch('/version.json').then(r => r.json()).then(d => {
+    if (!d.version) return;
     const badge = document.getElementById('nav-version-badge');
-    if (badge && d.version) {
-      badge.textContent = 'v' + d.version;
-      badge.style.display = '';
-    }
+    if (badge) { badge.textContent = 'v' + d.version; badge.style.display = ''; }
+    // Stamp version on all download links
+    document.querySelectorAll('.dl-v').forEach(el => { el.textContent = 'v' + d.version; });
+    // Show version label above desktop download section
+    const verLabel = document.getElementById('desktop-ver-label');
+    if (verLabel) { verLabel.textContent = 'Latest: v' + d.version + (d.date ? '  ·  ' + d.date : ''); verLabel.style.display = ''; }
   }).catch(() => {});
 
   function copyInstall() {

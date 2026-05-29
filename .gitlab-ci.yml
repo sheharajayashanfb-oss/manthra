@@ -70,8 +70,81 @@ build:
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_COMMIT_TAG'
 
+# ── Build Electron desktop — Windows NSIS installer (x64) ────────────────────
+# Uses electronuserland/builder:wine which bundles Wine + NSIS on Debian —
+# no manual Wine install needed. Runs in parallel with the CLI build.
+
+build:electron:win:
+  stage: build
+  image: electronuserland/builder:wine
+  tags:
+    - iins-v4-backend
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .electron-cache/
+      - .electron-builder-cache/
+  script:
+    - npm ci
+    - npm run electron:build
+    - npx electron-builder --win --x64 --publish never --config electron-builder.config.ts
+  artifacts:
+    name: "manthra-desktop-win-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - releases/desktop/*.exe
+      - releases/desktop/latest.yml
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_TAG'
+
+# ── Build Electron desktop — macOS DMG + ZIP ──────────────────────────────────
+# Requires a self-hosted macOS GitLab runner tagged "macos".
+# Apple's toolchain cannot run on Linux — there is no Docker workaround.
+#
+# One-time runner setup on this Mac:
+#   1. Install GitLab Runner:
+#        brew install gitlab-runner
+#   2. Register it (get token from GitLab → Settings → CI/CD → Runners):
+#        gitlab-runner register \
+#          --url https://gitlab.informaticsint.au \
+#          --token <YOUR_RUNNER_TOKEN> \
+#          --executor shell \
+#          --description "macOS local runner" \
+#          --tag-list macos
+#   3. Start the service:
+#        brew services start gitlab-runner
+
+build:electron:mac:
+  stage: build
+  tags:
+    - macos
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .electron-cache/
+      - .electron-builder-cache/
+  script:
+    - npm ci
+    - npm run electron:package:mac
+  artifacts:
+    name: "manthra-desktop-mac-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - releases/desktop/*.dmg
+      - releases/desktop/*.zip
+      - releases/desktop/latest-mac.yml
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_TAG'
+
 # ── Build Electron desktop — Linux AppImage (x64) ─────────────────────────────
-# Runs in parallel with the CLI build job above.
 
 # build:electron:linux:
 #   stage: build
@@ -94,71 +167,7 @@ build:
 #     name: "manthra-desktop-linux-$CI_COMMIT_SHORT_SHA"
 #     paths:
 #       - releases/desktop/*.AppImage
-#     expire_in: 30 days
-#   rules:
-#     - if: '$CI_COMMIT_BRANCH == "main"'
-#     - if: '$CI_COMMIT_TAG'
-
-# # ── Build Electron desktop — Windows NSIS installer (x64) ─────────────────────
-# # electron-builder uses Wine to run the NSIS toolchain on Linux.
-# # Runs in parallel with the other build jobs.
-
-# build:electron:win:
-#   stage: build
-#   image: node:20-bullseye
-#   tags:
-#     - iins-v4-backend
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#       - .electron-cache/
-#       - .electron-builder-cache/
-#   before_script:
-#     - dpkg --add-architecture i386
-#     - apt-get update -qq
-#     - apt-get install -y -qq wine64 wine32 2>/dev/null || apt-get install -y -qq wine64 2>/dev/null || true
-#   script:
-#     - npm ci
-#     - npm run electron:build
-#     - npx electron-builder --win --x64 --publish never --config electron-builder.config.ts
-#   artifacts:
-#     name: "manthra-desktop-win-$CI_COMMIT_SHORT_SHA"
-#     paths:
-#       - releases/desktop/*.exe
-#     expire_in: 30 days
-#   rules:
-#     - if: '$CI_COMMIT_BRANCH == "main"'
-#     - if: '$CI_COMMIT_TAG'
-
-# ── Build Electron desktop — macOS DMG ────────────────────────────────────────
-# Requires a self-hosted macOS GitLab runner. Apple's toolchain cannot run on
-# Linux, so there is no workaround for this one.
-#
-# To enable:
-#   1. Set up a macOS machine as a GitLab runner tagged "macos"
-#      https://docs.gitlab.com/runner/install/osx.html
-#   2. Uncomment the job below.
-#
-# build:electron:mac:
-#   stage: build
-#   tags:
-#     - macos
-#   cache:
-#     key:
-#       files:
-#         - package-lock.json
-#     paths:
-#       - node_modules/
-#   script:
-#     - npm ci
-#     - npm run electron:package:mac
-#   artifacts:
-#     name: "manthra-desktop-mac-$CI_COMMIT_SHORT_SHA"
-#     paths:
-#       - releases/desktop/*.dmg
+#       - releases/desktop/latest-linux.yml
 #     expire_in: 30 days
 #   rules:
 #     - if: '$CI_COMMIT_BRANCH == "main"'
@@ -197,11 +206,11 @@ deploy:
     - job: build
     - job: version
       optional: true
-    - job: build:electron:linux
-      optional: true
     - job: build:electron:win
       optional: true
-    # - job: build:electron:mac   # uncomment when macOS runner is available
+    - job: build:electron:mac
+      optional: true
+    # - job: build:electron:linux
     #   optional: true
   before_script:
     - apk add --no-cache openssh-client rsync
@@ -218,17 +227,28 @@ deploy:
     - rsync -avz web/ $DEPLOY_HOST:$DEPLOY_PATH/
     - rsync -avz deploy/nginx.conf $DEPLOY_HOST:/tmp/manthra-nginx.conf
     - ssh $DEPLOY_HOST "sudo cp /tmp/manthra-nginx.conf /etc/nginx/sites-available/manthra && sudo nginx -t && sudo systemctl reload nginx"
-    # Desktop builds — rsync each platform separately (no --delete so macOS
-    # builds uploaded manually are not wiped when only Linux/Win are in CI)
+    # Desktop builds — no --delete so builds from different jobs are additive
     - |
-      if ls releases/desktop/*.AppImage 2>/dev/null; then
-        echo "Deploying Linux desktop builds..."
-        rsync -avz releases/desktop/*.AppImage $DEPLOY_HOST:$DEPLOY_PATH/releases/desktop/
+      if ls releases/desktop/*.dmg 2>/dev/null || ls releases/desktop/*.zip 2>/dev/null; then
+        echo "Deploying macOS desktop builds..."
+        rsync -avz releases/desktop/*.dmg releases/desktop/*.zip releases/desktop/latest-mac.yml \
+          $DEPLOY_HOST:$DEPLOY_PATH/releases/desktop/ 2>/dev/null || true
       fi
     - |
       if ls releases/desktop/*.exe 2>/dev/null; then
         echo "Deploying Windows desktop builds..."
         rsync -avz releases/desktop/*.exe $DEPLOY_HOST:$DEPLOY_PATH/releases/desktop/
+        if ls releases/desktop/latest.yml 2>/dev/null; then
+          rsync -avz releases/desktop/latest.yml $DEPLOY_HOST:$DEPLOY_PATH/releases/desktop/
+        fi
+      fi
+    - |
+      if ls releases/desktop/*.AppImage 2>/dev/null; then
+        echo "Deploying Linux desktop builds..."
+        rsync -avz releases/desktop/*.AppImage $DEPLOY_HOST:$DEPLOY_PATH/releases/desktop/
+        if ls releases/desktop/latest-linux.yml 2>/dev/null; then
+          rsync -avz releases/desktop/latest-linux.yml $DEPLOY_HOST:$DEPLOY_PATH/releases/desktop/
+        fi
       fi
     - echo "Deployed to https://manthra.informaticsint.au"
   rules:

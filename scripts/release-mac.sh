@@ -86,16 +86,12 @@ except Exception:
 
 # Create a new pipeline on main
 echo "  Creating pipeline..."
-PIPELINE_RESPONSE=$(curl -sf --request POST \
+PIPELINE_RESPONSE=$(curl -sS --request POST \
   --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
   --data "ref=main" \
-  "$GITLAB_API/pipelines" 2>&1) || {
-    echo "Error: curl failed — check VM_HOST/network or GITLAB_TOKEN."
-    echo "  $PIPELINE_RESPONSE"
-    exit 1
-  }
+  "$GITLAB_API/pipelines")
 
-echo "  API response: $PIPELINE_RESPONSE" | head -c 300
+echo "  API response: $(echo "$PIPELINE_RESPONSE" | head -c 400)"
 echo ""
 
 PIPELINE_ID=$(json_field "$PIPELINE_RESPONSE" "id")
@@ -111,12 +107,9 @@ sleep 6
 
 # Find the bump job
 echo "  Fetching jobs..."
-JOBS_RESPONSE=$(curl -sf \
+JOBS_RESPONSE=$(curl -sS \
   --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  "$GITLAB_API/pipelines/${PIPELINE_ID}/jobs?per_page=50" 2>&1) || {
-    echo "Error: Could not fetch jobs for pipeline #${PIPELINE_ID}."
-    exit 1
-  }
+  "$GITLAB_API/pipelines/${PIPELINE_ID}/jobs?per_page=50")
 
 JOB_ID=$(echo "$JOBS_RESPONSE" | python3 -c "
 import sys, json
@@ -140,15 +133,12 @@ fi
 echo "  Found bump job #${JOB_ID}. Playing it..."
 
 # Play the bump job with the requested BUMP_TYPE
-PLAY_RESPONSE=$(curl -sf --request POST \
+PLAY_RESPONSE=$(curl -sS --request POST \
   --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
   --header "Content-Type: application/json" \
   --data "{\"job_variables_attributes\":[{\"key\":\"BUMP_TYPE\",\"value\":\"$BUMP_TYPE\"}]}" \
-  "$GITLAB_API/jobs/${JOB_ID}/play" 2>&1) || {
-    echo "Error: Failed to play bump job #${JOB_ID}."
-    echo "  $PLAY_RESPONSE"
-    exit 1
-  }
+  "$GITLAB_API/jobs/${JOB_ID}/play")
+echo "  Play response: $(echo "$PLAY_RESPONSE" | head -c 200)"
 
 echo ""
 echo "✓  Done. Bump job #${JOB_ID} triggered (BUMP_TYPE=$BUMP_TYPE)."

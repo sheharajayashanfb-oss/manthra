@@ -2,6 +2,13 @@ import * as readline from 'readline';
 import chalk from 'chalk';
 import type { Tool, ToolResult } from './types.js';
 
+type ConfirmFn = (action: string, details: string) => Promise<boolean>;
+let _confirmFn: ConfirmFn | null = null;
+
+export function setConfirmHandler(fn: ConfirmFn): void {
+  _confirmFn = fn;
+}
+
 async function promptConfirmation(question: string): Promise<boolean> {
   return new Promise((resolve) => {
     const rl = readline.createInterface({
@@ -33,6 +40,13 @@ const confirmActionTool: Tool = {
     try {
       const action = String(input['action']);
       const details = input['details'] ? String(input['details']) : '';
+
+      if (_confirmFn) {
+        const confirmed = await _confirmFn(action, details);
+        return confirmed
+          ? { success: true, output: `User confirmed: ${action}` }
+          : { success: false, output: '', error: `User denied: ${action}` };
+      }
 
       process.stdout.write('\n');
       process.stdout.write(chalk.yellow('  ⚠  Confirmation required\n'));

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Header from './components/Header';
 import ChatView from './components/ChatView';
 import PermissionDialog, { type PermissionDecision } from './components/PermissionDialog';
+import ConfirmDialog from './components/ConfirmDialog';
 import { useChat } from './hooks/useChat';
 
 const CWD_KEY = 'manthra:cwd';
@@ -17,11 +18,18 @@ interface PermissionRequest {
   details: string;
 }
 
+interface ConfirmRequest {
+  id: string;
+  action: string;
+  details: string;
+}
+
 export default function App() {
   const [cwd, setCwd] = useState(getInitialCwd);
   const chat = useChat(cwd);
   const [version, setVersion] = useState('');
   const [permQueue, setPermQueue] = useState<PermissionRequest[]>([]);
+  const [confirmQueue, setConfirmQueue] = useState<ConfirmRequest[]>([]);
 
   useEffect(() => {
     localStorage.setItem(CWD_KEY, cwd);
@@ -30,10 +38,13 @@ export default function App() {
   useEffect(() => {
     window.api.getVersions().then((v) => setVersion(v.current)).catch(() => {});
 
-    const unsub = window.api.onPermissionRequest((req) => {
+    const unsubPerm = window.api.onPermissionRequest((req) => {
       setPermQueue((q) => [...q, req]);
     });
-    return unsub;
+    const unsubConfirm = window.api.onConfirmRequest((req) => {
+      setConfirmQueue((q) => [...q, req]);
+    });
+    return () => { unsubPerm(); unsubConfirm(); };
   }, []);
 
   const handleCwdChange = async () => {
@@ -46,7 +57,13 @@ export default function App() {
     setPermQueue((q) => q.filter((r) => r.id !== id));
   }, []);
 
+  const handleConfirmRespond = useCallback((id: string, confirmed: boolean) => {
+    window.api.respondToConfirm(id, confirmed);
+    setConfirmQueue((q) => q.filter((r) => r.id !== id));
+  }, []);
+
   const currentPermission = permQueue[0] ?? null;
+  const currentConfirm = confirmQueue[0] ?? null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#fff', overflow: 'hidden' }}>
@@ -89,6 +106,14 @@ export default function App() {
         <PermissionDialog
           request={currentPermission}
           onRespond={handlePermRespond}
+        />
+      )}
+
+      {/* Confirm dialog (confirm_action tool) */}
+      {!currentPermission && currentConfirm && (
+        <ConfirmDialog
+          request={currentConfirm}
+          onRespond={handleConfirmRespond}
         />
       )}
     </div>

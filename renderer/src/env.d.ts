@@ -52,6 +52,8 @@ declare global {
       respondToPermission(id: string, decision: 'allow' | 'always' | 'project' | 'deny'): Promise<void>;
       onStreamEvent(cb: (event: StreamEvent) => void): () => void;
       onPermissionRequest(cb: (req: { id: string; tool: string; action: string; details: string }) => void): () => void;
+      onConfirmRequest(cb: (req: { id: string; action: string; details: string }) => void): () => void;
+      respondToConfirm(id: string, confirmed: boolean): Promise<void>;
       slashList(): Promise<SlashCommandDef[]>;
       slashExec(name: string, args: string, cwd?: string): Promise<SlashExecResult>;
       slashListModels(): Promise<ModelInfo[]>;

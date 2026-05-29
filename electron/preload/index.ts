@@ -33,6 +33,13 @@ const api = {
     ipcRenderer.on('permission:request', handler);
     return () => ipcRenderer.removeListener('permission:request', handler);
   },
+  onConfirmRequest: (cb: (req: { id: string; action: string; details: string }) => void) => {
+    const handler = (_: unknown, req: unknown) => cb(req as { id: string; action: string; details: string });
+    ipcRenderer.on('confirm:request', handler);
+    return () => ipcRenderer.removeListener('confirm:request', handler);
+  },
+  respondToConfirm: (id: string, confirmed: boolean) =>
+    ipcRenderer.invoke('confirm:respond', id, confirmed),
 
   // ── Slash commands ────────────────────────────────────────────────────────
   slashList: (): Promise<SlashCommandDef[]> => ipcRenderer.invoke('slash:list'),

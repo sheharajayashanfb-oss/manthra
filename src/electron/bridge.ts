@@ -9,6 +9,7 @@ import { loadProviders, getDefaultProvider, createProvider } from '../providers/
 import { ConversationHistory } from '../conversation/index.js';
 import { getToolDefinitions, getAllTools, registerDynamicTool } from '../tools/registry.js';
 import { executeTool, setPermissionHandler } from '../tools/executor.js';
+import { setConfirmHandler } from '../tools/safety.js';
 import { createSubAgentTool, subAgentEmitter, type TeamMemberRuntime } from '../tools/sub_agent.js';
 import { platformSystemPrompt } from '../tools/platform.js';
 import { mcpManager } from '../mcp/manager.js';
@@ -167,6 +168,18 @@ export function registerBridge(win: BrowserWindow): void {
   ipcMain.handle('permission:respond', (_e, id: string, decision: PermissionDecision) => {
     pendingPermissions.get(id)?.(decision);
     pendingPermissions.delete(id);
+  });
+
+  // ── Confirm handler (confirm_action tool) ──────────────────────────────────
+  const pendingConfirms = new Map<string, (confirmed: boolean) => void>();
+  setConfirmHandler(async (action, details) => {
+    const id = randomUUID();
+    win.webContents.send('confirm:request', { id, action, details });
+    return new Promise<boolean>((resolve) => { pendingConfirms.set(id, resolve); });
+  });
+  ipcMain.handle('confirm:respond', (_e, id: string, confirmed: boolean) => {
+    pendingConfirms.get(id)?.(confirmed);
+    pendingConfirms.delete(id);
   });
 
   // ── Chat ───────────────────────────────────────────────────────────────────

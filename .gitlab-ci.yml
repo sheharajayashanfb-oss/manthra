@@ -89,7 +89,7 @@ build:electron:linux:
   script:
     - npm ci
     - npm run electron:build
-    - npx electron-builder --linux --arch x64 --config electron-builder.config.ts
+    - npx electron-builder --linux --x64 --config electron-builder.config.ts
   artifacts:
     name: "manthra-desktop-linux-$CI_COMMIT_SHORT_SHA"
     paths:
@@ -123,7 +123,7 @@ build:electron:win:
   script:
     - npm ci
     - npm run electron:build
-    - npx electron-builder --win --arch x64 --config electron-builder.config.ts
+    - npx electron-builder --win --x64 --config electron-builder.config.ts
   artifacts:
     name: "manthra-desktop-win-$CI_COMMIT_SHORT_SHA"
     paths:

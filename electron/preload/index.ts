@@ -19,7 +19,7 @@ const api = {
   getConfig: (): Promise<AppConfig> => ipcRenderer.invoke('config:get'),
 
   // ── Permissions ───────────────────────────────────────────────────────────
-  respondToPermission: (id: string, decision: 'allow' | 'deny' | 'allow_always') =>
+  respondToPermission: (id: string, decision: 'allow' | 'always' | 'project' | 'deny') =>
     ipcRenderer.invoke('permission:respond', id, decision),
 
   // ── Stream events ─────────────────────────────────────────────────────────

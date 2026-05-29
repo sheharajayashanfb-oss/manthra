@@ -49,7 +49,7 @@ declare global {
       loadConversation(id: string): Promise<unknown>;
       deleteConversation(id: string): Promise<boolean>;
       getConfig(): Promise<AppConfig>;
-      respondToPermission(id: string, decision: 'allow' | 'deny' | 'allow_always'): Promise<void>;
+      respondToPermission(id: string, decision: 'allow' | 'always' | 'project' | 'deny'): Promise<void>;
       onStreamEvent(cb: (event: StreamEvent) => void): () => void;
       onPermissionRequest(cb: (req: { id: string; tool: string; action: string; details: string }) => void): () => void;
       slashList(): Promise<SlashCommandDef[]>;
@@ -57,6 +57,12 @@ declare global {
       slashListModels(): Promise<ModelInfo[]>;
       slashListProviders(): Promise<ProviderInfo[]>;
       slashListTeams(): Promise<TeamInfo[]>;
+      getVersions(): Promise<{ current: string; latest: string | null }>;
+      checkAppUpdate(): Promise<{ ok: boolean; error?: string }>;
+      downloadAppUpdate(): Promise<{ ok: boolean; error?: string }>;
+      installAppUpdate(): Promise<void>;
+      updateCli(): Promise<{ ok: boolean; output?: string; error?: string }>;
+      onUpdateEvent(cb: (event: { type: string; version?: string; percent?: number; message?: string }) => void): () => void;
     };
   }
 }

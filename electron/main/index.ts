@@ -1,9 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import { join } from 'path';
-import { is } from '@electron-toolkit/utils';
 import { registerBridge } from '../../src/electron/bridge.js';
 
-nativeTheme.themeSource = 'dark';
+const isDev = process.env['NODE_ENV'] !== 'production';
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -17,7 +16,7 @@ function createWindow(): BrowserWindow {
     frame: process.platform !== 'darwin',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -42,7 +41,7 @@ function createWindow(): BrowserWindow {
     return result.canceled ? null : result.filePaths[0];
   });
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'));
@@ -52,6 +51,13 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  // Set dark theme after app is ready
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { nativeTheme } = require('electron') as typeof import('electron');
+    nativeTheme.themeSource = 'dark';
+  } catch { /* ignore */ }
+
   createWindow();
 
   app.on('activate', () => {

@@ -1,10 +1,10 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { randomUUID } from 'crypto';
-import { loadConfig, saveConfig } from '../config/loader.js';
+import { loadConfig, writeConfig } from '../config/loader.js';
 import { autoInitProviders } from '../config/auto-init.js';
 import { loadProviders, getDefaultProvider } from '../providers/registry.js';
 import { ConversationHistory } from '../conversation/index.js';
-import { getToolDefinitions, registerDynamicTool, getAllTools } from '../tools/registry.js';
+import { getToolDefinitions, registerDynamicTool } from '../tools/registry.js';
 import { executeTool, setPermissionHandler } from '../tools/executor.js';
 import { createSubAgentTool, subAgentEmitter } from '../tools/sub_agent.js';
 import { mcpManager } from '../mcp/manager.js';
@@ -16,28 +16,63 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { sanitizeMessages } from '../utils/messages.js';
 import type { StreamEvent as ProviderStreamEvent } from '../providers/types.js';
-import type { StreamEvent as IpcStreamEvent, ConversationSummary, AppConfig } from '../../electron/main/ipc-types.js';
+import type { PermissionDecision } from '../permissions/index.js';
 
+// ── IPC types (inline to avoid rootDir issues) ─────────────────────────────
+export interface StreamEvent {
+  type: string;
+  delta?: string;
+  agentId?: string;
+  agentTask?: string;
+  agentLabel?: string;
+  agentColor?: string;
+  toolId?: string;
+  toolName?: string;
+  toolLabel?: string;
+  toolSuccess?: boolean;
+  toolOutput?: string;
+  agentToolCount?: number;
+  message?: string;
+  tokensIn?: number;
+  tokensOut?: number;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  preview: string;
+  timestamp: number;
+  messageCount: number;
+}
+
+export interface AppConfig {
+  activeProvider?: string;
+  activeModel?: string;
+  providers: Array<{ id: string; name: string; type: string; baseURL?: string; enabled: boolean }>;
+  maxTokens: number;
+  temperature: number;
+}
+
+// ── Module-level state ─────────────────────────────────────────────────────
 const CONVERSATIONS_DIR = join(homedir(), '.manthra', 'conversations');
-
 let currentAbortController: AbortController | null = null;
 
-function send(win: BrowserWindow, event: IpcStreamEvent): void {
+function send(win: BrowserWindow, event: StreamEvent): void {
   if (!win.isDestroyed()) win.webContents.send('stream:event', event);
 }
 
 export function registerBridge(win: BrowserWindow): void {
-  // ── Init MCP + sub-agent event forwarding ──────────────────────────────────
+  // ── MCP init ───────────────────────────────────────────────────────────────
   let mcpReady = false;
   async function ensureMcp(): Promise<void> {
     if (mcpReady) return;
     mcpReady = true;
     let config = loadConfig();
     ({ config } = autoInitProviders(config));
-    await loadProviders(config);
-    const results = await mcpManager.initAll();
-    for (const { tools } of results.filter((r) => r.ok)) {
-      for (const t of tools ?? []) registerDynamicTool(t);
+    loadProviders(config.providers ?? []);
+    await mcpManager.initAll();
+    for (const tool of mcpManager.getMcpTools()) {
+      registerDynamicTool(tool);
     }
   }
 
@@ -49,17 +84,17 @@ export function registerBridge(win: BrowserWindow): void {
   subAgentEmitter.on('agent:error', (e) => send(win, { type: 'agent_error', agentId: e.agentId, message: e.message }));
 
   // ── Permission handler ─────────────────────────────────────────────────────
-  const pendingPermissions = new Map<string, (decision: 'allow' | 'deny' | 'allow_always') => void>();
+  const pendingPermissions = new Map<string, (decision: PermissionDecision) => void>();
 
-  setPermissionHandler(async (tool, action, details) => {
+  setPermissionHandler(async (category, label, detail) => {
     const id = randomUUID();
-    win.webContents.send('permission:request', { id, tool, action, details });
-    return new Promise((resolve) => {
+    win.webContents.send('permission:request', { id, tool: category, action: label, details: detail });
+    return new Promise<PermissionDecision>((resolve) => {
       pendingPermissions.set(id, resolve);
     });
   });
 
-  ipcMain.handle('permission:respond', (_e, id: string, decision: 'allow' | 'deny' | 'allow_always') => {
+  ipcMain.handle('permission:respond', (_e, id: string, decision: PermissionDecision) => {
     pendingPermissions.get(id)?.(decision);
     pendingPermissions.delete(id);
   });
@@ -79,11 +114,11 @@ export function registerBridge(win: BrowserWindow): void {
     await ensureMcp();
     currentAbortController = new AbortController();
 
-    // Change working directory to user-selected path
     try { process.chdir(cwd); } catch { /* ignore if invalid */ }
 
     const config = loadConfig();
-    const provider = getDefaultProvider();
+    loadProviders(config.providers ?? []);
+    const provider = getDefaultProvider(config.providers ?? [], config.activeProvider);
     if (!provider) {
       send(win, { type: 'error', message: 'No provider configured. Open Settings to add one.' });
       return;
@@ -101,11 +136,11 @@ export function registerBridge(win: BrowserWindow): void {
     const agentsMd = loadAgentsMd();
     const memory = formatMemoryForContext();
     const parts = [DEFAULT_SYSTEM_PROMPT];
-    if (agentsMd) parts.unshift(agentsMd);
+    if (agentsMd.content) parts.unshift(agentsMd.content);
     if (memory) parts.push(memory);
     const systemPrompt = parts.join('\n\n');
 
-    if (history.getMessages().length === 0) {
+    if (history.get().length === 0) {
       history.add({ role: 'system', content: systemPrompt });
     }
     history.add({ role: 'user', content: message });
@@ -120,7 +155,7 @@ export function registerBridge(win: BrowserWindow): void {
         if (currentAbortController.signal.aborted) break;
         iterCount++;
 
-        const messages = sanitizeMessages(history.getMessages());
+        const messages = sanitizeMessages(history.get());
         const stream = provider.chat(messages, {
           model,
           maxTokens: config.maxTokens,
@@ -142,13 +177,14 @@ export function registerBridge(win: BrowserWindow): void {
             send(win, { type: 'thinking_delta', delta: event.delta });
           } else if (event.type === 'tool_call_done' && event.tool_call) {
             toolCalls.push({ id: event.tool_call.id, name: event.tool_call.name, input: event.tool_call.input ?? {} });
-          } else if (event.type === 'usage') {
-            totalIn += event.inputTokens ?? 0;
-            totalOut += event.outputTokens ?? 0;
+          }
+          // Accumulate usage from events that have it
+          if (event.usage) {
+            totalIn += event.usage.input_tokens ?? 0;
+            totalOut += event.usage.output_tokens ?? 0;
           }
         }
 
-        // Add assistant message to history
         const assistantBlocks: import('../providers/types.js').ContentBlock[] = [];
         if (thinking) assistantBlocks.push({ type: 'thinking', thinking });
         if (text) assistantBlocks.push({ type: 'text', text });
@@ -163,7 +199,6 @@ export function registerBridge(win: BrowserWindow): void {
         const agentCalls = toolCalls.filter((tc) => tc.name === 'agent_spawn');
         const otherCalls = toolCalls.filter((tc) => tc.name !== 'agent_spawn');
 
-        // Notify renderer of each non-agent tool start
         for (const tc of otherCalls) {
           const label = tc.name === 'bash' || tc.name === 'run_script'
             ? `bash - ${String(tc.input['command'] ?? '').replace(/\s+/g, ' ').trim()}`
@@ -200,9 +235,7 @@ export function registerBridge(win: BrowserWindow): void {
       send(win, { type: 'error', message: String(err) });
     }
 
-    // Save conversation
     history.save();
-
     send(win, { type: 'turn_done', tokensIn: totalIn, tokensOut: totalOut });
   });
 
@@ -216,7 +249,7 @@ export function registerBridge(win: BrowserWindow): void {
             messages?: Array<{ role: string; content: unknown }>;
             savedAt?: number;
           };
-          const msgs = raw.messages ?? [];
+          const msgs = (Array.isArray(raw) ? raw : raw.messages) ?? [];
           const firstUser = msgs.find((m) => m.role === 'user');
           const preview = typeof firstUser?.content === 'string'
             ? firstUser.content.slice(0, 80)
@@ -235,8 +268,9 @@ export function registerBridge(win: BrowserWindow): void {
 
   ipcMain.handle('history:load', (_e, id: string) => {
     try {
-      const raw = JSON.parse(readFileSync(join(CONVERSATIONS_DIR, `${id}.json`), 'utf-8'));
-      history.load(raw);
+      const filePath = join(CONVERSATIONS_DIR, `${id}.json`);
+      const raw = JSON.parse(readFileSync(filePath, 'utf-8')) as import('../providers/types.js').Message[];
+      history.replace(raw);
       return raw;
     } catch { return null; }
   });

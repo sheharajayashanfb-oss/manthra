@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { StreamEvent, ConversationSummary, AppConfig } from '../main/ipc-types.js';
+import type { StreamEvent, ConversationSummary, AppConfig } from '../../src/electron/bridge.js';
 
 const api = {
   // ── Chat ─────────────────────────────────────────────────────────────────

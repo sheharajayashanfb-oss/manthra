@@ -6,7 +6,7 @@
   "bin": {
     "manthra": "./bin/manthra.js"
   },
-  "main": "out/main/index.js",
+  "main": "out/main/index.cjs",
   "scripts": {
     "build": "tsup",
     "build:assets": "node scripts/inline-assets.mjs",
@@ -16,9 +16,9 @@
     "dev:web": "tsx src/web/start.ts",
     "start": "node dist/cli/main.js",
     "start:web": "node dist/web/server.js",
-    "electron:dev": "electron-vite dev",
-    "electron:build": "electron-vite build",
-    "electron:package": "electron-vite build && electron-builder --config electron-builder.config.ts",
+    "electron:dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
+    "electron:build": "env -u ELECTRON_RUN_AS_NODE electron-vite build",
+    "electron:package": "env -u ELECTRON_RUN_AS_NODE electron-vite build && electron-builder --config electron-builder.config.ts",
     "lint": "eslint src --ext .ts",
     "test": "vitest",
     "postinstall": "chmod +x bin/manthra.js 2>/dev/null || true"

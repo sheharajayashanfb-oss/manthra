@@ -8,8 +8,11 @@ export default defineConfig({
       lib: {
         entry: resolve('electron/main/index.ts'),
       },
+      rollupOptions: {
+        output: { format: 'cjs', entryFileNames: '[name].cjs' },
+      },
     },
-    plugins: [externalizeDepsPlugin({ exclude: ['@electron-toolkit/utils'] })],
+    plugins: [externalizeDepsPlugin()],
     resolve: {
       alias: { '@': resolve('src') },
     },
@@ -18,6 +21,9 @@ export default defineConfig({
     build: {
       lib: {
         entry: resolve('electron/preload/index.ts'),
+      },
+      rollupOptions: {
+        output: { format: 'cjs', entryFileNames: '[name].cjs' },
       },
     },
     plugins: [externalizeDepsPlugin()],

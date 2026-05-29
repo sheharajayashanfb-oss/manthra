@@ -6,19 +6,14 @@
 #   ./scripts/release-mac.sh minor            # minor bump
 #   ./scripts/release-mac.sh major            # major bump
 #
-# Required env vars:
-#   VM_HOST        — SSH target, e.g. ubuntu@140.245.113.229
-#   GITLAB_TOKEN   — Personal access token with api + write_repository scopes
-#                    (Settings → Access Tokens → add token)
-#
-# Example:
-#   VM_HOST=ubuntu@140.245.113.229 GITLAB_TOKEN=glpat-xxx ./scripts/release-mac.sh
+# Requires GITLAB_TOKEN to be set in this script (replace glpat-xxx below).
+# Get one from: GitLab → Settings → Access Tokens → api + write_repository scopes
 
 set -euo pipefail
 
 BUMP_TYPE="${1:-patch}"
-VM_HOST="${VM_HOST:?Set VM_HOST=user@your-vm-ip}"
-GITLAB_TOKEN="${GITLAB_TOKEN:?Set GITLAB_TOKEN=glpat-xxx}"
+VM_HOST="ubuntu@140.245.113.229"
+GITLAB_TOKEN="${GITLAB_TOKEN:-glpat-xxx}"   # replace glpat-xxx with your token once
 REMOTE_DIR="/var/www/manthra"
 DESKTOP_DIR="releases/desktop"
 GITLAB_API="https://gitlab.informaticsint.au/api/v4/projects/infoins-v4%2Finfo-ai%2Fmanthra"

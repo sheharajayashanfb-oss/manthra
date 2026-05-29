@@ -18,6 +18,7 @@ export default {
   mac: {
     category: 'public.app-category.developer-tools',
     artifactName: 'Manthra-mac-${arch}.${ext}',
+    identity: null, // ad-hoc signing — no Developer ID required; open via right-click → Open
     target: [
       { target: 'dmg', arch: ['arm64', 'x64'] },
       { target: 'zip', arch: ['arm64', 'x64'] }, // required for electron-updater on macOS

@@ -20,7 +20,7 @@
     "electron:dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
     "electron:build": "env -u ELECTRON_RUN_AS_NODE electron-vite build",
     "electron:package": "env -u ELECTRON_RUN_AS_NODE electron-vite build && electron-builder --config electron-builder.config.ts",
-    "electron:package:mac": "env -u ELECTRON_RUN_AS_NODE electron-vite build && electron-builder --mac --x64 --arm64 --config electron-builder.config.ts",
+    "electron:package:mac": "env -u ELECTRON_RUN_AS_NODE CSC_IDENTITY_AUTO_DISCOVERY=false electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --x64 --arm64 --config electron-builder.config.ts",
     "electron:package:win": "env -u ELECTRON_RUN_AS_NODE electron-vite build && electron-builder --win --x64 --config electron-builder.config.ts",
     "electron:package:linux": "env -u ELECTRON_RUN_AS_NODE electron-vite build && electron-builder --linux --x64 --config electron-builder.config.ts",
     "deploy:desktop": "bash scripts/deploy-desktop.sh",

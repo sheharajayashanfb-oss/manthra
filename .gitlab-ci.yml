@@ -8,6 +8,10 @@ variables:
   DEPLOY_HOST: "ubuntu@140.245.113.229"
   DEPLOY_PATH: "/var/www/manthra"
   PKG_CACHE_PATH: "$CI_PROJECT_DIR/.pkg-cache"
+  # Redirect electron/electron-builder download caches into the project dir so
+  # GitLab can cache them between pipeline runs (~400 MB saved per job).
+  ELECTRON_CACHE: "$CI_PROJECT_DIR/.electron-cache"
+  ELECTRON_BUILDER_CACHE: "$CI_PROJECT_DIR/.electron-builder-cache"
 
 # ── Bump version (manual) ─────────────────────────────────────────────────────
 # Trigger manually from GitLab CI → Run Pipeline.
@@ -37,7 +41,7 @@ bump:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
 
-# ── Build standalone binaries ─────────────────────────────────────────────────
+# ── Build CLI standalone binaries ─────────────────────────────────────────────
 
 build:
   stage: build
@@ -55,7 +59,7 @@ build:
     - npm ci
     - npm run build:dist
   artifacts:
-    name: "manthra-$CI_COMMIT_SHORT_SHA"
+    name: "manthra-cli-$CI_COMMIT_SHORT_SHA"
     paths:
       - releases/
       - install.sh
@@ -66,7 +70,101 @@ build:
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_COMMIT_TAG'
 
-# ── Generate version.json (tag releases only) ─────────────────────────────────
+# ── Build Electron desktop — Linux AppImage (x64) ─────────────────────────────
+# Runs in parallel with the CLI build job above.
+
+build:electron:linux:
+  stage: build
+  image: node:20-bullseye
+  tags:
+    - iins-v4-backend
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .electron-cache/
+      - .electron-builder-cache/
+  script:
+    - npm ci
+    - npm run electron:build
+    - npx electron-builder --linux --arch x64 --config electron-builder.config.ts
+  artifacts:
+    name: "manthra-desktop-linux-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - releases/desktop/*.AppImage
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_TAG'
+
+# ── Build Electron desktop — Windows NSIS installer (x64) ─────────────────────
+# electron-builder uses Wine to run the NSIS toolchain on Linux.
+# Runs in parallel with the other build jobs.
+
+build:electron:win:
+  stage: build
+  image: node:20-bullseye
+  tags:
+    - iins-v4-backend
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .electron-cache/
+      - .electron-builder-cache/
+  before_script:
+    - dpkg --add-architecture i386
+    - apt-get update -qq
+    - apt-get install -y -qq wine64 wine32 2>/dev/null || apt-get install -y -qq wine64 2>/dev/null || true
+  script:
+    - npm ci
+    - npm run electron:build
+    - npx electron-builder --win --arch x64 --config electron-builder.config.ts
+  artifacts:
+    name: "manthra-desktop-win-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - releases/desktop/*.exe
+    expire_in: 30 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_TAG'
+
+# ── Build Electron desktop — macOS DMG ────────────────────────────────────────
+# Requires a self-hosted macOS GitLab runner. Apple's toolchain cannot run on
+# Linux, so there is no workaround for this one.
+#
+# To enable:
+#   1. Set up a macOS machine as a GitLab runner tagged "macos"
+#      https://docs.gitlab.com/runner/install/osx.html
+#   2. Uncomment the job below.
+#
+# build:electron:mac:
+#   stage: build
+#   tags:
+#     - macos
+#   cache:
+#     key:
+#       files:
+#         - package-lock.json
+#     paths:
+#       - node_modules/
+#   script:
+#     - npm ci
+#     - npm run electron:package:mac
+#   artifacts:
+#     name: "manthra-desktop-mac-$CI_COMMIT_SHORT_SHA"
+#     paths:
+#       - releases/desktop/*.dmg
+#     expire_in: 30 days
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "main"'
+#     - if: '$CI_COMMIT_TAG'
+
+# ── Generate version.json ─────────────────────────────────────────────────────
 
 version:
   stage: version
@@ -89,8 +187,6 @@ version:
     - if: '$CI_COMMIT_TAG'
 
 # ── Deploy to server ───────────────────────────────────────────────────────────
-# On tag: includes version.json → users get update notification
-# On main push: deploys code changes only, no version.json update
 
 deploy:
   stage: deploy
@@ -101,6 +197,12 @@ deploy:
     - job: build
     - job: version
       optional: true
+    - job: build:electron:linux
+      optional: true
+    - job: build:electron:win
+      optional: true
+    # - job: build:electron:mac   # uncomment when macOS runner is available
+    #   optional: true
   before_script:
     - apk add --no-cache openssh-client rsync
     - eval $(ssh-agent -s)
@@ -109,12 +211,25 @@ deploy:
     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
     - chmod 600 ~/.ssh/known_hosts
   script:
-    - ssh $DEPLOY_HOST "mkdir -p $DEPLOY_PATH/releases"
-    - rsync -avz --delete releases/ $DEPLOY_HOST:$DEPLOY_PATH/releases/
+    # CLI binaries + install scripts + marketing site
+    - ssh $DEPLOY_HOST "mkdir -p $DEPLOY_PATH/releases $DEPLOY_PATH/releases/desktop"
+    - rsync -avz --delete --exclude="desktop/" releases/ $DEPLOY_HOST:$DEPLOY_PATH/releases/
     - rsync -avz install.sh $DEPLOY_HOST:$DEPLOY_PATH/install
     - rsync -avz web/ $DEPLOY_HOST:$DEPLOY_PATH/
     - rsync -avz deploy/nginx.conf $DEPLOY_HOST:/tmp/manthra-nginx.conf
     - ssh $DEPLOY_HOST "sudo cp /tmp/manthra-nginx.conf /etc/nginx/sites-available/manthra && sudo nginx -t && sudo systemctl reload nginx"
+    # Desktop builds — rsync each platform separately (no --delete so macOS
+    # builds uploaded manually are not wiped when only Linux/Win are in CI)
+    - |
+      if ls releases/desktop/*.AppImage 2>/dev/null; then
+        echo "Deploying Linux desktop builds..."
+        rsync -avz releases/desktop/*.AppImage $DEPLOY_HOST:$DEPLOY_PATH/releases/desktop/
+      fi
+    - |
+      if ls releases/desktop/*.exe 2>/dev/null; then
+        echo "Deploying Windows desktop builds..."
+        rsync -avz releases/desktop/*.exe $DEPLOY_HOST:$DEPLOY_PATH/releases/desktop/
+      fi
     - echo "Deployed to https://manthra.informaticsint.au"
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'

@@ -1,80 +1,69 @@
-import { useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
-import type { UIMessage, AgentState } from '../types';
+import { useEffect, useRef, useCallback } from 'react';
+import type { UIMessage, AgentState, FileAttachment } from '../types';
+import type { SlashExecResult } from '../env';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 
 interface Props {
+  cwd: string;
   messages: UIMessage[];
   agents: Map<string, AgentState>;
   isStreaming: boolean;
-  onSend: (text: string) => void;
+  onSend: (text: string, attachments: FileAttachment[]) => void;
   onStop: () => void;
+  onSlashResult: (result: SlashExecResult) => void;
 }
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#8b5cf6] to-[#6d28d9] flex items-center justify-center shadow-lg shadow-[#8b5cf6]/20">
-        <Sparkles size={28} className="text-white" />
-      </div>
-      <div>
-        <h2 className="text-lg font-semibold text-[#e2e2e2] mb-1">What can I help you with?</h2>
-        <p className="text-sm text-[#737373] max-w-sm">
-          Ask me to write code, explain concepts, run commands, or spawn multiple agents to tackle complex tasks in parallel.
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-2 mt-2 w-full max-w-sm">
-        {[
-          'Explain this codebase',
-          'Write unit tests',
-          'Find and fix bugs',
-          'Refactor a module',
-        ].map((s) => (
-          <div
-            key={s}
-            className="px-3 py-2 rounded-lg bg-[#1a1a1a] border border-[#2e2e2e] text-xs text-[#737373] text-center cursor-default hover:border-[#8b5cf6]/40 hover:text-[#e2e2e2] transition-all"
-          >
-            {s}
-          </div>
-        ))}
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, userSelect: 'none' }}>
+      <p style={{ fontSize: 22, fontWeight: 600, color: '#111' }}>How can I help?</p>
+      <p style={{ fontSize: 14, color: '#bbb' }}>Type a message or / for commands</p>
     </div>
   );
 }
 
-export default function ChatView({ messages, agents, isStreaming, onSend, onStop }: Props) {
+export default function ChatView({ cwd, messages, agents, isStreaming, onSend, onStop, onSlashResult }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length, isStreaming]);
 
+  const focusInput = useCallback(() => {
+    const active = document.activeElement;
+    if (!active || (active.tagName !== 'INPUT' && active.tagName !== 'TEXTAREA')) {
+      document.querySelector<HTMLTextAreaElement>('textarea')?.focus();
+    }
+  }, []);
+
   return (
-    <div className="flex flex-col h-full">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#fff' }} onClick={focusInput}>
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
-        <AnimatePresence initial={false}>
-          {messages.length === 0 ? (
-            <EmptyState />
-          ) : (
-            messages.map((msg, i) => (
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {messages.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 24px 16px' }}>
+            {messages.map((msg, i) => (
               <MessageBubble
                 key={msg.id}
                 message={msg}
                 agents={agents}
-                isLast={i === messages.length - 1 && isStreaming}
+                isLast={i === messages.length - 1}
               />
-            ))
-          )}
-        </AnimatePresence>
-        <div ref={bottomRef} />
+            ))}
+            <div ref={bottomRef} />
+          </div>
+        )}
       </div>
 
       {/* Input */}
-      <div className="border-t border-[#2e2e2e] p-4">
-        <ChatInput isStreaming={isStreaming} onSend={onSend} onStop={onStop} />
+      <div style={{ maxWidth: 720, margin: '0 auto', width: '100%', padding: '12px 24px 20px' }}>
+        <ChatInput cwd={cwd} isStreaming={isStreaming} onSend={onSend} onStop={onStop} onSlashResult={onSlashResult} />
+        <p style={{ fontSize: 11, color: '#ddd', textAlign: 'center', marginTop: 8 }}>
+          Enter to send · Shift+Enter for new line
+        </p>
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
-import { motion, AnimatePresence } from 'framer-motion';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { Cpu, Layers, Zap, Bot, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import type { AgentState } from '../types';
 import { formatTokens } from '../lib/utils';
 
@@ -13,116 +12,88 @@ interface Props {
   agents: Map<string, AgentState>;
 }
 
-function StatCard({ icon: Icon, label, value, accent }: { icon: React.ElementType; label: string; value: string; accent?: boolean }) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg bg-[#141414] border border-[#222]">
-      <div className={`w-7 h-7 rounded-md flex items-center justify-center ${accent ? 'bg-[#8b5cf6]/15' : 'bg-[#1a1a1a]'}`}>
-        <Icon size={13} className={accent ? 'text-[#8b5cf6]' : 'text-[#737373]'} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] text-[#4a4a4a] uppercase tracking-wide">{label}</p>
-        <p className="text-xs font-medium text-[#e2e2e2] truncate">{value || '—'}</p>
-      </div>
-    </div>
-  );
-}
-
-function TokenDonut({ tokensIn, tokensOut }: { tokensIn: number; tokensOut: number }) {
-  const total = tokensIn + tokensOut;
-  const data = total > 0
-    ? [{ name: 'In', value: tokensIn }, { name: 'Out', value: tokensOut }]
-    : [{ name: 'Empty', value: 1 }];
-
-  return (
-    <div className="flex flex-col items-center py-3">
-      <div className="relative w-28 h-28">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={36}
-              outerRadius={50}
-              paddingAngle={total > 0 ? 3 : 0}
-              dataKey="value"
-              strokeWidth={0}
-            >
-              {total > 0 ? (
-                <>
-                  <Cell fill="#8b5cf6" />
-                  <Cell fill="#6d28d9" />
-                </>
-              ) : (
-                <Cell fill="#2e2e2e" />
-              )}
-            </Pie>
-            {total > 0 && <Tooltip formatter={(v) => formatTokens(Number(v))} contentStyle={{ background: '#1a1a1a', border: '1px solid #2e2e2e', borderRadius: 8, fontSize: 11 }} />}
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-base font-bold text-[#e2e2e2]">{formatTokens(total)}</span>
-          <span className="text-[9px] text-[#4a4a4a] uppercase tracking-wide">tokens</span>
-        </div>
-      </div>
-      <div className="flex gap-4 mt-2">
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
-          <span className="text-[10px] text-[#737373]">in {formatTokens(tokensIn)}</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-[#6d28d9]" />
-          <span className="text-[10px] text-[#737373]">out {formatTokens(tokensOut)}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AgentStatusList({ agents }: { agents: Map<string, AgentState> }) {
-  const list = [...agents.values()];
-  if (list.length === 0) return null;
-
-  return (
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#4a4a4a] mb-2">Agents</p>
-      <div className="space-y-1.5">
-        <AnimatePresence>
-          {list.map((agent) => (
-            <motion.div
-              key={agent.id}
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-[#141414] border"
-              style={{ borderColor: `${agent.color}33` }}
-            >
-              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: agent.color }} />
-              <span className="text-[11px] text-[#a1a1a1] truncate flex-1">{agent.label}</span>
-              {agent.status === 'running' && <Loader2 size={11} style={{ color: agent.color }} className="animate-spin shrink-0" />}
-              {agent.status === 'done' && <CheckCircle2 size={11} className="text-[#22c55e] shrink-0" />}
-              {agent.status === 'error' && <XCircle size={11} className="text-[#ef4444] shrink-0" />}
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+    <div className="flex items-center justify-between py-1.5">
+      <span className="text-[11px] text-[#484848]">{label}</span>
+      <span className="text-[11px] text-[#888] font-mono truncate max-w-[110px] text-right">{value || '—'}</span>
     </div>
   );
 }
 
 export default function InfoPanel({ tokensIn, tokensOut, model, provider, isStreaming, agents }: Props) {
+  const agentList = [...agents.values()];
+  const total = tokensIn + tokensOut;
+
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-3 gap-4">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-[#4a4a4a]">Session Info</p>
-
-      <TokenDonut tokensIn={tokensIn} tokensOut={tokensOut} />
-
-      <div className="space-y-2">
-        <StatCard icon={Cpu} label="Model" value={model} accent />
-        <StatCard icon={Layers} label="Provider" value={provider} />
-        <StatCard icon={Zap} label="Status" value={isStreaming ? 'Streaming…' : 'Ready'} accent={isStreaming} />
+    <div className="flex flex-col h-full overflow-y-auto">
+      {/* Top spacer matching header */}
+      <div className="h-11 shrink-0 flex items-center px-3 border-b border-[#1a1a1a]">
+        <p className="text-[11px] font-medium text-[#404040] uppercase tracking-[0.1em]">Session</p>
       </div>
 
-      <AgentStatusList agents={agents} />
+      <div className="flex-1 px-3 py-3 space-y-4">
+        {/* Token counts */}
+        <div>
+          <div className="divide-y divide-[#1a1a1a]">
+            <Row label="Tokens in" value={formatTokens(tokensIn)} />
+            <Row label="Tokens out" value={formatTokens(tokensOut)} />
+            <Row label="Total" value={formatTokens(total)} />
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-t border-[#1a1a1a]" />
+
+        {/* Model info */}
+        <div className="divide-y divide-[#1a1a1a]">
+          <Row label="Model" value={model} />
+          <Row label="Provider" value={provider} />
+          <div className="flex items-center justify-between py-1.5">
+            <span className="text-[11px] text-[#484848]">Status</span>
+            <span className={`text-[11px] font-mono ${isStreaming ? 'text-[#5b8dd9]' : 'text-[#3d8f5f]'}`}>
+              {isStreaming ? 'streaming' : 'ready'}
+            </span>
+          </div>
+        </div>
+
+        {/* Agents */}
+        {agentList.length > 0 && (
+          <>
+            <div className="border-t border-[#1a1a1a]" />
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#383838] mb-2">Agents</p>
+              <div className="space-y-1">
+                <AnimatePresence>
+                  {agentList.map((agent) => (
+                    <motion.div
+                      key={agent.id}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex items-center gap-2 py-1.5 px-2 rounded-md"
+                      style={{ background: `${agent.color}08`, border: `1px solid ${agent.color}20` }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: agent.color }} />
+                      <span className="text-[11px] truncate flex-1" style={{ color: agent.color }}>
+                        {agent.label}
+                      </span>
+                      {agent.status === 'running' && (
+                        <Loader2 size={10} style={{ color: agent.color }} className="animate-spin shrink-0" />
+                      )}
+                      {agent.status === 'done' && (
+                        <CheckCircle2 size={10} className="text-[#3d8f5f] shrink-0" />
+                      )}
+                      {agent.status === 'error' && (
+                        <XCircle size={10} className="text-[#c0514f] shrink-0" />
+                      )}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

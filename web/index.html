@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manthra — AI coding assistant for your terminal</title>
-  <meta name="description" content="Manthra is an open-source AI coding assistant CLI. Reads, edits, and runs code with any model — Ollama locally or cloud providers like Groq, OpenRouter, and Zen.">
+  <title>Manthra — AI coding assistant for your terminal &amp; desktop</title>
+  <meta name="description" content="Manthra is an open-source AI coding assistant. Available as a CLI and a desktop app for Mac, Windows, and Linux. Use Ollama locally or cloud providers like Groq, OpenRouter, and Zen.">
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -162,6 +162,25 @@
     }
     .platform-dl a:hover { background: var(--bg-alt); border-color: var(--text); }
     .platform-note { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.6rem; }
+
+    /* ── Download type toggle (CLI vs Desktop) ── */
+    .download-type-tabs {
+      display: flex; gap: 4px; justify-content: center;
+      margin-bottom: 1.75rem;
+      background: var(--bg-alt); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 4px;
+    }
+    .dtype-tab {
+      padding: 7px 22px; border-radius: var(--radius-sm);
+      background: transparent; border: none;
+      color: var(--text-muted); font-size: 0.8rem; font-weight: 600;
+      font-family: var(--mono); cursor: pointer; transition: all .15s;
+      letter-spacing: 0.03em;
+    }
+    .dtype-tab:hover { color: var(--text); }
+    .dtype-tab.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.08); border: 1px solid var(--border); }
+    .dtype-content { display: none; flex-direction: column; align-items: center; width: 100%; }
+    .dtype-content.active { display: flex; }
 
     /* macOS warning */
     .macos-warning {
@@ -492,72 +511,118 @@
     <a href="#docs">Docs</a>
     <a href="#mcp">MCP</a>
     <a href="#commands">Commands</a>
+    <a href="#hero-vanta" class="btn-nav" onclick="event.preventDefault();document.querySelector('.hero').scrollIntoView({behavior:'smooth'});">↓ Download</a>
     <a id="nav-version-badge" href="#" style="display:none;font-size:0.72rem;padding:4px 10px;border:1px solid var(--border);border-radius:100px;color:var(--text-muted);cursor:default;pointer-events:none"></a>
   </div>
 </nav>
 
 <!-- ── Hero ─────────────────────────────────────────────────────────────── -->
 <section class="hero" id="hero-vanta">
-  <div class="hero-badge">Open source · Local &amp; cloud · MCP support · Multi-agent</div>
+  <div class="hero-badge">Open source · Local &amp; cloud · MCP · Multi-agent · Desktop app</div>
   <h1>AI coding assistant<br>for your terminal</h1>
   <p class="hero-sub">
     Reads, edits, and runs code in any project. Use Ollama locally or connect to Groq, OpenRouter, Zen, and more.
   </p>
 
-  <div class="install-box">
-    <span class="install-prefix">$</span>
-    <span class="install-cmd" id="install-cmd">curl -fsSL https://manthra.informaticsint.au/install | bash</span>
-    <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
+  <!-- Download type toggle -->
+  <div class="download-type-tabs">
+    <button class="dtype-tab active" id="dtype-tab-cli" onclick="selectDownloadType('dtype-cli',this)">CLI / Terminal</button>
+    <button class="dtype-tab" id="dtype-tab-desktop" onclick="selectDownloadType('dtype-desktop',this)">Desktop App</button>
   </div>
 
-  <div class="platform-tabs" id="platform-tabs">
-    <button class="platform-tab active" onclick="selectPlatform('linux-x64',this)">Linux x64</button>
-    <button class="platform-tab" onclick="selectPlatform('linux-arm64',this)">Linux arm64</button>
-    <button class="platform-tab" onclick="selectPlatform('mac-x64',this)">macOS x64</button>
-    <button class="platform-tab" onclick="selectPlatform('mac-arm64',this)">macOS arm64</button>
-    <button class="platform-tab" onclick="selectPlatform('windows',this)">Windows</button>
-  </div>
+  <!-- ── CLI downloads ── -->
+  <div id="dtype-cli" class="dtype-content active">
+    <div class="install-box">
+      <span class="install-prefix">$</span>
+      <span class="install-cmd" id="install-cmd">curl -fsSL https://manthra.informaticsint.au/install | bash</span>
+      <button class="copy-btn" id="copy-btn" onclick="copyInstall()">Copy</button>
+    </div>
 
-  <div id="linux-x64" class="platform-dl active">
-    <a href="/releases/latest/manthra-linux-x64" download>↓ Download manthra-linux-x64</a>
-    <p class="platform-note">chmod +x manthra-linux-x64 &amp;&amp; mv manthra-linux-x64 ~/.local/bin/manthra</p>
-  </div>
-  <div id="linux-arm64" class="platform-dl">
-    <a href="/releases/latest/manthra-linux-arm64" download>↓ Download manthra-linux-arm64</a>
-    <p class="platform-note">chmod +x manthra-linux-arm64 &amp;&amp; mv manthra-linux-arm64 ~/.local/bin/manthra</p>
-  </div>
-  <div id="mac-x64" class="platform-dl">
-    <a href="/releases/latest/manthra-macos-x64" download>↓ Download manthra-macos-x64</a>
-    <p class="platform-note">chmod +x manthra-macos-x64 &amp;&amp; mv manthra-macos-x64 ~/.local/bin/manthra</p>
-    <div class="macos-warning visible">
-      <p class="macos-warning-title">⚠ macOS Gatekeeper will block this binary</p>
-      <p>After downloading, run these commands in Terminal to allow it:</p>
-      <pre>xattr -c ~/Downloads/manthra-macos-x64
+    <div class="platform-tabs" id="platform-tabs">
+      <button class="platform-tab active" onclick="selectPlatform('linux-x64',this)">Linux x64</button>
+      <button class="platform-tab" onclick="selectPlatform('linux-arm64',this)">Linux arm64</button>
+      <button class="platform-tab" onclick="selectPlatform('mac-x64',this)">macOS x64</button>
+      <button class="platform-tab" onclick="selectPlatform('mac-arm64',this)">macOS arm64</button>
+      <button class="platform-tab" onclick="selectPlatform('windows',this)">Windows</button>
+    </div>
+
+    <div id="linux-x64" class="platform-dl active">
+      <a href="/releases/latest/manthra-linux-x64" download>↓ Download manthra-linux-x64</a>
+      <p class="platform-note">chmod +x manthra-linux-x64 &amp;&amp; mv manthra-linux-x64 ~/.local/bin/manthra</p>
+    </div>
+    <div id="linux-arm64" class="platform-dl">
+      <a href="/releases/latest/manthra-linux-arm64" download>↓ Download manthra-linux-arm64</a>
+      <p class="platform-note">chmod +x manthra-linux-arm64 &amp;&amp; mv manthra-linux-arm64 ~/.local/bin/manthra</p>
+    </div>
+    <div id="mac-x64" class="platform-dl">
+      <a href="/releases/latest/manthra-macos-x64" download>↓ Download manthra-macos-x64</a>
+      <p class="platform-note">chmod +x manthra-macos-x64 &amp;&amp; mv manthra-macos-x64 ~/.local/bin/manthra</p>
+      <div class="macos-warning visible">
+        <p class="macos-warning-title">⚠ macOS Gatekeeper will block this binary</p>
+        <p>After downloading, run these commands in Terminal to allow it:</p>
+        <pre>xattr -c ~/Downloads/manthra-macos-x64
 codesign --force --deep --sign - ~/Downloads/manthra-macos-x64
 chmod +x ~/Downloads/manthra-macos-x64
 mv ~/Downloads/manthra-macos-x64 ~/.local/bin/manthra</pre>
-      <div class="or-divider">── or: System Settings → Privacy &amp; Security → Allow Anyway ──</div>
-      <p>Tip: the <strong>curl installer</strong> above handles this automatically.</p>
+        <div class="or-divider">── or: System Settings → Privacy &amp; Security → Allow Anyway ──</div>
+        <p>Tip: the <strong>curl installer</strong> above handles this automatically.</p>
+      </div>
     </div>
-  </div>
-  <div id="mac-arm64" class="platform-dl">
-    <a href="/releases/latest/manthra-macos-arm64" download>↓ Download manthra-macos-arm64</a>
-    <p class="platform-note">Run the signing steps below before first launch.</p>
-    <div class="macos-warning visible">
-      <p class="macos-warning-title">⚠ macOS Gatekeeper will block this binary</p>
-      <p>After downloading, run these commands in Terminal to allow it:</p>
-      <pre>xattr -c ~/Downloads/manthra-macos-arm64
+    <div id="mac-arm64" class="platform-dl">
+      <a href="/releases/latest/manthra-macos-arm64" download>↓ Download manthra-macos-arm64</a>
+      <p class="platform-note">Run the signing steps below before first launch.</p>
+      <div class="macos-warning visible">
+        <p class="macos-warning-title">⚠ macOS Gatekeeper will block this binary</p>
+        <p>After downloading, run these commands in Terminal to allow it:</p>
+        <pre>xattr -c ~/Downloads/manthra-macos-arm64
 codesign --force --deep --sign - ~/Downloads/manthra-macos-arm64
 chmod +x ~/Downloads/manthra-macos-arm64
 mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
-      <div class="or-divider">── or: System Settings → Privacy &amp; Security → Allow Anyway ──</div>
-      <p>Tip: the <strong>curl installer</strong> above handles this automatically.</p>
+        <div class="or-divider">── or: System Settings → Privacy &amp; Security → Allow Anyway ──</div>
+        <p>Tip: the <strong>curl installer</strong> above handles this automatically.</p>
+      </div>
+    </div>
+    <div id="windows" class="platform-dl">
+      <a href="/releases/latest/manthra-win-x64.exe" download>↓ Download manthra-win-x64.exe</a>
+      <p class="platform-note">Place in any folder on your PATH, e.g. C:\Users\you\bin\manthra.exe</p>
+      <p class="platform-note" style="margin-top:8px;">Or install via Git Bash or WSL2: <code class="inline-code">curl -fsSL https://manthra.informaticsint.au/install | bash</code></p>
     </div>
   </div>
-  <div id="windows" class="platform-dl">
-    <a href="/releases/latest/manthra-win-x64.exe" download>↓ Download manthra-win-x64.exe</a>
-    <p class="platform-note">Place in any folder on your PATH, e.g. C:\Users\you\bin\manthra.exe</p>
-    <p class="platform-note" style="margin-top:8px;">Or install via Git Bash or WSL2: <code class="inline-code">curl -fsSL https://manthra.informaticsint.au/install | bash</code></p>
+
+  <!-- ── Desktop App downloads ── -->
+  <div id="dtype-desktop" class="dtype-content">
+    <div class="platform-tabs">
+      <button class="platform-tab active" onclick="selectDesktopPlatform('d-mac-arm',this)">macOS ARM</button>
+      <button class="platform-tab" onclick="selectDesktopPlatform('d-mac-x64',this)">macOS Intel</button>
+      <button class="platform-tab" onclick="selectDesktopPlatform('d-win',this)">Windows</button>
+      <button class="platform-tab" onclick="selectDesktopPlatform('d-linux-x64',this)">Linux x64</button>
+      <button class="platform-tab" onclick="selectDesktopPlatform('d-linux-arm',this)">Linux ARM</button>
+    </div>
+
+    <div id="d-mac-arm" class="platform-dl active">
+      <a href="/releases/desktop/Manthra-mac-arm64.dmg" download>↓ Download Manthra-mac-arm64.dmg</a>
+      <p class="platform-note">macOS 12+ · Apple Silicon (M1 / M2 / M3 / M4) · ~150 MB</p>
+    </div>
+    <div id="d-mac-x64" class="platform-dl">
+      <a href="/releases/desktop/Manthra-mac-x64.dmg" download>↓ Download Manthra-mac-x64.dmg</a>
+      <p class="platform-note">macOS 12+ · Intel · ~160 MB</p>
+    </div>
+    <div id="d-win" class="platform-dl">
+      <a href="/releases/desktop/Manthra-win-x64.exe" download>↓ Download Manthra-win-x64.exe</a>
+      <p class="platform-note">Windows 10/11 · x64 · NSIS installer · ~150 MB</p>
+    </div>
+    <div id="d-linux-x64" class="platform-dl">
+      <a href="/releases/desktop/Manthra-linux-x64.AppImage" download>↓ Download Manthra-linux-x64.AppImage</a>
+      <p class="platform-note">chmod +x Manthra-linux-x64.AppImage &amp;&amp; ./Manthra-linux-x64.AppImage</p>
+    </div>
+    <div id="d-linux-arm" class="platform-dl">
+      <a href="/releases/desktop/Manthra-linux-arm64.AppImage" download>↓ Download Manthra-linux-arm64.AppImage</a>
+      <p class="platform-note">chmod +x Manthra-linux-arm64.AppImage &amp;&amp; ./Manthra-linux-arm64.AppImage</p>
+    </div>
+
+    <p class="platform-note" style="margin-top:1.25rem;">
+      The desktop app includes the full Manthra interface — chat, multi-agent, file picker, and settings — no terminal needed.
+    </p>
   </div>
 </section>
 
@@ -1120,6 +1185,11 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
         <h3>Multi-agent mode</h3>
         <p>Enable sub-agent spawning from <code class="inline-code">manthra web</code>. The model can delegate self-contained subtasks to a focused sub-agent with its own tool loop, then fold the result back into the main response.</p>
       </div>
+      <div class="feature-card">
+        <div class="feature-icon">⊟</div>
+        <h3>Desktop app</h3>
+        <p>Native app for Mac, Windows, and Linux. Full chat interface with multi-agent cards, file attachments, history sidebar, and a visual settings panel — no terminal required.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -1309,9 +1379,10 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
 <!-- ── CTA ────────────────────────────────────────────────────────────────── -->
 <div class="cta-strip">
   <h2>Start coding with Manthra</h2>
-  <p>One command. Local or cloud. Your choice.</p>
+  <p>CLI or desktop. Local or cloud. Your choice.</p>
   <div class="cta-btns">
-    <button class="btn-primary" onclick="scrollToInstall()">↓ Install now</button>
+    <button class="btn-primary" onclick="scrollToInstall('cli')">↓ Get the CLI</button>
+    <button class="btn-secondary" onclick="scrollToInstall('desktop')">↓ Download Desktop App</button>
   </div>
 </div>
 
@@ -1330,13 +1401,16 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
     </span>
   </a>
   <div class="footer-links">
-    <a href="#docs">Documentation</a>
     <a href="#features">Features</a>
+    <a href="#docs">Docs</a>
     <a href="#mcp">MCP</a>
     <a href="#commands">Commands</a>
-    <a href="/releases/latest/manthra-linux-x64" download>Linux x64</a>
-    <a href="/releases/latest/manthra-macos-arm64" download>macOS arm64</a>
-    <a href="/releases/latest/manthra-win-x64.exe" download>Windows</a>
+    <a href="/releases/latest/manthra-linux-x64" download>CLI Linux</a>
+    <a href="/releases/latest/manthra-macos-arm64" download>CLI macOS</a>
+    <a href="/releases/latest/manthra-win-x64.exe" download>CLI Windows</a>
+    <a href="/releases/desktop/Manthra-mac-arm64.dmg" download>Desktop macOS</a>
+    <a href="/releases/desktop/Manthra-win-x64.exe" download>Desktop Windows</a>
+    <a href="/releases/desktop/Manthra-linux-x64.AppImage" download>Desktop Linux</a>
   </div>
   <span class="footer-copy">© 2025 Informatics International · MIT License</span>
 </footer>
@@ -1361,15 +1435,34 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
     });
   }
 
-  function selectPlatform(id, el) {
-    document.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
-    document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+  function selectDownloadType(id, el) {
+    document.querySelectorAll('.dtype-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.dtype-content').forEach(d => d.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     el.classList.add('active');
   }
 
-  function scrollToInstall() {
+  function selectPlatform(id, el) {
+    const cli = document.getElementById('dtype-cli');
+    cli.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
+    cli.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    el.classList.add('active');
+  }
+
+  function selectDesktopPlatform(id, el) {
+    const desktop = document.getElementById('dtype-desktop');
+    desktop.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
+    desktop.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    el.classList.add('active');
+  }
+
+  function scrollToInstall(type) {
     document.querySelector('.hero').scrollIntoView({ behavior: 'smooth' });
+    if (type === 'desktop') {
+      setTimeout(() => selectDownloadType('dtype-desktop', document.getElementById('dtype-tab-desktop')), 400);
+    }
   }
 
   // Auto-detect platform and architecture
@@ -1405,16 +1498,31 @@ mv ~/Downloads/manthra-macos-arm64 ~/.local/bin/manthra</pre>
       } catch (_) {}
     }
 
-    const ids = ['linux-x64', 'linux-arm64', 'mac-x64', 'mac-arm64', 'windows'];
-    let idx = 0;
-    if (isWin) idx = 4;
-    else if (isMac) idx = isArm ? 3 : 2;
-    else if (isArm) idx = 1; // Linux arm64
+    // Auto-select CLI tab
+    const cliIds = ['linux-x64', 'linux-arm64', 'mac-x64', 'mac-arm64', 'windows'];
+    let cliIdx = 0;
+    if (isWin) cliIdx = 4;
+    else if (isMac) cliIdx = isArm ? 3 : 2;
+    else if (isArm) cliIdx = 1;
 
-    document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
-    document.querySelectorAll('.platform-tab')[idx].classList.add('active');
-    document.getElementById(ids[idx]).classList.add('active');
+    const cliPanel = document.getElementById('dtype-cli');
+    cliPanel.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+    cliPanel.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
+    cliPanel.querySelectorAll('.platform-tab')[cliIdx].classList.add('active');
+    document.getElementById(cliIds[cliIdx]).classList.add('active');
+
+    // Auto-select Desktop tab
+    const desktopIds = ['d-mac-arm', 'd-mac-x64', 'd-win', 'd-linux-x64', 'd-linux-arm'];
+    let deskIdx = 3; // default: linux x64
+    if (isWin) deskIdx = 2;
+    else if (isMac) deskIdx = isArm ? 0 : 1;
+    else if (isArm) deskIdx = 4; // linux arm
+
+    const deskPanel = document.getElementById('dtype-desktop');
+    deskPanel.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+    deskPanel.querySelectorAll('.platform-dl').forEach(d => d.classList.remove('active'));
+    deskPanel.querySelectorAll('.platform-tab')[deskIdx].classList.add('active');
+    document.getElementById(desktopIds[deskIdx]).classList.add('active');
   })();
 </script>
 

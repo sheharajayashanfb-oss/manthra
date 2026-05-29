@@ -1,61 +1,92 @@
-import { FolderOpen, Plus, Settings, Zap } from 'lucide-react';
+import { FolderOpen, Plus, Users } from 'lucide-react';
+import { formatTokens } from '../lib/utils';
 
 interface HeaderProps {
   cwd: string;
   onCwdChange: () => void;
   model: string;
-  provider: string;
+  team: string;
   onNewChat: () => void;
+  tokensIn: number;
+  tokensOut: number;
 }
 
-export default function Header({ cwd, onCwdChange, model, provider, onNewChat }: HeaderProps) {
-  const dirName = cwd.split('/').filter(Boolean).pop() ?? cwd;
+export default function Header({ cwd, onCwdChange, model, team, onNewChat, tokensIn, tokensOut }: HeaderProps) {
+  const dirName = cwd.split('/').filter(Boolean).pop() ?? '/';
+  const total = tokensIn + tokensOut;
 
   return (
-    <header className="flex items-center gap-3 px-4 h-12 border-b border-[#2e2e2e] bg-[#111] shrink-0 titlebar-drag">
-      {/* macOS traffic light spacer */}
-      <div className="w-16 shrink-0" />
-
-      {/* Logo */}
-      <div className="flex items-center gap-2 no-drag">
-        <div className="w-6 h-6 rounded-full bg-[#8b5cf6] flex items-center justify-center">
-          <Zap size={12} className="text-white" />
-        </div>
-        <span className="font-semibold text-sm tracking-wide text-white">MANTHRA</span>
+    <header
+      className="titlebar-drag"
+      style={{
+        display: 'flex', alignItems: 'center',
+        height: 44, flexShrink: 0,
+        borderBottom: '1px solid #ebebeb',
+        background: '#fff',
+        paddingLeft: 80, paddingRight: 16,
+      }}
+    >
+      {/* Brand + cwd */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.06em', color: '#000', userSelect: 'none' }}>
+          MANTHRA
+        </span>
+        <span style={{ color: '#ddd', fontSize: 13 }}>·</span>
+        <button
+          onClick={onCwdChange}
+          className="no-drag"
+          title={cwd}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            height: 26, padding: '0 8px', borderRadius: 6,
+            border: '1px solid #ebebeb', background: '#fafafa',
+            cursor: 'pointer', fontSize: 12, color: '#666',
+            maxWidth: 180, overflow: 'hidden',
+          }}
+        >
+          <FolderOpen size={11} style={{ flexShrink: 0, color: '#aaa' }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dirName}</span>
+        </button>
       </div>
 
-      <div className="flex-1" />
+      <div style={{ flex: 1 }} />
 
-      {/* Working directory */}
-      <button
-        onClick={onCwdChange}
-        className="no-drag flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1a1a1a] border border-[#2e2e2e] hover:border-[#8b5cf6] hover:bg-[#1e1b2e] transition-all text-xs text-[#737373] hover:text-[#e2e2e2] max-w-xs"
-        title={cwd}
-      >
-        <FolderOpen size={12} className="shrink-0 text-[#8b5cf6]" />
-        <span className="truncate">{dirName}</span>
-      </button>
+      {/* Right side */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {total > 0 && (
+          <span style={{ fontSize: 11, color: '#ccc', fontFamily: 'JetBrains Mono, monospace' }}>
+            {formatTokens(total)}
+          </span>
+        )}
 
-      {/* Model badge */}
-      {model && (
-        <div className="no-drag flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#1a1a1a] border border-[#2e2e2e] text-xs text-[#737373]">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
-          <span className="truncate max-w-[140px]">{model}</span>
-        </div>
-      )}
+        {team && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 8px', height: 26, borderRadius: 6, border: '1px solid #dbeafe', background: '#eff6ff' }}>
+            <Users size={10} color="#3b82f6" style={{ flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: '#3b82f6', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{team}</span>
+          </div>
+        )}
 
-      {/* New chat */}
-      <button
-        onClick={onNewChat}
-        className="no-drag flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#8b5cf6] hover:bg-[#7c3aed] text-white text-xs font-medium transition-colors"
-      >
-        <Plus size={12} />
-        New chat
-      </button>
+        {model && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 8px', height: 26, borderRadius: 6, border: '1px solid #ebebeb', background: '#fafafa' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: '#666', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model}</span>
+          </div>
+        )}
 
-      <button className="no-drag p-1.5 rounded-md hover:bg-[#1a1a1a] text-[#737373] hover:text-[#e2e2e2] transition-colors">
-        <Settings size={14} />
-      </button>
+        <button
+          onClick={onNewChat}
+          className="no-drag"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            height: 26, padding: '0 10px', borderRadius: 6,
+            border: 'none', background: '#111', color: '#fff',
+            fontSize: 12, fontWeight: 500, cursor: 'pointer',
+          }}
+        >
+          <Plus size={12} />
+          New
+        </button>
+      </div>
     </header>
   );
 }

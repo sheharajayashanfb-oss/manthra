@@ -1,105 +1,95 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronRight, CheckCircle2, XCircle, Loader2, Terminal, FileText, Search, GitBranch, Globe } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle2, XCircle, Loader2, Terminal, FileText, Search, GitBranch, Globe, Wrench } from 'lucide-react';
 import type { AgentState, AgentToolCallState } from '../types';
 
 const TOOL_ICONS: Record<string, React.ElementType> = {
   bash: Terminal, run_script: Terminal,
-  read_file: FileText, write_file: FileText, edit_file: FileText,
-  glob_search: Search, grep_search: Search,
+  read_file: FileText, write_file: FileText, edit_file: FileText, list_files: FileText,
+  glob_search: Search, grep_search: Search, search_symbol: Search,
   git_status: GitBranch, git_diff: GitBranch, git_commit: GitBranch,
   web_fetch: Globe, web_search: Globe,
 };
 
-function ToolStep({ tool, color }: { tool: AgentToolCallState; color: string }) {
-  const Icon = TOOL_ICONS[tool.name] ?? Terminal;
+function ToolStep({ tool, agentColor }: { tool: AgentToolCallState; agentColor: string }) {
+  const Icon = TOOL_ICONS[tool.name] ?? Wrench;
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -6 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-black/20 transition-colors"
-    >
-      <div className="w-4 h-4 flex items-center justify-center shrink-0">
-        {tool.status === 'running' && <Loader2 size={12} style={{ color }} className="animate-spin" />}
-        {tool.status === 'done' && <CheckCircle2 size={12} className="text-[#22c55e]" />}
-        {tool.status === 'error' && <XCircle size={12} className="text-[#ef4444]" />}
-      </div>
-      <Icon size={11} className="text-[#737373] shrink-0" />
-      <span className="text-xs font-mono text-[#a1a1a1] truncate">{tool.label}</span>
-    </motion.div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', borderRadius: 4, fontSize: 11, fontFamily: 'JetBrains Mono, monospace' }}>
+      <span style={{ width: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {tool.status === 'running' && <Loader2 size={10} style={{ color: agentColor }} className="animate-spin" />}
+        {tool.status === 'done' && <CheckCircle2 size={10} color="#22c55e" />}
+        {tool.status === 'error' && <XCircle size={10} color="#ef4444" />}
+      </span>
+      <Icon size={10} color="#bbb" style={{ flexShrink: 0 }} />
+      <span style={{ color: '#888', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tool.label}</span>
+    </div>
   );
 }
 
 export default function SubAgentCard({ agent }: { agent: AgentState }) {
   const [expanded, setExpanded] = useState(true);
 
-  const borderColor = agent.color;
-  const glowColor = `${agent.color}22`;
-
-  const statusIcon = () => {
-    if (agent.status === 'running') return <Loader2 size={13} style={{ color: agent.color }} className="animate-spin" />;
-    if (agent.status === 'done') return <CheckCircle2 size={13} className="text-[#22c55e]" />;
-    return <XCircle size={13} className="text-[#ef4444]" />;
-  };
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="my-2 rounded-xl overflow-hidden"
-      style={{ border: `1px solid ${borderColor}44`, boxShadow: `0 0 12px ${glowColor}` }}
-    >
-      {/* Header */}
+    <div style={{
+      marginBottom: 8,
+      borderRadius: 10,
+      border: `1px solid ${agent.color}30`,
+      background: '#fafafa',
+      overflow: 'hidden',
+    }}>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.03]"
-        style={{ background: `linear-gradient(135deg, ${agent.color}11, transparent)` }}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+          padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+        }}
       >
-        {statusIcon()}
-        <span className="text-xs font-semibold" style={{ color: agent.color }}>{agent.label}</span>
-        <span className="text-[#2e2e2e] text-xs">·</span>
-        <span className="text-xs text-[#737373] truncate flex-1">{agent.task}</span>
-
-        {agent.status === 'done' && (
-          <span className="text-[10px] text-[#4a4a4a] shrink-0">
+        <span style={{ width: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {agent.status === 'running' && <Loader2 size={11} style={{ color: agent.color }} className="animate-spin" />}
+          {agent.status === 'done' && <CheckCircle2 size={11} color="#22c55e" />}
+          {agent.status === 'error' && <XCircle size={11} color="#ef4444" />}
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 500, color: agent.color, flexShrink: 0 }}>{agent.label}</span>
+        <span style={{ color: '#ddd', fontSize: 11, flexShrink: 0 }}>·</span>
+        <span style={{ fontSize: 12, color: '#888', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.task}</span>
+        {agent.status === 'done' && agent.toolCalls.length > 0 && (
+          <span style={{ fontSize: 11, color: '#bbb', flexShrink: 0, marginRight: 4 }}>
             {agent.toolCalls.length} tool{agent.toolCalls.length !== 1 ? 's' : ''}
           </span>
         )}
-
-        <div className="text-[#4a4a4a] shrink-0">
-          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        </div>
+        <span style={{ color: '#ccc', flexShrink: 0 }}>
+          {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </span>
       </button>
 
-      {/* Tool steps */}
       <AnimatePresence>
-        {expanded && agent.toolCalls.length > 0 && (
+        {expanded && (agent.toolCalls.length > 0 || agent.status === 'running' || (agent.status === 'error' && agent.error)) && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="overflow-hidden border-t"
-            style={{ borderColor: `${borderColor}22` }}
+            transition={{ duration: 0.15 }}
+            style={{ overflow: 'hidden' }}
           >
-            <div className="px-3 py-2 space-y-0.5 bg-black/20">
+            <div style={{ padding: '4px 12px 8px', borderTop: `1px solid ${agent.status === 'error' ? '#ef444420' : agent.color + '20'}` }}>
               {agent.toolCalls.map((tc) => (
-                <ToolStep key={tc.id} tool={tc} color={agent.color} />
+                <ToolStep key={tc.id} tool={tc} agentColor={agent.color} />
               ))}
               {agent.status === 'running' && (
-                <motion.div
-                  animate={{ opacity: [0.4, 1, 0.4] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                  className="flex items-center gap-2 py-1.5 px-2"
-                >
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: agent.color }} />
-                  <span className="text-[10px] text-[#4a4a4a]">Working…</span>
-                </motion.div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: agent.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 10, color: '#bbb' }}>working…</span>
+                </div>
+              )}
+              {agent.status === 'error' && agent.error && (
+                <div style={{ padding: '4px 8px', fontSize: 11, color: '#ef4444', fontFamily: 'JetBrains Mono, monospace', wordBreak: 'break-word' }}>
+                  {agent.error}
+                </div>
               )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }

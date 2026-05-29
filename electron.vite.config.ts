@@ -12,7 +12,7 @@ export default defineConfig({
         output: { format: 'cjs', entryFileNames: '[name].cjs' },
       },
     },
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ['chalk'] })],
     resolve: {
       alias: { '@': resolve('src') },
     },

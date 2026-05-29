@@ -40,11 +40,14 @@ export function createSubAgentTool(
   defaultProvider: Provider,
   defaultModel: string,
   teamMembers?: Map<string, TeamMemberRuntime>,
+  cwd?: string,
+  signal?: AbortSignal,
 ): Tool {
   return {
     name: 'agent_spawn',
     description:
       'Spawn a focused sub-agent to handle a self-contained subtask. ' +
+      'Call with just a task string — no other parameters required. ' +
       'The sub-agent runs independently with full tool access and returns its result when done. ' +
       'Use this to delegate complex, well-defined subtasks in parallel or sequentially.' +
       (teamMembers && teamMembers.size > 0
@@ -59,10 +62,14 @@ export function createSubAgentTool(
             'The task for the sub-agent to complete. Must be self-contained and specific. ' +
             'Include all context and file paths the sub-agent needs.',
         },
-        member_id: {
-          type: 'string',
-          description: 'Team member ID to spawn (uses their assigned provider, model, and tools).',
-        },
+        ...(teamMembers && teamMembers.size > 0
+          ? {
+              member_id: {
+                type: 'string',
+                description: 'Team member ID to spawn (uses their assigned provider, model, and tools).',
+              },
+            }
+          : {}),
       },
       required: ['task'],
     },
@@ -148,164 +155,204 @@ export function createSubAgentTool(
       // Header: "  ╭─ MemberLabel · model ──────╮"
       subAgentEmitter.emit('agent:start', { agentId, task, label: memberLabel, color: agentColorHex } satisfies SubAgentStartEvent);
 
-      const headerFill = Math.max(1, cols - memberLabel.length - spawnModel.length - 10);
-      process.stdout.write('\n');
-      process.stdout.write(
-        border('  ╭─ ') + agentColor.bold(memberLabel) +
-        border(` · ${spawnModel} `) + border('─'.repeat(headerFill) + '╮') + '\n',
-      );
-
-      // Task — full text, wrapped inside box
-      boxLine(`Task: ${task}`);
-
-      if (memberIdMismatch) {
-        boxLine(`⚠  member_id "${memberIdMismatch}" not matched — using ${memberLabel}`);
-      }
-      if (allowedTools) {
-        boxLine(`Tools: ${allowedTools.join(', ')}`);
-      }
-      boxSep();
-
-      const allTools = getAllTools().filter((t) => t.name !== 'agent_spawn');
-      const toolDefs = (allowedTools
-        ? allTools.filter((t) => allowedTools!.includes(t.name))
-        : allTools
-      ).map((t) => ({ name: t.name, description: t.description, parameters: t.parameters }));
-
-      const messages: Message[] = [
-        {
-          role: 'system',
-          content:
-            'You are a focused sub-agent. Complete the assigned task efficiently using available tools. ' +
-            'When finished, provide a concise summary of what you accomplished and any key results.',
-        },
-        { role: 'user', content: task },
-      ];
-
-      const MAX_ITER = 10;
+      // Outer try-catch covers everything after agent:start so agent:error is ALWAYS emitted
+      let agentError: string | null = null;
+      let wasAborted = false;
+      let totalToolCalls = 0;
       let iterCount = 0;
       let finalText = '';
       let finalThinking = '';
-      let totalToolCalls = 0;
 
-      while (iterCount < MAX_ITER) {
-        iterCount++;
+      try {
+        const headerFill = Math.max(1, cols - memberLabel.length - spawnModel.length - 10);
+        process.stdout.write('\n');
+        process.stdout.write(
+          border('  ╭─ ') + agentColor.bold(memberLabel) +
+          border(` · ${spawnModel} `) + border('─'.repeat(headerFill) + '╮') + '\n',
+        );
 
-        let stream: AsyncIterable<StreamEvent>;
-        try {
-          stream = spawnProvider.chat(messages, {
-            model: spawnModel,
-            maxTokens: 4096,
-            temperature: 0,
-            tools: toolDefs,
-          });
-        } catch (err) {
-          return { success: false, output: '', error: `Sub-agent provider error: ${String(err)}` };
+        // Task — full text, wrapped inside box
+        boxLine(`Task: ${task}`);
+
+        if (memberIdMismatch) {
+          boxLine(`⚠  member_id "${memberIdMismatch}" not matched — using ${memberLabel}`);
         }
+        if (allowedTools) {
+          boxLine(`Tools: ${allowedTools.join(', ')}`);
+        }
+        boxSep();
 
-        let text = '';
-        let thinking = '';
-        const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
+        const allTools = getAllTools().filter((t) => t.name !== 'agent_spawn');
+        const toolDefs = (allowedTools
+          ? allTools.filter((t) => allowedTools!.includes(t.name))
+          : allTools
+        ).map((t) => ({ name: t.name, description: t.description, parameters: t.parameters }));
 
-        for await (const event of stream) {
-          if (event.type === 'text_delta' && event.delta) {
-            text += event.delta;
-          } else if (event.type === 'thinking_delta' && event.delta) {
-            thinking += event.delta;
-          } else if (event.type === 'tool_call_done' && event.tool_call) {
-            toolCalls.push({
-              id: event.tool_call.id,
-              name: event.tool_call.name,
-              input: event.tool_call.input ?? {},
+        const toolNames = toolDefs.map((t) => t.name).join(', ');
+        const effectiveCwd = cwd ?? process.cwd();
+        const systemPrompt =
+          'You are a focused sub-agent. You MUST use the tools provided to complete the task — ' +
+          'do NOT just respond with text from memory or training data. ' +
+          'Always use the appropriate tool for the work: ' +
+          'bash/run_script for shell commands, web_search/web_fetch for internet research, ' +
+          'read_file/write_file/edit_file/list_files for file operations, ' +
+          'git_status/git_diff/git_commit for git, run_tests/build_project for builds. ' +
+          `Available tools: ${toolNames}. ` +
+          `Current working directory: ${effectiveCwd}. ` +
+          `IMPORTANT: Save ALL files and outputs to the current working directory (${effectiveCwd}) or subdirectories within it. ` +
+          'Use relative paths (e.g. "review.md") or full paths within the CWD. ' +
+          'Never write files outside the CWD unless explicitly told to. ' +
+          'When the task is done, provide a concise summary of what you accomplished and the file paths created.';
+
+        const messages: Message[] = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: task },
+        ];
+
+        const MAX_ITER = 10;
+        console.log(`[sub_agent] ${agentId} starting execute, model=${spawnModel}, tools=${toolDefs.length}`);
+        while (iterCount < MAX_ITER) {
+          if (signal?.aborted) { wasAborted = true; break; }
+          iterCount++;
+
+          let stream: AsyncIterable<StreamEvent>;
+          try {
+            stream = spawnProvider.chat(messages, {
+              model: spawnModel,
+              maxTokens: 4096,
+              temperature: 0,
+              tools: toolDefs,
             });
-          }
-        }
-
-        finalText = text;
-        if (thinking) finalThinking = thinking;
-
-        const assistantContent: ContentBlock[] = [];
-        if (thinking) assistantContent.push({ type: 'thinking', thinking });
-        if (text) assistantContent.push({ type: 'text', text });
-        for (const tc of toolCalls) {
-          assistantContent.push({ type: 'tool_call', id: tc.id, name: tc.name, input: tc.input });
-        }
-        if (assistantContent.length > 0) {
-          messages.push({ role: 'assistant', content: assistantContent });
-        }
-
-        if (toolCalls.length === 0) break;
-
-        const toolResultBlocks: ContentBlock[] = [];
-        totalToolCalls += toolCalls.length;
-        for (const tc of toolCalls) {
-          // Build full tool label — no truncation
-          let toolLabel: string;
-          if (tc.name === 'bash' || tc.name === 'run_script') {
-            const cmd = String(tc.input['command'] ?? tc.input['script'] ?? '').replace(/\s+/g, ' ').trim();
-            toolLabel = cmd ? `bash - ${cmd}` : tc.name;
-          } else {
-            toolLabel = tc.name;
+          } catch (err) {
+            throw new Error(`Provider error: ${String(err)}`);
           }
 
-          subAgentEmitter.emit('agent:tool_call', { agentId, toolId: tc.id, name: tc.name, label: toolLabel } satisfies SubAgentToolEvent);
+          let text = '';
+          let thinking = '';
+          const toolCalls: Array<{ id: string; name: string; input: Record<string, unknown> }> = [];
 
-          // Print ◈ prefix + full label, wrapped inside box
-          const ICON = '◈  '; // 3 visual chars
-          const contentWidth = INNER - ICON.length;
-          const chunks = wrapChars(toolLabel, contentWidth);
-          for (let i = 0; i < chunks.length; i++) {
-            const icon = i === 0 ? agentColor(ICON) : ' '.repeat(ICON.length);
-            const pad = ' '.repeat(Math.max(0, contentWidth - chunks[i].length));
-            process.stdout.write(border('  │  ') + icon + border(chunks[i]) + pad + border('  │') + '\n');
+          for await (const event of stream) {
+            if (signal?.aborted) { wasAborted = true; break; }
+            if (event.type === 'text_delta' && event.delta) {
+              text += event.delta;
+            } else if (event.type === 'thinking_delta' && event.delta) {
+              thinking += event.delta;
+            } else if (event.type === 'tool_call_done' && event.tool_call) {
+              toolCalls.push({
+                id: event.tool_call.id,
+                name: event.tool_call.name,
+                input: event.tool_call.input ?? {},
+              });
+            }
+          }
+          if (wasAborted) break;
+
+          console.log(`[sub_agent] ${agentId} iter=${iterCount} text=${text.length}chars toolCalls=${toolCalls.length}`);
+          finalText = text;
+          if (thinking) finalThinking = thinking;
+
+          const assistantContent: ContentBlock[] = [];
+          if (thinking) assistantContent.push({ type: 'thinking', thinking });
+          if (text) assistantContent.push({ type: 'text', text });
+          for (const tc of toolCalls) {
+            assistantContent.push({ type: 'tool_call', id: tc.id, name: tc.name, input: tc.input });
+          }
+          if (assistantContent.length > 0) {
+            messages.push({ role: 'assistant', content: assistantContent });
           }
 
-          // Hard-enforce tool restriction — reject calls outside allowed set
-          if (allowedTools && !allowedTools.includes(tc.name)) {
-            boxLine(`✗  blocked: ${tc.name} not in allowed tools`);
-            subAgentEmitter.emit('agent:tool_done', { agentId, toolId: tc.id, success: false } satisfies SubAgentToolDoneEvent);
+          if (toolCalls.length === 0) break;
+
+          const toolResultBlocks: ContentBlock[] = [];
+          totalToolCalls += toolCalls.length;
+          for (const tc of toolCalls) {
+            if (signal?.aborted) { wasAborted = true; break; }
+            // Build full tool label — no truncation
+            let toolLabel: string;
+            if (tc.name === 'bash' || tc.name === 'run_script') {
+              const cmd = String(tc.input['command'] ?? tc.input['script'] ?? '').replace(/\s+/g, ' ').trim();
+              toolLabel = cmd ? `bash - ${cmd}` : tc.name;
+            } else {
+              toolLabel = tc.name;
+            }
+
+            subAgentEmitter.emit('agent:tool_call', { agentId, toolId: tc.id, name: tc.name, label: toolLabel } satisfies SubAgentToolEvent);
+
+            // Print ◈ prefix + full label, wrapped inside box
+            const ICON = '◈  '; // 3 visual chars
+            const contentWidth = INNER - ICON.length;
+            const chunks = wrapChars(toolLabel, contentWidth);
+            for (let i = 0; i < chunks.length; i++) {
+              const icon = i === 0 ? agentColor(ICON) : ' '.repeat(ICON.length);
+              const pad = ' '.repeat(Math.max(0, contentWidth - chunks[i].length));
+              process.stdout.write(border('  │  ') + icon + border(chunks[i]) + pad + border('  │') + '\n');
+            }
+
+            // Hard-enforce tool restriction — reject calls outside allowed set
+            if (allowedTools && !allowedTools.includes(tc.name)) {
+              boxLine(`✗  blocked: ${tc.name} not in allowed tools`);
+              subAgentEmitter.emit('agent:tool_done', { agentId, toolId: tc.id, success: false } satisfies SubAgentToolDoneEvent);
+              toolResultBlocks.push({
+                type: 'tool_result',
+                tool_call_id: tc.id,
+                content: `[BLOCKED] You called "${tc.name}" but your allowed tools are: ${allowedTools.join(', ')}. You cannot use tools outside this list.`,
+                is_error: true,
+              });
+              continue;
+            }
+
+            const result = await executeTool(tc.name, tc.input, { silent: true });
+            subAgentEmitter.emit('agent:tool_done', { agentId, toolId: tc.id, success: result.success } satisfies SubAgentToolDoneEvent);
+            const content = result.success
+              ? result.output
+              : `[ERROR] ${result.error ?? 'tool failed'}`;
             toolResultBlocks.push({
               type: 'tool_result',
               tool_call_id: tc.id,
-              content: `[BLOCKED] You called "${tc.name}" but your allowed tools are: ${allowedTools.join(', ')}. You cannot use tools outside this list.`,
-              is_error: true,
+              content,
+              is_error: !result.success,
             });
-            continue;
           }
 
-          const result = await executeTool(tc.name, tc.input, { silent: true });
-          subAgentEmitter.emit('agent:tool_done', { agentId, toolId: tc.id, success: result.success } satisfies SubAgentToolDoneEvent);
-          const content = result.success
-            ? result.output
-            : `[ERROR] ${result.error ?? 'tool failed'}`;
-          toolResultBlocks.push({
-            type: 'tool_result',
-            tool_call_id: tc.id,
-            content,
-            is_error: !result.success,
-          });
+          if (wasAborted) break;
+          if (toolResultBlocks.length > 0) {
+            messages.push({ role: 'user', content: toolResultBlocks });
+          }
         }
-
-        if (toolResultBlocks.length > 0) {
-          messages.push({ role: 'user', content: toolResultBlocks });
-        }
+      } catch (err) {
+        agentError = String(err);
+        console.error(`[sub_agent] ${agentId} ERROR:`, agentError);
+        subAgentEmitter.emit('agent:error', { agentId, message: agentError } satisfies SubAgentErrorEvent);
       }
 
-      subAgentEmitter.emit('agent:done', { agentId, toolCount: totalToolCalls } satisfies SubAgentDoneEvent);
+      if (agentError) {
+        // error already emitted above
+      } else {
+        console.log(`[sub_agent] ${agentId} ${wasAborted ? 'ABORTED' : 'DONE'}, toolCalls=${totalToolCalls}`);
+        subAgentEmitter.emit('agent:done', { agentId, toolCount: totalToolCalls } satisfies SubAgentDoneEvent);
+      }
 
-      // Footer: "  ╰─ done  · N tool calls ────╯"
-      boxSep();
-      const toolSummaryPlain = totalToolCalls > 0
-        ? `  · ${totalToolCalls} tool call${totalToolCalls !== 1 ? 's' : ''}`
-        : '';
-      const statusText = iterCount >= MAX_ITER ? 'max iterations reached' : 'done';
-      const footerFill = Math.max(1, cols - statusText.length - toolSummaryPlain.length - 7);
-      const statusColor = iterCount >= MAX_ITER ? chalk.yellow : agentColor;
-      process.stdout.write(
-        border('  ╰─ ') + statusColor(statusText) +
-        border(`${toolSummaryPlain} `) + border('─'.repeat(footerFill) + '╯') + '\n\n',
-      );
+      // Footer — wrapped so any stdout/chalk error doesn't propagate
+      try {
+        boxSep();
+        const toolSummaryPlain = totalToolCalls > 0
+          ? `  · ${totalToolCalls} tool call${totalToolCalls !== 1 ? 's' : ''}`
+          : '';
+        const statusText = agentError ? 'error' : wasAborted ? 'stopped' : iterCount >= MAX_ITER ? 'max iterations reached' : 'done';
+        const footerFill = Math.max(1, cols - statusText.length - toolSummaryPlain.length - 7);
+        const statusColor = agentError ? chalk.red : wasAborted ? chalk.yellow : iterCount >= MAX_ITER ? chalk.yellow : agentColor;
+        process.stdout.write(
+          border('  ╰─ ') + statusColor(statusText) +
+          border(`${toolSummaryPlain} `) + border('─'.repeat(footerFill) + '╯') + '\n\n',
+        );
+      } catch { /* footer is cosmetic — ignore draw errors */ }
 
+      if (agentError) {
+        return { success: false, output: '', error: agentError };
+      }
+      if (wasAborted) {
+        return { success: false, output: '', error: 'Stopped by user' };
+      }
       return {
         success: true,
         output: finalText || finalThinking || '(sub-agent completed without text output)',

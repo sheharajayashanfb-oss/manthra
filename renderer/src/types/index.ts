@@ -23,7 +23,16 @@ export interface AgentState {
   label: string;
   color: string;
   status: AgentStatus;
+  error?: string;
   toolCalls: AgentToolCallState[];
+}
+
+export interface FileAttachment {
+  name: string;
+  mimeType: string;
+  content: string;   // base64 for images, raw text for text files
+  isImage: boolean;
+  size: number;
 }
 
 export interface UIMessage {
@@ -34,6 +43,7 @@ export interface UIMessage {
   toolCalls: ToolCallState[];
   agentIds: string[];
   timestamp: number;
+  attachments?: FileAttachment[];
   tokensIn?: number;
   tokensOut?: number;
 }
@@ -57,6 +67,8 @@ export interface ProviderInfo {
 export interface AppConfig {
   activeProvider?: string;
   activeModel?: string;
+  activeTeam?: string;
+  activeTeamName?: string;
   providers: ProviderInfo[];
   maxTokens: number;
   temperature: number;

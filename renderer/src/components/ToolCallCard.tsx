@@ -1,37 +1,33 @@
-import { motion } from 'framer-motion';
-import { Terminal, FileText, Search, GitBranch, Globe, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Terminal, FileText, Search, GitBranch, Globe, CheckCircle2, XCircle, Loader2, Wrench } from 'lucide-react';
 import type { ToolCallState } from '../types';
 
 const TOOL_ICONS: Record<string, React.ElementType> = {
-  bash: Terminal,
-  run_script: Terminal,
-  read_file: FileText,
-  write_file: FileText,
-  edit_file: FileText,
-  glob_search: Search,
-  grep_search: Search,
-  search_symbol: Search,
-  git_status: GitBranch,
-  git_diff: GitBranch,
-  git_commit: GitBranch,
-  web_fetch: Globe,
-  web_search: Globe,
+  bash: Terminal, run_script: Terminal,
+  read_file: FileText, write_file: FileText, edit_file: FileText, delete_file: FileText, list_files: FileText,
+  glob_search: Search, grep_search: Search, search_symbol: Search, docs_search: Search,
+  git_status: GitBranch, git_diff: GitBranch, git_commit: GitBranch, git_add: GitBranch, git_log: GitBranch,
+  web_fetch: Globe, web_search: Globe,
 };
 
 export default function ToolCallCard({ tool }: { tool: ToolCallState }) {
-  const Icon = TOOL_ICONS[tool.name] ?? Terminal;
+  const Icon = TOOL_ICONS[tool.name] ?? Wrench;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-2 px-3 py-2 my-1 rounded-lg bg-[#141414] border border-[#2e2e2e] text-xs"
-    >
-      <Icon size={12} className="text-[#737373] shrink-0" />
-      <span className="text-[#a1a1a1] font-mono truncate flex-1">{tool.label}</span>
-      {tool.status === 'running' && <Loader2 size={12} className="text-[#8b5cf6] animate-spin shrink-0" />}
-      {tool.status === 'done' && <CheckCircle2 size={12} className="text-[#22c55e] shrink-0" />}
-      {tool.status === 'error' && <XCircle size={12} className="text-[#ef4444] shrink-0" />}
-    </motion.div>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '6px 10px', borderRadius: 6,
+      background: '#f8f8f8', border: '1px solid #ebebeb',
+      fontSize: 12, fontFamily: 'JetBrains Mono, monospace',
+    }}>
+      <Icon size={11} color="#aaa" style={{ flexShrink: 0 }} />
+      <span style={{ color: '#555', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {tool.label}
+      </span>
+      <span style={{ flexShrink: 0 }}>
+        {tool.status === 'running' && <Loader2 size={11} color="#888" className="animate-spin" />}
+        {tool.status === 'done' && <CheckCircle2 size={11} color="#22c55e" />}
+        {tool.status === 'error' && <XCircle size={11} color="#ef4444" />}
+      </span>
+    </div>
   );
 }

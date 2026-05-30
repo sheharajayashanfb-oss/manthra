@@ -130,15 +130,27 @@ What it uploads:
 - `install.ps1` → `/var/www/manthra/install.ps1`
 - `releases/` (excluding `desktop/`) → `/var/www/manthra/releases/`
 
-### Deploy desktop builds to VM (manual)
+### Deploy desktop builds to VM
 
-After running `electron:package:mac`, deploy the Mac DMGs to the server:
+After building any desktop platform, use the deploy script to upload to the server.
+Uploads `.dmg`, `.zip`, `.exe`, `.AppImage`, and `.yml` update manifests.
 
 ```bash
-rsync -avz --progress \
-  --include="*.dmg" --include="*.zip" --include="*.yml" --exclude="*" \
-  releases/desktop/ ubuntu@140.245.113.229:/var/www/manthra/releases/desktop/
+VM_HOST=ubuntu@140.245.113.229 npm run deploy:desktop
 ```
+
+What it uploads from `releases/desktop/`:
+
+| File | URL |
+|---|---|
+| `Manthra-mac-arm64.dmg` | `.../releases/desktop/Manthra-mac-arm64.dmg` |
+| `Manthra-mac-x64.dmg` | `.../releases/desktop/Manthra-mac-x64.dmg` |
+| `Manthra-win-x64.exe` | `.../releases/desktop/Manthra-win-x64.exe` |
+| `Manthra-linux-x64.AppImage` | `.../releases/desktop/Manthra-linux-x64.AppImage` |
+| `Manthra-linux-arm64.AppImage` | `.../releases/desktop/Manthra-linux-arm64.AppImage` |
+| `latest-mac.yml`, `latest.yml`, `latest-linux.yml` | Auto-updater manifests |
+
+> Requires SSH access to `ubuntu@140.245.113.229`. The script errors if `releases/desktop/` doesn't exist — build first.
 
 ### Full Mac release (build + deploy + CI version bump)
 
@@ -150,13 +162,32 @@ The release script does everything in one command:
 ./scripts/release-mac.sh major     # major bump (X.y.z → X+1.0.0)
 ```
 
-What it does:
-1. Builds Mac DMGs (`npm run electron:package:mac`)
-2. Uploads `.dmg`, `.zip`, `.yml` to the VM via rsync
-3. Triggers the GitLab CI `bump` job, which:
-   - Increments the version in `package.json`
-   - Pushes the version commit + git tag
-   - Tag triggers: build CLI binaries → generate `version.json` → deploy to website
+What it does, step by step:
+
+**Step 1 — Build Mac DMGs** (runs on your Mac):
+```
+npm run electron:package:mac
+→ releases/desktop/Manthra-mac-arm64.dmg
+→ releases/desktop/Manthra-mac-x64.dmg
+→ releases/desktop/Manthra-mac-*.zip
+→ releases/desktop/latest-mac.yml
+```
+
+**Step 2 — Deploy to server** (rsync over SSH):
+```
+releases/desktop/*.dmg  → ubuntu@140.245.113.229:/var/www/manthra/releases/desktop/
+releases/desktop/*.zip  → ...
+releases/desktop/*.yml  → ...
+```
+
+**Step 3 — Trigger CI version bump** (GitLab API):
+- Finds the latest manual `bump` job from the most recent pipeline on `main`
+- Plays it with `BUMP_TYPE=patch|minor|major`
+- The bump job: increments version in `package.json` → commits with `[skip ci]` → pushes tag
+- The tag triggers a full CI pipeline: build CLI binaries → generate `version.json` → deploy website
+
+> **Token:** `GITLAB_TOKEN` is read from the environment or falls back to the value hardcoded in the script.
+> The token needs at least `read_api` + `write_repository` scopes and Developer role on the project.
 
 ### CI/CD pipeline (GitLab)
 

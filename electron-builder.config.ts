@@ -16,6 +16,7 @@ export default {
     url: 'https://manthra.informaticsint.au/releases/desktop',
   }],
   mac: {
+    icon: 'electron-icons/macos/icon.icns',
     category: 'public.app-category.developer-tools',
     artifactName: 'Manthra-mac-${arch}.${ext}',
     identity: null, // ad-hoc signing — no Developer ID required; open via right-click → Open
@@ -25,10 +26,12 @@ export default {
     ],
   },
   win: {
+    icon: 'electron-icons/windows/icon.ico',
     artifactName: 'Manthra-win-x64.${ext}',
     target: [{ target: 'nsis', arch: ['x64'] }],
   },
   linux: {
+    icon: 'electron-icons/linux/icons/512x512.png',
     artifactName: 'Manthra-linux-${arch}.${ext}',
     target: [
       { target: 'AppImage', arch: ['x64'] },

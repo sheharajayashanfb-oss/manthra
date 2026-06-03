@@ -1,6 +1,6 @@
 {
   "name": "manthra",
-  "version": "0.7.41",
+  "version": "0.7.42",
   "description": "AI coding assistant CLI with multi-provider support",
   "author": "Informatics International",
   "type": "module",

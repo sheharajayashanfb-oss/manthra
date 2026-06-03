@@ -9,7 +9,7 @@ import { ConversationHistory } from '../conversation/index.js';
 import { getConfig } from '../config/loader.js';
 import { loadProviders, getProvider, getDefaultProvider, createProvider } from '../providers/registry.js';
 import { DEFAULT_SYSTEM_PROMPT } from '../config/defaults.js';
-import { formatMemoryForContext } from '../memory/store.js';
+import { formatMemoryForContext, saveSessionContext } from '../memory/store.js';
 import { getCommand, getAllCommands } from '../slash-commands/registry.js';
 import type { CommandContext } from '../slash-commands/types.js';
 import { formatMarkdown } from '../ui/renderer.js';
@@ -1342,7 +1342,8 @@ export class REPL {
         if (histTokens / this.contextWindow >= 0.8) {
           process.stdout.write(chalk.dim('\n  ✦  Context at 80% — auto-compacting…\n'));
           try {
-            const { before, after } = await runCompact(this.history, this.provider, this.model);
+            const { before, after, summary } = await runCompact(this.history, this.provider, this.model);
+            saveSessionContext(summary);
             const freed = before - after;
             const pct = before > 0 ? Math.round((freed / before) * 100) : 0;
             process.stdout.write(

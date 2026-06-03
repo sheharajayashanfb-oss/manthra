@@ -59,7 +59,7 @@ const memorySaveTool: Tool = {
     try {
       const key = String(input['key']);
       const value = String(input['value']);
-      const filePath = join(getManthraDir(), 'memory.json');
+      const filePath = join(getManthraDir(), 'kv-memory.json');
       const memory = readJson<Record<string, string>>(filePath, {});
       memory[key] = value;
       writeJson(filePath, memory);
@@ -83,7 +83,7 @@ const memoryGetTool: Tool = {
   async execute(input): Promise<ToolResult> {
     try {
       const key = String(input['key']);
-      const filePath = join(getManthraDir(), 'memory.json');
+      const filePath = join(getManthraDir(), 'kv-memory.json');
       const memory = readJson<Record<string, string>>(filePath, {});
       if (!(key in memory)) {
         return { success: true, output: `No memory found for key: ${key}` };

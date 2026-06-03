@@ -31,7 +31,7 @@ function tryRead(path: string, maxLen = 3000): string {
   }
 }
 
-function gatherContext(cwd: string): string {
+export function gatherContext(cwd: string): string {
   const sections: string[] = [`Project directory: ${cwd}`];
 
   // File tree — 2 levels deep, skip generated/dependency dirs
@@ -82,7 +82,7 @@ function gatherContext(cwd: string): string {
 
 // ── prompt ────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You generate AGENTS.md files for software projects.
+export const SYSTEM_PROMPT = `You generate AGENTS.md files for software projects.
 
 AGENTS.md is a project briefing loaded automatically into Manthra (an AI coding assistant) at the start of every session. It replaces the need to re-explain the project on each new conversation. Think of it as a persistent memory file — a compact but complete briefing that gives the AI instant project context.
 
@@ -99,7 +99,7 @@ Rules:
 - Use clean markdown with sections and code blocks where appropriate
 - Do not invent commands or structure that isn't visible in the project info`;
 
-function buildPrompt(context: string): string {
+export function buildPrompt(context: string): string {
   return `Based on the project information below, generate an AGENTS.md file.
 
 ${context}

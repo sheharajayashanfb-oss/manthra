@@ -11,7 +11,8 @@ export interface MemoryEntry {
 function loadAll(): MemoryEntry[] {
   if (!existsSync(MEMORY_FILE)) return [];
   try {
-    return JSON.parse(readFileSync(MEMORY_FILE, 'utf-8')) as MemoryEntry[];
+    const parsed = JSON.parse(readFileSync(MEMORY_FILE, 'utf-8'));
+    return Array.isArray(parsed) ? (parsed as MemoryEntry[]) : [];
   } catch {
     return [];
   }
@@ -51,4 +52,16 @@ export function formatMemoryForContext(): string {
   const entries = loadAll();
   if (entries.length === 0) return '';
   return `## Memory\n${entries.map((e) => `- ${e.content}`).join('\n')}`;
+}
+
+export function saveSessionContext(summary: string): void {
+  const entries = loadAll().filter((e) => !e.tags.includes('session-summary'));
+  const entry: MemoryEntry = {
+    id: `mem_${Date.now()}`,
+    content: `[Session summary] ${summary}`,
+    createdAt: new Date().toISOString(),
+    tags: ['session-summary'],
+  };
+  ensureConfigDir();
+  saveAll([...entries, entry]);
 }

@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import type { SlashCommand } from './types.js';
 import type { Message } from '../providers/types.js';
 import { startSpinner } from '../ui/spinner.js';
+import { saveSessionContext } from '../memory/store.js';
 
 function fmtTokens(n: number): string {
   return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
@@ -31,7 +32,7 @@ export async function runCompact(
   history: { get(): Message[]; estimateTokens(): number; replace(m: Message[]): void },
   provider: { chat(messages: Message[], opts: Record<string, unknown>): AsyncIterable<{ type: string; delta?: string }> },
   model: string,
-): Promise<{ before: number; after: number }> {
+): Promise<{ before: number; after: number; summary: string }> {
   const before = history.estimateTokens();
   const transcript = historyToTranscript(history.get());
 
@@ -76,7 +77,7 @@ export async function runCompact(
 
   history.replace(compacted);
   const after = history.estimateTokens();
-  return { before, after };
+  return { before, after, summary: summary.trim() };
 }
 
 export const compactCommand: SlashCommand = {
@@ -96,7 +97,8 @@ export const compactCommand: SlashCommand = {
 
     const stop = startSpinner('Compacting…');
     try {
-      const { before, after } = await runCompact(ctx.history, ctx.provider, ctx.model);
+      const { before, after, summary } = await runCompact(ctx.history, ctx.provider, ctx.model);
+      saveSessionContext(summary);
       stop();
       const freed = before - after;
       const pct = before > 0 ? Math.round((freed / before) * 100) : 0;

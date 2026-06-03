@@ -14,16 +14,16 @@ import { createSubAgentTool, subAgentEmitter, type TeamMemberRuntime } from '../
 import { platformSystemPrompt } from '../tools/platform.js';
 import { mcpManager } from '../mcp/manager.js';
 import { DEFAULT_SYSTEM_PROMPT } from '../config/defaults.js';
-import { formatMemoryForContext, addMemory, listMemory, deleteMemory, clearMemory } from '../memory/store.js';
+import { formatMemoryForContext, addMemory, listMemory, deleteMemory, clearMemory, saveSessionContext } from '../memory/store.js';
 import { loadAgentsMd } from '../config/agents-md.js';
 import { readdirSync, readFileSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { execSync } from 'child_process';
 import { sanitizeMessages } from '../utils/messages.js';
 import type { StreamEvent as ProviderStreamEvent, Message } from '../providers/types.js';
 import type { PermissionDecision } from '../permissions/index.js';
 import { runCompact } from '../slash-commands/compact.js';
+import { gatherContext, SYSTEM_PROMPT as INIT_SYSTEM_PROMPT, buildPrompt } from '../slash-commands/init.js';
 
 const execAsync = promisify(exec);
 
@@ -44,6 +44,7 @@ export interface StreamEvent {
   message?: string;
   tokensIn?: number;
   tokensOut?: number;
+  freedTokens?: number;
 }
 
 export interface ConversationSummary {
@@ -107,6 +108,23 @@ export type SlashExecResult =
 const CONVERSATIONS_DIR = join(homedir(), '.manthra', 'conversations');
 let currentAbortController: AbortController | null = null;
 
+// Cache context window per "providerId:model" — null means "tried, not available"
+const contextWindowCache = new Map<string, number | null>();
+
+async function lookupContextWindow(provider: import('../providers/types.js').Provider, model: string): Promise<number | null> {
+  const key = `${provider.id}:${model}`;
+  if (contextWindowCache.has(key)) return contextWindowCache.get(key) ?? null;
+  try {
+    const models = await provider.listModels();
+    const cw = models.find((m) => m.id === model)?.contextWindow ?? null;
+    contextWindowCache.set(key, cw);
+    return cw;
+  } catch {
+    contextWindowCache.set(key, null);
+    return null;
+  }
+}
+
 function send(win: BrowserWindow, event: StreamEvent): void {
   if (!win.isDestroyed()) win.webContents.send('stream:event', event);
 }
@@ -115,28 +133,6 @@ function fmtTokens(n: number): string {
   return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
 }
 
-// Gather project context for /init
-function gatherProjectContext(cwd: string): string {
-  const sections: string[] = [`Project directory: ${cwd}`];
-  const tryExec = (cmd: string) => { try { return execSync(cmd, { cwd, encoding: 'utf-8', timeout: 5000, stdio: ['pipe', 'pipe', 'pipe'] }).trim(); } catch { return ''; } };
-  const tryRead = (path: string, max = 3000) => { try { return readFileSync(path, 'utf-8').trim().slice(0, max); } catch { return ''; } };
-
-  const tree = tryExec('find . -maxdepth 2 -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*" | sort');
-  if (tree) sections.push(`File structure:\n${tree}`);
-
-  for (const f of ['package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod']) {
-    const c = tryRead(join(cwd, f), 2000);
-    if (c) sections.push(`${f}:\n\`\`\`\n${c}\n\`\`\``);
-  }
-
-  const readme = tryRead(join(cwd, 'README.md')) || tryRead(join(cwd, 'README'));
-  if (readme) sections.push(`README:\n${readme}`);
-
-  const gitLog = tryExec('git log --oneline -10');
-  if (gitLog) sections.push(`Recent git commits:\n${gitLog}`);
-
-  return sections.join('\n\n');
-}
 
 export function registerBridge(win: BrowserWindow): void {
   // ── MCP init ───────────────────────────────────────────────────────────────
@@ -389,6 +385,20 @@ export function registerBridge(win: BrowserWindow): void {
       send(win, { type: 'error', message: String(err) });
     }
 
+    // Auto-compact when history tokens exceed 80% of context window
+    const contextWindow = await lookupContextWindow(provider, model);
+    if (contextWindow && history.estimateTokens() / contextWindow >= 0.8) {
+      send(win, { type: 'auto_compact', message: '✦ Context at 80% — auto-compacting…' });
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { before, after, summary } = await runCompact(history, provider as any, model);
+        saveSessionContext(summary);
+        const freed = before - after;
+        const pct = before > 0 ? Math.round((freed / before) * 100) : 0;
+        send(win, { type: 'auto_compact', message: `✦ Compacted — ~${fmtTokens(freed)} tokens freed (${pct}%)`, freedTokens: freed });
+      } catch { /* silent — compact failure shouldn't break the session */ }
+    }
+
     history.save();
     send(win, { type: 'turn_done', tokensIn: totalIn, tokensOut: totalOut });
   });
@@ -604,7 +614,8 @@ export function registerBridge(win: BrowserWindow): void {
           if (history.length() === 0) return { kind: 'output', text: 'Nothing to compact — conversation is empty.' };
           const model = config.activeModel ?? '';
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { before, after } = await runCompact(history, provider as any, model);
+          const { before, after, summary } = await runCompact(history, provider as any, model);
+          saveSessionContext(summary);
           const freed = before - after;
           const pct = before > 0 ? Math.round((freed / before) * 100) : 0;
           return { kind: 'output', text: `**Compacted** — freed ~${fmtTokens(freed)} tokens (${pct}%)\n\n${fmtTokens(before)} → ${fmtTokens(after)} estimated tokens` };
@@ -647,22 +658,38 @@ export function registerBridge(win: BrowserWindow): void {
           if (existsSync(outPath) && !force)
             return { kind: 'output', text: `\`AGENTS.md\` already exists.\n\nUse \`/init --force\` to regenerate it.` };
 
-          const context = gatherProjectContext(effectiveCwd);
-          const messages: Message[] = [
-            { role: 'system', content: 'You generate AGENTS.md files for software projects. Write a concise but complete project briefing that gives an AI coding assistant instant project context. Include: what the project does, how to build/run/test it, key conventions, important files. Be factual and concise.' },
-            { role: 'user', content: `Generate AGENTS.md for this project:\n\n${context}` },
-          ];
+          const initModel = config.activeModel ?? '';
 
-          let content = '';
-          const stream = provider.chat(messages, { model: config.activeModel ?? '', maxTokens: 4096, temperature: 0, tools: [] });
-          for await (const event of stream as AsyncIterable<ProviderStreamEvent>) {
-            if (event.type === 'text_delta' && event.delta) content += event.delta;
-          }
-          if (!content.trim()) return { kind: 'error', text: 'Provider returned empty response.' };
-          if (!content.endsWith('\n')) content += '\n';
-          writeFileSync(outPath, content, 'utf-8');
+          // Fire-and-forget: run generation in background so slash:exec returns immediately.
+          // setImmediate ensures the IPC response reaches the renderer before streaming starts.
+          setImmediate(async () => {
+            try {
+              const context = gatherContext(effectiveCwd);
+              const initMessages: Message[] = [
+                { role: 'system', content: INIT_SYSTEM_PROMPT },
+                { role: 'user', content: buildPrompt(context) },
+              ];
+              let content = '';
+              const initStream = provider.chat(initMessages, { model: initModel, maxTokens: 4096, temperature: 0, tools: [] });
+              for await (const event of initStream as AsyncIterable<ProviderStreamEvent>) {
+                if (event.type === 'text_delta' && event.delta) {
+                  content += event.delta;
+                  send(win, { type: 'text_delta', delta: event.delta });
+                }
+              }
+              if (!content.trim()) {
+                send(win, { type: 'init_error', message: 'Provider returned an empty response.' });
+                return;
+              }
+              if (!content.endsWith('\n')) content += '\n';
+              writeFileSync(outPath, content, 'utf-8');
+              send(win, { type: 'init_done', message: `✓ **AGENTS.md** saved to \`${outPath}\`\n\nManthra will load it automatically on every session in this directory.` });
+            } catch (err) {
+              send(win, { type: 'init_error', message: String(err) });
+            }
+          });
 
-          return { kind: 'output', text: `**AGENTS.md generated** and saved to \`${outPath}\`\n\nManthra will load it automatically on every session in this directory.` };
+          return { kind: 'action', action: 'init_streaming' };
         }
 
         // ── web ───────────────────────────────────────────────────────────────

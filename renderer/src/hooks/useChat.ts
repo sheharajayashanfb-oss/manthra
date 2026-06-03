@@ -143,6 +143,39 @@ export function useChat(cwd: string) {
           if (agent) agents.set(event.agentId!, { ...agent, status: 'error', error: event.message });
           break;
         }
+        case 'init_done': {
+          const doneMsg: UIMessage = {
+            id: `init-done-${Date.now()}`,
+            role: 'assistant',
+            content: event.message ?? '✓ AGENTS.md saved',
+            toolCalls: [],
+            agentIds: [],
+            timestamp: Date.now(),
+          };
+          return { ...s, messages: [...msgs, doneMsg], agents, isStreaming: false };
+        }
+        case 'init_error': {
+          const errMsg: UIMessage = {
+            id: `init-err-${Date.now()}`,
+            role: 'assistant',
+            content: `**Error:** ${event.message ?? 'Generation failed'}`,
+            toolCalls: [],
+            agentIds: [],
+            timestamp: Date.now(),
+          };
+          return { ...s, messages: [...msgs, errMsg], agents, isStreaming: false };
+        }
+        case 'auto_compact': {
+          const compactMsg: UIMessage = {
+            id: `compact-${Date.now()}`,
+            role: 'assistant',
+            content: event.message ?? '✦ Auto-compacted',
+            toolCalls: [],
+            agentIds: [],
+            timestamp: Date.now(),
+          };
+          return { ...s, messages: [...msgs, compactMsg], agents };
+        }
         case 'turn_done': {
           return {
             ...s,
@@ -215,6 +248,13 @@ export function useChat(cwd: string) {
     if (result.kind === 'action') {
       if (result.action === 'clear') { newChat(); return; }
       if (result.action === 'exit' || result.action === 'open_web') return;
+      if (result.action === 'init_streaming') {
+        const initMsgId = `init-${Date.now()}`;
+        currentMsgId.current = initMsgId;
+        const msg: UIMessage = { id: initMsgId, role: 'assistant', content: '', toolCalls: [], agentIds: [], timestamp: Date.now() };
+        setState((s) => ({ ...s, messages: [...s.messages, msg], isStreaming: true }));
+        return;
+      }
       return;
     }
     if (result.kind === 'set_model') {

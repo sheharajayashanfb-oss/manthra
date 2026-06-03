@@ -90,4 +90,5 @@ export interface StreamEvent {
   tokensIn?: number;
   tokensOut?: number;
   message?: string;
+  freedTokens?: number;
 }

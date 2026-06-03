@@ -135,10 +135,7 @@ export class OpenAIProvider implements Provider {
       stream_options: { include_usage: true },
     };
 
-    if (options.maxTokens != null) {
-      const isOSeries = /^o\d/i.test(options.model);
-      body[isOSeries ? 'max_completion_tokens' : 'max_tokens'] = options.maxTokens;
-    }
+    if (options.maxTokens != null) body['max_completion_tokens'] = options.maxTokens;
     if (options.temperature != null) body['temperature'] = options.temperature;
     if (options.format === 'json') body['response_format'] = { type: 'json_object' };
 
